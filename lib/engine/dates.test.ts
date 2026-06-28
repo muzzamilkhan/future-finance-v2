@@ -55,16 +55,16 @@ describe("expandRecurringHolidays", () => {
       expect(dt.getMonth()).toBe(11); // December
       expect(dt.getDate()).toBe(25);
     }
-    expect(result[0].getTime()).toBe(d("2025-12-25").getTime());
-    expect(result[1].getTime()).toBe(d("2026-12-25").getTime());
-    expect(result[2].getTime()).toBe(d("2027-12-25").getTime());
+    expect(result[0]!.getTime()).toBe(d("2025-12-25").getTime());
+    expect(result[1]!.getTime()).toBe(d("2026-12-25").getTime());
+    expect(result[2]!.getTime()).toBe(d("2027-12-25").getTime());
   });
 
   it("includes a one-time holiday inside the range", () => {
     const h: EngineHoliday[] = [{ date: d("2026-03-15"), isRecurring: false }];
     const result = expandRecurringHolidays(h, d("2026-01-01"), d("2026-12-31"));
     expect(result).toHaveLength(1);
-    expect(result[0].getTime()).toBe(d("2026-03-15").getTime());
+    expect(result[0]!.getTime()).toBe(d("2026-03-15").getTime());
   });
 
   it("excludes a one-time holiday outside the range", () => {
