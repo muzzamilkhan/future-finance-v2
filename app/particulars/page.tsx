@@ -26,6 +26,7 @@ export default function ParticularsPage() {
           <h1 className="text-2xl font-bold">Income &amp; Expenses</h1>
           <Button size="sm" onClick={() => { setEditing(null); setFormOpen(true); }}>Add</Button>
         </div>
+        <QuickAddRow />
         {isLoading ? <p className="text-muted-foreground">Loading…</p> : (
           <div className="space-y-2">
             {(particulars ?? []).map((p) => {
@@ -51,7 +52,6 @@ export default function ParticularsPage() {
             })}
           </div>
         )}
-        <QuickAddRow />
         {formOpen && (
           <ParticularForm isOpen={formOpen} particularId={editing} onClose={() => setFormOpen(false)} />
         )}
