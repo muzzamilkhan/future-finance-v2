@@ -1,0 +1,30 @@
+import { z } from "zod";
+
+export const particularType = z.enum(["INCOME", "EXPENSE"]);
+export const frequency = z.enum(["ONCE_OFF", "WEEKLY", "FORTNIGHTLY", "MONTHLY", "ANNUAL"]);
+export const bdaAdjustment = z.enum(["NONE", "NEXT_BUSINESS_DAY", "PREVIOUS_BUSINESS_DAY"]);
+
+export const particularInput = z.object({
+  name: z.string().min(1).max(200),
+  type: particularType,
+  amount: z.number().positive("Amount must be positive"),
+  frequency,
+  startDate: z.coerce.date(),
+  endDate: z.coerce.date().optional(),
+  isCritical: z.boolean().default(true),
+  isFixed: z.boolean().default(true),
+  businessDayAdjustment: bdaAdjustment.default("NONE"),
+}).refine((v) => !v.endDate || v.endDate >= v.startDate, {
+  message: "End date must be on or after start date", path: ["endDate"],
+});
+
+export const overrideInstanceInput = z.object({
+  particularId: z.string(),
+  originalDate: z.coerce.date(),
+  overriddenAmount: z.number().optional(),
+  overriddenDate: z.coerce.date().optional(),
+  isSkipped: z.boolean().default(false),
+});
+
+export type ParticularInput = z.infer<typeof particularInput>;
+export type OverrideInstanceInput = z.infer<typeof overrideInstanceInput>;
