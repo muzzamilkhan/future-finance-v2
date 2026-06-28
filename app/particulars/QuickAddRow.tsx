@@ -12,6 +12,7 @@ import {
 } from "@/app/_components/ui/select";
 
 type QuickAddValues = z.input<typeof particularInput>;
+type Frequency = QuickAddValues["frequency"];
 
 const defaults = (): QuickAddValues => ({
   name: "",
@@ -66,6 +67,19 @@ export function QuickAddRow() {
         <SelectContent>
           <SelectItem value="INCOME">Income</SelectItem>
           <SelectItem value="EXPENSE">Expense</SelectItem>
+        </SelectContent>
+      </Select>
+      <Select
+        value={form.watch("frequency")}
+        onValueChange={(v) => form.setValue("frequency", v as Frequency)}
+      >
+        <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="ONCE_OFF">Once-off</SelectItem>
+          <SelectItem value="WEEKLY">Weekly</SelectItem>
+          <SelectItem value="FORTNIGHTLY">Fortnightly</SelectItem>
+          <SelectItem value="MONTHLY">Monthly</SelectItem>
+          <SelectItem value="ANNUAL">Annual</SelectItem>
         </SelectContent>
       </Select>
       <div className="w-28">
