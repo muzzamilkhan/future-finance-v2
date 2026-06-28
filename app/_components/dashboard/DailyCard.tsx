@@ -5,7 +5,7 @@ import { format } from "date-fns";
 
 export function DailyCard({ day, onEventClick }: { day: DailyBalance; onEventClick?: (particularId: string, originalDate?: Date) => void }) {
   return (
-    <Card className={day.isNegative ? "border-finance-expense" : undefined}>
+    <Card id={`day-${format(day.date, "yyyy-MM-dd")}`} className={day.isNegative ? "border-finance-expense" : undefined}>
       <CardContent className="p-3">
         <div className="flex items-center justify-between">
           <span className="font-medium">{format(day.date, "EEE, MMM d")}</span>
