@@ -7,6 +7,7 @@ import { Button } from "@/app/_components/ui/button";
 import { formatCurrency } from "@/lib/design-system";
 import { ParticularForm } from "./ParticularForm";
 import { OverrideManagement } from "./OverrideManagement";
+import { QuickAddRow } from "./QuickAddRow";
 
 export default function ParticularsPage() {
   const utils = trpc.useUtils();
@@ -50,6 +51,7 @@ export default function ParticularsPage() {
             })}
           </div>
         )}
+        <QuickAddRow />
         {formOpen && (
           <ParticularForm isOpen={formOpen} particularId={editing} onClose={() => setFormOpen(false)} />
         )}
