@@ -67,3 +67,5 @@ export interface MonthlySummary {
   closingBalance: number;
   daysWithNegativeBalance: number;
 }
+
+export type { ForecastInput, ForecastResult } from "./forecast";
