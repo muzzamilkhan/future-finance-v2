@@ -35,11 +35,16 @@ export function QuickAddRow() {
     onSuccess: () => {
       utils.particular.list.invalidate();
       utils.forecast.getData.invalidate();
-      form.reset(defaults());
     },
   });
 
-  const submit = form.handleSubmit((values) => create.mutate(values));
+  // Reset immediately so the next item can be entered without waiting for the
+  // server. The mutation fires in the background; the list/forecast refresh
+  // when it lands. Concurrent submissions are independent and safe.
+  const submit = form.handleSubmit((values) => {
+    create.mutate(values);
+    form.reset(defaults());
+  });
 
   return (
     <form
@@ -74,7 +79,7 @@ export function QuickAddRow() {
         )}
       </div>
       <Input type="date" className="w-40" {...form.register("startDate", { valueAsDate: true })} />
-      <Button type="submit" disabled={create.isPending}>Add</Button>
+      <Button type="submit">Add</Button>
     </form>
   );
 }
