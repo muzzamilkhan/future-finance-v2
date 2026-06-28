@@ -6,11 +6,11 @@
 
 ## Purpose
 
-A clean rebuild of Future Finance, starting from scratch in a new app folder. This
-spec covers the **first, narrowest shippable slice**: a single-user financial
-forecaster that projects future account balance from a manually-maintained current
-balance, using recurring/once-off incomes and expenses, holidays, business-day
-adjustments, and per-instance overrides.
+A clean rebuild of Future Finance, starting from scratch. This spec covers the
+**first, narrowest shippable slice**: a single-user financial forecaster that projects
+future account balance from a manually-maintained current balance, using
+recurring/once-off incomes and expenses, holidays, business-day adjustments, and
+per-instance overrides.
 
 Later slices (separate spec → plan → implementation cycles) will add multiple
 accounts, collaboration, debt-as-account, and a full UX redesign. This spec
@@ -25,14 +25,14 @@ deliberately omits all of those.
 2. **Correct anchoring.** Every projected balance replays from the account's
    `balanceUpdatedAt` (seeded with `currentBalance`) forward to the visible window.
    Future months are never computed from a floating window start. This fixes a real
-   bug in the current app, which only replays a fixed `-30/+14` window.
-3. **Faithful UX port.** Reproduce the current UX, made responsive; do not redesign.
+   bug in the original app, which only replayed a fixed `-30/+14` window.
+3. **Faithful UX port.** Reproduce the original UX, made responsive; do not redesign.
    Usability improvements are captured as follow-ups, not built here.
 
 ## Scope
 
 ### In scope
-- Single-user auth (Auth.js + provider + Prisma adapter)
+- Single-user auth (NextAuth v5 + provider + Prisma adapter)
 - One `FinanceAccount` per user, structured so multi-account/collab slot in later
   without migrating core tables
 - Particulars (income/expense; once-off + weekly/fortnightly/monthly/annual)
@@ -40,7 +40,7 @@ deliberately omits all of those.
 - Business-day adjustment (next/prev/none) + holidays
 - Per-instance overrides (amount / date / skip), keyed by `(particularId, originalDate)`
 - A pure, headless forecast engine run on both client and server
-- Forecast dashboard: faithful port of today's UX (daily cards, metric cards,
+- Forecast dashboard: faithful port of the original UX (daily cards, metric cards,
   danger + lowest-balance widgets, Skip Today), made responsive
 - Theme ported with token consolidation
 
@@ -54,57 +54,73 @@ deliberately omits all of those.
 
 ## Tech Stack
 
-Changed from the current Next.js/T3 app at the user's request:
+A single **Next.js (App Router)** application. The earlier seed targeted a Vite SPA +
+standalone Express server; this design pivots to Next.js at the user's request,
+collapsing the client/server split into one app while keeping the pure engine,
+data model, schemas, and all business rules unchanged.
 
-- **Build/client:** Vite + React SPA, React Router for pages
-- **API:** standalone **Express** server (Node, `tsx` in dev) hosting tRPC + Prisma + Auth.js
-- **Auth transport:** Vite dev proxy routes `/api/*` → API server, so SPA and API are
-  same-origin (no CORS); Auth.js HTTP-only session cookie. Prod: one reverse proxy
-  fronts both.
-- **Tests:** Vitest across all packages (Playwright dropped from this slice)
-- **Unchanged from current app:** TypeScript, tRPC 11, React Query, Prisma 6,
-  PostgreSQL, Auth.js (NextAuth lineage), Tailwind, Radix/shadcn ui, lucide-react,
-  recharts, Zod, react-hook-form
+- **Framework:** **Next.js 16** (App Router, React Server Components), TypeScript
+- **API:** **tRPC 11** mounted via an App Router **fetch route handler** at
+  `app/api/trpc/[trpc]/route.ts` (no Express, no dev proxy — UI and API share one origin)
+- **Auth:** **NextAuth v5** (`next-auth@5.0.0-beta.31`) with `@auth/prisma-adapter`,
+  mounted at `app/api/auth/[...nextauth]/route.ts`; HTTP-only session cookie
+- **DB/ORM:** **Prisma 7** + PostgreSQL
+- **Client data:** **React Query 5** via `@trpc/react-query`; the dashboard runs the
+  engine in the browser for instant recompute
+- **Validation:** **Zod 4** schemas in `lib/schemas/`, shared by client forms and server procedures
+- **UI:** Tailwind v4, Radix/shadcn UI, lucide-react, recharts, react-hook-form
+- **Tests:** Vitest across `lib/engine`, `server`, and component/mapper units
+  (Playwright dropped from this slice)
+
+### Version notes
+- **NextAuth v5 is beta.** There is no stable v5 release; `5.0.0-beta.31` is the
+  standard, widely-used App Router path. v4 is the last stable line but is not
+  App-Router-native. We pin the beta deliberately.
+- **Prisma 7** and **Zod 4** are current. Zod 4 keeps the `import { z } from "zod"`
+  entry point, so schema code is unaffected by the major bump.
 
 ## Architecture
 
-Two deployable pieces + one shared pure library.
+One Next.js app + one shared pure library.
 
 ```
-client/  — Vite React SPA
-  React Router (pages) · ui/* + theme · tRPC React client
-  imports lib/engine for instant local recompute
-        │  /api/trpc  (same-origin via Vite dev proxy)
-server/  — Express (Node, tsx in dev)
-  Auth.js handler · tRPC middleware · routers · Prisma
-  auth guard: every procedure scoped to caller's account
+Next.js app (App Router) — one origin, one process
+  app/
+    layout.tsx, page.tsx (Dashboard), particulars/, holidays/, login/
+    api/trpc/[trpc]/route.ts          tRPC fetch adapter
+    api/auth/[...nextauth]/route.ts   NextAuth v5 handler
+  server/  — server-only (never imported by client bundles)
+    trpc.ts (init, context, protectedProcedure, resolveAccount)
+    db.ts (Prisma singleton) · auth.ts (NextAuth config) · mappers.ts
+    routers/* (account, particular, holiday, forecast, _app)
         │ Prisma
 Postgres: User · FinanceAccount · Particular · ParticularOverride · Holiday
           (+ Auth.js tables)
 
 lib/engine/  — PURE (no React, no DB), imported by BOTH client and server
+lib/schemas/ — shared Zod schemas, imported by BOTH client and server
 ```
 
-### Repo layout (single repo, shared lib)
+### Repo layout (single Next.js app at repo root)
 ```
-/client          Vite SPA      (vite, React Router, vitest)
-  vite.config.ts   server.proxy['/api'] -> localhost:3001
-/server          Express API   (tsx dev, vitest)
-  index.ts, trpc.ts, auth.ts, db.ts, mappers.ts, routers/*
-/lib/engine      pure engine   (vitest) — imported by both
-/lib/schemas     shared Zod schemas — imported by both
+/app             Next.js App Router (pages + route handlers)
+  api/trpc/[trpc]/route.ts
+  api/auth/[...nextauth]/route.ts
+/server          tRPC routers, context, Prisma, auth config, mappers (server-only)
+/lib/engine      pure engine (vitest) — imported by both sides
+/lib/schemas     shared Zod schemas — imported by both sides
 /prisma          schema + migrations
+/baseline        v1 theme + shadcn components (source for the theme port)
 ```
 
 ### Module boundaries & contracts
-- **Client never touches Prisma.** All data flows via tRPC. The dev proxy makes
-  `/api` same-origin so the Auth.js session cookie works without CORS.
-- **tRPC types** are shared from `server/` to `client/` via TypeScript project
-  references, preserving end-to-end type safety.
-- **The engine is imported directly by the client** for live recompute (overrides,
-  skip-today, load-more month) with no round-trip — matching the original
-  "client-side, no caching" intent. The server can call the same engine later
-  (collab, far-future) with zero duplication.
+- **Client components never touch Prisma.** All data flows via tRPC. Because Next.js
+  serves UI and API from one origin, the session cookie works with no proxy or CORS.
+- **tRPC types** are shared from `server/` to client components via TypeScript;
+  `server/` modules are server-only (guarded so they never enter client bundles).
+- **The engine is imported directly by the dashboard client component** for live
+  recompute (overrides, skip-today, load-more month) with no round-trip. The server
+  can call the same engine later (collab, far-future) with zero duplication.
 - Each engine function is **deterministic and side-effect-free**: same inputs, same
   output. This is what makes it unit-testable and runnable on both sides.
 
@@ -115,12 +131,11 @@ Split into focused files:
 - **`dates.ts`** — `isBusinessDay`, `adjustToBusinessDay`, `expandRecurringHolidays`.
   Pure date helpers; holidays passed in.
 - **`instances.ts`** — `generateInstances(particular, viewStart, viewEnd, holidays)
-  → Instance[]`. Recurrence + override + business-day logic (port of current
-  `particular-utils.ts`, cleaned up — including the UTC date-compare used to match
-  overrides to instances).
+  → Instance[]`. Recurrence + override + business-day logic (including the UTC
+  date-compare used to match overrides to instances).
 - **`forecast.ts`** — `computeForecast(input) → { days, months, firstNegative,
   lowest }`. The anchored replay loop, plus derived monthly summaries and
-  lowest/first-negative lookups (port of current `dashboard-calculator.ts`).
+  lowest/first-negative lookups.
 - **`types.ts`** — `Instance`, `DailyBalance`, `DailyEvent`, `MonthlySummary`,
   `EngineParticular`, `EngineOverride`, `EngineHoliday`. Plain types, **no Prisma
   imports.** The API layer maps Prisma rows → engine types (`server/mappers.ts`).
@@ -200,7 +215,7 @@ model User {
   email   String?         @unique
   name    String?
   // ... standard Auth.js fields ...
-  account FinanceAccount?           // one-per-user FOR NOW
+  financeAccount FinanceAccount?           // one-per-user FOR NOW
 }
 
 model FinanceAccount {
@@ -266,16 +281,17 @@ migration; no core-table changes.
 ## API Surface & Auth
 
 ### Auth
-- Auth.js mounted at `/api/auth/*` via its Express handler, Prisma adapter, same
-  provider config as today (OAuth/email). HTTP-only session cookie.
-- Vite dev proxy routes `/api/*` → `localhost:3001`; SPA and API same-origin →
-  cookie works, no CORS.
-- **On first login:** auto-create a `FinanceAccount` for the user (`name: "My
-  Account"`, `currentBalance: 0`), mirroring the original "default account on
-  creation" requirement.
-- tRPC context resolves the session from the cookie; `protectedProcedure` rejects
-  unauthenticated calls. Shared `resolveAccount(ctx)` loads the caller's single
-  account; every procedure scopes to it.
+- **NextAuth v5** mounted at `app/api/auth/[...nextauth]/route.ts` via its App Router
+  handler, with the Prisma adapter and the same provider config intent as the
+  original (OAuth/email). HTTP-only session cookie. The shared `auth()` helper
+  resolves the session in route handlers, server components, and the tRPC context.
+- UI and API share one origin (single Next.js server) → the cookie works with no
+  proxy and no CORS.
+- **On first authenticated request:** auto-create a `FinanceAccount` for the user
+  (`name: "My Account"`, `currentBalance: 0`), via `resolveAccount`.
+- The tRPC context resolves the session via `auth()`; `protectedProcedure` rejects
+  unauthenticated calls. Shared `resolveAccount(userId)` loads the caller's single
+  account (creating it if missing); every procedure scopes to it.
 
 ### tRPC routers (`server/routers/`)
 ```
@@ -310,10 +326,10 @@ forecast
 ```
 
 ### Calculation flow
-- Client calls `forecast.getData`, maps Prisma-shaped rows to engine types, runs
-  `computeForecast` locally → instant recompute on override / skip-today / load-more
-  with no round-trip.
-- Server fetches the data window anchored at `balanceUpdatedAt` (not just the
+- The dashboard (a Client Component) calls `forecast.getData` via tRPC React Query
+  hooks, maps Prisma-shaped rows to engine types, and runs `computeForecast` locally
+  → instant recompute on override / skip-today / load-more with no round-trip.
+- The server fetches the data window anchored at `balanceUpdatedAt` (not just the
   visible window) so the replay is correct.
 - Fixed/critical validation enforced server-side in `overrideInstance` (source of
   truth), mirrored client-side in the modal for UX.
@@ -324,51 +340,54 @@ forecast
 
 ## UI Port & Theme Consolidation
 
-### Theme / CSS (portable baseline)
+### Theme / CSS (portable baseline — `baseline/`)
 - `globals.css` ported verbatim — OKLCH token system (`:root` + `.dark`),
   finance-semantic colors (income/expense/neutral/warning/stale), radius scale.
   Single source of truth for color/spacing tokens.
 - `design-system.ts` **consolidated**: drop values that merely duplicate CSS vars;
   keep only helpers — `formatCurrency` (NZD), `getAmountColorClass`,
   `getAmountBgClass`, `isStale`, `getRelativeTime`, touch-target/contrast constants.
-- `components/ui/*` (shadcn/Radix: button, card, dialog, input, select, checkbox,
-  badge, dropdown-menu, label, radio-group, separator, textarea) + `components.json`
-  ported as-is.
-- `next-themes` → small Vite-compatible theme provider (same `.dark` toggle +
-  localStorage); `ThemeToggle` ported.
+- `baseline/components/ui/*` (shadcn/Radix: button, card, dialog, input, select,
+  checkbox, badge, dropdown-menu, label, radio-group, separator, textarea) +
+  `components.json` ported as-is. These are already Next.js-native, so they drop in
+  unchanged.
+- Theme provider: `next-themes` (the baseline's original choice) with the `.dark`
+  toggle; `ThemeToggle` ported.
 
-### Screens (faithful port, React Router)
-| Route          | Screen | Ported from |
-|----------------|--------|-------------|
-| `/`            | Dashboard/Forecast — metric cards (current/lowest/next-negative/this-month), balance sparkline, danger notification, lowest-balance widget, Skip Today, daily cards | `DashboardClient`, `MetricCard`, `DailyCard`, `DangerNotification`, `LowestBalanceWidget`, `BalanceSparkline`, `SkipTodayButton`, `UpdateBalanceModal` |
-| `/particulars` | List + create/edit form (type, amount, recurrence, dates, critical/flexible, fixed/adjustable, business-day) + override management | `ParticularForm`, `OverrideManagement` |
-| `/holidays`    | Holiday list + add (name, date, recurring) | `holidays/page` |
-| `/login`       | Auth.js sign-in | `login/page` |
+### Screens (faithful port, Next.js App Router)
+| Route          | Screen | Notes |
+|----------------|--------|-------|
+| `/`            | Dashboard/Forecast — metric cards (current/lowest/next-negative/this-month), balance sparkline, danger notification, lowest-balance widget, Skip Today, daily cards | Client Component; runs the engine locally |
+| `/particulars` | List + create/edit form (type, amount, recurrence, dates, critical/flexible, fixed/adjustable, business-day) + override management | |
+| `/holidays`    | Holiday list + add (name, date, recurring) | |
+| `/login`       | NextAuth sign-in | |
 
 ### Shell & navigation
-- `Layout` + `Sidebar` (desktop ≥768px) + `BottomNav` (mobile) ported as-is —
-  already responsive.
+- `Layout` + `Sidebar` (desktop ≥768px) + `BottomNav` (mobile) ported — already
+  responsive. Navigation uses `next/link` + `usePathname()`.
 - Active-account context simplifies to the single account but keeps the provider
   shape so multi-account drops in later.
 
 ### Forecast horizon
 - Default: today → **+3 months**, with "load next month" (button or infinite scroll)
-  appending a month and re-running the anchored replay. Replaces today's `-30/+14`
-  window.
+  appending a month and re-running the anchored replay. Replaces the original
+  `-30/+14` window.
 
-### Routing/data changes from Next
-- Server Components → plain SPA components fetching via tRPC hooks
-  (`useQuery`/`useMutation`); React Query is the cache layer.
+### Next.js specifics
+- Pages are Server Components by default; the dashboard, forms, and any component
+  using tRPC hooks / browser state are Client Components (`"use client"`).
+- A Client Component tRPC + React Query provider wraps the app (in the root layout).
 - lucide-react icons and recharts (sparkline) carry over unchanged.
 
 ## Testing
 
-- **Vitest** across `lib/engine`, `server`, and `client`.
+- **Vitest** across `lib/engine`, `server`, and component/mapper units.
 - **Priority:** exhaustive unit coverage of `lib/engine` — recurrence variants,
   business-day adjustment (weekend + holiday, next/prev), recurring-holiday
   expansion, all three override types + validation, and the anchored replay
   (especially that far-future months anchor correctly to `balanceUpdatedAt`).
-- Server routers tested with a test DB or mocked Prisma; auth-scoping checks.
+- Server routers tested with a mocked Prisma client; auth-scoping checks; the
+  `assertOverrideAllowed` rule and the mappers tested as pure units.
 - Playwright e2e deferred to a follow-up.
 
 ## Follow-ups (later spec → plan cycles)
@@ -380,3 +399,5 @@ forecast
 4. Debt-as-account: model debt as an account that interacts with other accounts
    (details TBD at implementation time).
 5. Playwright e2e suite.
+</content>
+</invoke>
