@@ -44,6 +44,7 @@ export function QuickAddRow() {
   const submit = form.handleSubmit((values) => {
     create.mutate(values);
     form.reset(defaults());
+    form.setFocus("name");
   });
 
   return (
