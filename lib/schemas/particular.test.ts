@@ -35,4 +35,19 @@ describe("particularInput", () => {
     });
     expect(r.success).toBe(true);
   });
+
+  it.each([
+    ["empty string", ""],
+    ["null", null],
+    ["undefined", undefined],
+  ])("treats %s endDate as no end date", (_label, endDate) => {
+      const r = particularInput.safeParse({
+        name: "Rent", type: "EXPENSE", amount: 1500, frequency: "MONTHLY",
+        startDate: new Date("2026-06-28"), endDate,
+        isCritical: true, isFixed: true, businessDayAdjustment: "NONE",
+      });
+      expect(r.success).toBe(true);
+      if (r.success) expect(r.data.endDate).toBeUndefined();
+    },
+  );
 });

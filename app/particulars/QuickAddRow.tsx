@@ -1,0 +1,80 @@
+"use client";
+
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { particularInput } from "@/lib/schemas";
+import { trpc } from "@/trpc/client";
+import { Button } from "@/app/_components/ui/button";
+import { Input } from "@/app/_components/ui/input";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/app/_components/ui/select";
+
+type QuickAddValues = z.input<typeof particularInput>;
+
+const defaults = (): QuickAddValues => ({
+  name: "",
+  type: "EXPENSE",
+  amount: 0,
+  frequency: "MONTHLY",
+  startDate: new Date(),
+  isCritical: true,
+  isFixed: true,
+  businessDayAdjustment: "NONE",
+});
+
+export function QuickAddRow() {
+  const utils = trpc.useUtils();
+  const form = useForm<QuickAddValues>({
+    resolver: zodResolver(particularInput),
+    defaultValues: defaults(),
+  });
+
+  const create = trpc.particular.create.useMutation({
+    onSuccess: () => {
+      utils.particular.list.invalidate();
+      utils.forecast.getData.invalidate();
+      form.reset(defaults());
+    },
+  });
+
+  const submit = form.handleSubmit((values) => create.mutate(values));
+
+  return (
+    <form
+      onSubmit={submit}
+      className="flex flex-wrap items-start gap-2 rounded-md border border-dashed p-3"
+    >
+      <div className="flex-1 min-w-[8rem]">
+        <Input placeholder="Name" {...form.register("name")} />
+        {form.formState.errors.name && (
+          <p className="mt-1 text-xs text-destructive">Name is required</p>
+        )}
+      </div>
+      <Select
+        value={form.watch("type")}
+        onValueChange={(v) => form.setValue("type", v as "INCOME" | "EXPENSE")}
+      >
+        <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="INCOME">Income</SelectItem>
+          <SelectItem value="EXPENSE">Expense</SelectItem>
+        </SelectContent>
+      </Select>
+      <div className="w-28">
+        <Input
+          type="number"
+          step="0.01"
+          placeholder="Amount"
+          {...form.register("amount", { valueAsNumber: true })}
+        />
+        {form.formState.errors.amount && (
+          <p className="mt-1 text-xs text-destructive">Amount must be positive</p>
+        )}
+      </div>
+      <Input type="date" className="w-40" {...form.register("startDate", { valueAsDate: true })} />
+      <Button type="submit" disabled={create.isPending}>Add</Button>
+    </form>
+  );
+}

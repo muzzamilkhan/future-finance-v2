@@ -75,9 +75,11 @@ export default function DashboardPage() {
 
         <div className="space-y-2">
           <h2 className="text-lg font-semibold">Daily Transactions</h2>
-          {result.days.map((day) => (
-            <DailyCard key={day.date.toISOString()} day={day} onEventClick={openOverride} />
-          ))}
+          {result.days
+            .filter((day) => day.events.length > 0)
+            .map((day) => (
+              <DailyCard key={day.date.toISOString()} day={day} onEventClick={openOverride} />
+            ))}
         </div>
 
         <div className="flex justify-center">
