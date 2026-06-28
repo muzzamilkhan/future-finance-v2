@@ -2,24 +2,26 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a clean, single-user financial forecaster from scratch: a pure forecast engine, an Express+tRPC+Prisma API, and a Vite React SPA that ports the current app's UX.
+**Goal:** Build a clean, single-user financial forecaster as one Next.js app: a pure forecast engine, a tRPC + Prisma + NextAuth API mounted on App Router route handlers, and a faithful port of the original UX.
 
-**Architecture:** Three parts in one repo — a pure `lib/engine/` (no React, no DB, deterministic) imported by both sides; a standalone Express server hosting tRPC + Prisma + Auth.js; and a Vite React SPA (React Router) that runs the engine locally for instant recompute. The forecast always replays from the account's `balanceUpdatedAt` (seeded with `currentBalance`) forward to the visible window, then slices for display.
+**Architecture:** One Next.js (App Router) app at the repo root. A pure `lib/engine/` (no React, no DB, deterministic) is imported by both the server and the dashboard client component (for instant local recompute). tRPC 11 is mounted via an App Router fetch route handler; NextAuth v5 provides auth; Prisma 7 talks to Postgres. The forecast always replays from the account's `balanceUpdatedAt` (seeded with `currentBalance`) forward to the visible window, then slices for display.
 
-**Tech Stack:** TypeScript, Vite, React 19, React Router, Vitest, Express, tRPC 11, Prisma 6, PostgreSQL, Auth.js, Tailwind v4, Radix/shadcn UI, Zod, React Query, date-fns, recharts, lucide-react.
+**Tech Stack:** TypeScript, Next.js 16 (App Router), React 19, Vitest, tRPC 11, Prisma 7, PostgreSQL, NextAuth v5 (`5.0.0-beta.31`), Tailwind v4, Radix/shadcn UI, Zod 4, React Query 5, date-fns, recharts, lucide-react, next-themes.
 
 **Source spec:** `docs/superpowers/specs/2026-06-28-future-finance-v2-core-forecast-design.md`
 
 ## Global Constraints
 
-- The new app lives in a fresh folder: `app-v2/` at the repo root (keeps the old app intact for reference). All paths below are relative to `app-v2/` unless stated otherwise.
-- `lib/engine/` and `lib/schemas/` MUST NOT import React, Prisma, Express, or any DB/runtime client. Engine functions are deterministic: "today" and "skip today" are passed in as parameters, never read from the clock.
-- Sign convention: `Particular.amount` is stored **positive** in the DB; the sign is applied from `type` (INCOME = +, EXPENSE = −) inside the engine. (This intentionally differs from the old app, which stored expenses negative.)
+- The Next.js app lives at the **repo root** (`app/`, `server/`, `lib/`, `prisma/`). The `baseline/` folder is the source for the theme port and is left in place.
+- `lib/engine/` and `lib/schemas/` MUST NOT import React, Prisma, Next, or any DB/runtime client. Engine functions are deterministic: "today" and "skip today" are passed in as parameters, never read from the clock.
+- `server/` is server-only — never imported into a client component bundle. Client components reach the server only through tRPC.
+- Sign convention: `Particular.amount` is stored **positive** in the DB; the sign is applied from `type` (INCOME = +, EXPENSE = −) inside the engine.
 - Overrides are matched to instances by `(particularId, originalDate)` using a UTC year/month/day compare (ignore time).
 - One `FinanceAccount` per user, enforced by `ownerId @unique`. Do not add multi-account, collaboration, or debt models.
 - Forecast default horizon: today → +3 months, with load-more appending one month.
 - Currency formatting: NZD via `Intl.NumberFormat('en-NZ', ...)`.
 - Every tRPC procedure is `protectedProcedure` scoped to the caller's single account.
+- NextAuth v5 is the beta (`5.0.0-beta.31`) — this is intentional; there is no stable v5.
 - Test runner is Vitest everywhere. No Playwright in this slice.
 - TDD: write the failing test, see it fail, implement minimally, see it pass, commit.
 
@@ -28,9 +30,13 @@
 ## File Structure
 
 ```
-app-v2/
-  package.json                 root scripts (dev runs client+server concurrently)
-  tsconfig.base.json           shared TS config; project references
+/  (repo root = the Next.js app)
+  package.json                 next, react, trpc, prisma, vitest, etc.
+  next.config.ts
+  tsconfig.json                paths: @/* -> ./, strict, noUncheckedIndexedAccess
+  vitest.config.ts             include lib/**, server/**, app/** unit tests
+  postcss.config.mjs           @tailwindcss/postcss
+  .env.example
   prisma/
     schema.prisma              User, FinanceAccount, Particular, ParticularOverride, Holiday, + Auth.js
   lib/
@@ -45,62 +51,60 @@ app-v2/
       particular.ts            Zod schemas shared client+server
       holiday.ts
       account.ts
-  server/
-    package.json
-    tsconfig.json
-    src/
-      db.ts                    Prisma client singleton
-      auth.ts                  Auth.js config (Express handler)
-      trpc.ts                  tRPC init, context, protectedProcedure, resolveAccount
-      mappers.ts               Prisma rows -> Engine* types
-      routers/
-        account.ts
-        particular.ts
-        holiday.ts
-        forecast.ts
-        _app.ts                appRouter (root) + AppRouter type export
-      index.ts                 Express app: mounts /api/auth, /api/trpc
-  client/
-    package.json
-    tsconfig.json
-    vite.config.ts             server.proxy['/api'] -> http://localhost:3001
-    index.html
-    src/
-      main.tsx                 React root + Router + tRPC/React Query providers
-      trpc.ts                  tRPC React client
-      router.tsx               route definitions
-      styles/globals.css       ported theme tokens
-      lib/design-system.ts     helpers only (formatCurrency, color classes, etc.)
-      components/ui/*           shadcn/Radix components (ported)
-      components/theme-provider.tsx, theme-toggle.tsx
-      components/Layout.tsx, Sidebar.tsx, BottomNav.tsx
-      pages/
-        Dashboard.tsx + dashboard widgets
-        Particulars.tsx + ParticularForm, OverrideManagement
-        Holidays.tsx
-        Login.tsx
-      providers/ActiveAccountProvider.tsx
+      index.ts
+    design-system.ts           helpers only (formatCurrency, color classes, etc.)
+    utils.ts                   cn() for shadcn components
+    toEngine.ts                forecast.getData rows -> engine inputs (client+server safe)
+  server/                      SERVER-ONLY
+    db.ts                      Prisma client singleton
+    auth.ts                    NextAuth v5 config + auth() helper
+    trpc.ts                    tRPC init, context, protectedProcedure, resolveAccount
+    mappers.ts                 Prisma rows -> Engine* types
+    routers/
+      account.ts, holiday.ts, particular.ts, forecast.ts
+      _app.ts                  appRouter (root) + AppRouter type export
+  app/
+    layout.tsx                 root layout: <html>, providers, theme
+    globals.css                ported theme tokens
+    providers.tsx              "use client": tRPC + React Query + theme providers
+    api/
+      trpc/[trpc]/route.ts     tRPC fetch handler
+      auth/[...nextauth]/route.ts  NextAuth handlers
+    page.tsx                   Dashboard (client component; runs engine locally)
+    _components/               app shell + dashboard widgets
+      Layout.tsx, Sidebar.tsx, BottomNav.tsx
+      theme-toggle.tsx
+      ui/*                     ported shadcn primitives
+      dashboard/MetricCard.tsx, DailyCard.tsx, OverrideModal.tsx,
+                DangerNotification.tsx, BalanceSparkline.tsx,
+                UpdateBalanceModal.tsx, SkipTodayButton.tsx
+    particulars/page.tsx       + ParticularForm.tsx, OverrideManagement.tsx
+    holidays/page.tsx
+    login/page.tsx
+    _providers/ActiveAccountProvider.tsx
+  trpc/
+    client.ts                  createTRPCReact<AppRouter>()
 ```
 
 ---
 
 ## Phase 1 — Repo scaffold & engine (the testable heart)
 
-### Task 1: Scaffold the monorepo root + engine package with Vitest
+### Task 1: Scaffold the Next.js app root + engine package with Vitest
 
 **Files:**
-- Create: `app-v2/package.json`
-- Create: `app-v2/tsconfig.base.json`
-- Create: `app-v2/vitest.config.ts`
-- Create: `app-v2/lib/engine/index.ts`
-- Test: `app-v2/lib/engine/smoke.test.ts`
+- Create: `package.json`
+- Create: `tsconfig.json`
+- Create: `vitest.config.ts`
+- Create: `lib/engine/index.ts`
+- Test: `lib/engine/smoke.test.ts`
 
 **Interfaces:**
-- Produces: a working `npm test` (Vitest) at `app-v2/` root that discovers `lib/**/*.test.ts`.
+- Produces: a working `npm test` (Vitest) at the repo root that discovers `lib/**/*.test.ts`, and `ENGINE_VERSION` from `lib/engine/index`.
 
 - [ ] **Step 1: Write the failing smoke test**
 
-`app-v2/lib/engine/smoke.test.ts`:
+`lib/engine/smoke.test.ts`:
 ```ts
 import { describe, it, expect } from "vitest";
 import { ENGINE_VERSION } from "./index";
@@ -112,75 +116,115 @@ describe("engine package", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2: Create root config files**
 
-Run (from `app-v2/`): `npm test -- run lib/engine/smoke.test.ts`
-Expected: FAIL — cannot find module `./index` / `ENGINE_VERSION` undefined.
-
-(If npm isn't set up yet, first create the files in Steps 3–4, then run.)
-
-- [ ] **Step 3: Create root config files**
-
-`app-v2/package.json`:
+`package.json`:
 ```json
 {
   "name": "future-finance-v2",
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
     "test": "vitest",
-    "typecheck": "tsc -p tsconfig.base.json --noEmit"
+    "typecheck": "tsc --noEmit",
+    "db:push": "prisma db push",
+    "db:generate": "prisma generate"
+  },
+  "dependencies": {
+    "next": "16.2.9",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "@trpc/server": "11.18.0",
+    "@trpc/client": "11.18.0",
+    "@trpc/react-query": "11.18.0",
+    "@tanstack/react-query": "5.101.2",
+    "@prisma/client": "7.8.0",
+    "next-auth": "5.0.0-beta.31",
+    "@auth/prisma-adapter": "2.11.2",
+    "zod": "4.4.3",
+    "superjson": "2.2.6",
+    "date-fns": "4.4.0",
+    "react-hook-form": "7.80.0",
+    "@hookform/resolvers": "5.4.0",
+    "lucide-react": "1.21.0",
+    "recharts": "3.9.0",
+    "next-themes": "0.4.6",
+    "clsx": "2.1.1",
+    "tailwind-merge": "2.5.5",
+    "class-variance-authority": "0.7.1"
   },
   "devDependencies": {
-    "typescript": "^5.6.0",
-    "vitest": "^2.1.0",
-    "date-fns": "^4.1.0"
+    "typescript": "5.9.3",
+    "@types/node": "22.10.0",
+    "@types/react": "19.0.0",
+    "@types/react-dom": "19.0.0",
+    "vitest": "4.1.9",
+    "prisma": "7.8.0",
+    "tailwindcss": "4.3.1",
+    "@tailwindcss/postcss": "4.3.1",
+    "tw-animate-css": "1.4.0"
   }
 }
 ```
 
-`app-v2/tsconfig.base.json`:
+`tsconfig.json`:
 ```json
 {
   "compilerOptions": {
     "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "jsx": "preserve",
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "types": ["vitest/globals"]
+    "noEmit": true,
+    "incremental": true,
+    "allowJs": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "plugins": [{ "name": "next" }],
+    "types": ["vitest/globals", "node"],
+    "paths": { "@/*": ["./*"] }
   },
-  "include": ["lib"]
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
 }
 ```
 
-`app-v2/vitest.config.ts`:
+`vitest.config.ts`:
 ```ts
 import { defineConfig } from "vitest/config";
+import path from "node:path";
+
 export default defineConfig({
-  test: { globals: true, include: ["lib/**/*.test.ts"] },
+  test: { globals: true, environment: "node", include: ["lib/**/*.test.ts", "server/**/*.test.ts"] },
+  resolve: { alias: { "@": path.resolve(__dirname, ".") } },
 });
 ```
 
-- [ ] **Step 4: Implement minimal engine index**
+- [ ] **Step 3: Implement minimal engine index**
 
-`app-v2/lib/engine/index.ts`:
+`lib/engine/index.ts`:
 ```ts
 export const ENGINE_VERSION = "v2" as const;
 ```
 
-- [ ] **Step 5: Install and run the test**
+- [ ] **Step 4: Install and run the test**
 
-Run (from `app-v2/`): `npm install && npm test -- run`
-Expected: PASS (1 test).
+Run (from repo root): `npm install && npm test -- run lib/engine/smoke.test.ts`
+Expected: PASS (1 test). (If you ran the test before Step 2/3, it FAILS with "cannot find module ./index" — that is the expected red state.)
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add app-v2/package.json app-v2/tsconfig.base.json app-v2/vitest.config.ts app-v2/lib/engine
-git commit -m "chore: scaffold v2 monorepo root and engine package with vitest"
+git add package.json tsconfig.json vitest.config.ts lib/engine package-lock.json
+git commit -m "chore: scaffold next.js app root and engine package with vitest"
 ```
 
 ---
@@ -188,9 +232,9 @@ git commit -m "chore: scaffold v2 monorepo root and engine package with vitest"
 ### Task 2: Engine types
 
 **Files:**
-- Create: `app-v2/lib/engine/types.ts`
-- Modify: `app-v2/lib/engine/index.ts` (add export)
-- Test: `app-v2/lib/engine/types.test.ts`
+- Create: `lib/engine/types.ts`
+- Modify: `lib/engine/index.ts` (add export)
+- Test: `lib/engine/types.test.ts`
 
 **Interfaces:**
 - Produces:
@@ -207,7 +251,7 @@ git commit -m "chore: scaffold v2 monorepo root and engine package with vitest"
 
 - [ ] **Step 1: Write the failing test**
 
-`app-v2/lib/engine/types.test.ts`:
+`lib/engine/types.test.ts`:
 ```ts
 import { describe, it, expectTypeOf } from "vitest";
 import type { EngineParticular, DailyBalance } from "./types";
@@ -229,7 +273,7 @@ Expected: FAIL — cannot find module `./types`.
 
 - [ ] **Step 3: Implement the types**
 
-`app-v2/lib/engine/types.ts`:
+`lib/engine/types.ts`:
 ```ts
 export type Frequency = "ONCE_OFF" | "WEEKLY" | "FORTNIGHTLY" | "MONTHLY" | "ANNUAL";
 export type BdaAdjustment = "NONE" | "NEXT_BUSINESS_DAY" | "PREVIOUS_BUSINESS_DAY";
@@ -302,7 +346,7 @@ export interface MonthlySummary {
 }
 ```
 
-`app-v2/lib/engine/index.ts` (append):
+`lib/engine/index.ts` (append):
 ```ts
 export * from "./types";
 ```
@@ -315,7 +359,7 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add app-v2/lib/engine/types.ts app-v2/lib/engine/types.test.ts app-v2/lib/engine/index.ts
+git add lib/engine/types.ts lib/engine/types.test.ts lib/engine/index.ts
 git commit -m "feat(engine): add plain engine types"
 ```
 
@@ -324,9 +368,9 @@ git commit -m "feat(engine): add plain engine types"
 ### Task 3: Date helpers (business day + holiday expansion)
 
 **Files:**
-- Create: `app-v2/lib/engine/dates.ts`
-- Modify: `app-v2/lib/engine/index.ts` (add export)
-- Test: `app-v2/lib/engine/dates.test.ts`
+- Create: `lib/engine/dates.ts`
+- Modify: `lib/engine/index.ts` (add export)
+- Test: `lib/engine/dates.test.ts`
 
 **Interfaces:**
 - Consumes: `EngineHoliday`, `BdaAdjustment` from `./types`.
@@ -337,7 +381,7 @@ git commit -m "feat(engine): add plain engine types"
 
 - [ ] **Step 1: Write the failing tests**
 
-`app-v2/lib/engine/dates.test.ts`:
+`lib/engine/dates.test.ts`:
 ```ts
 import { describe, it, expect } from "vitest";
 import { isBusinessDay, adjustToBusinessDay } from "./dates";
@@ -394,7 +438,7 @@ Expected: FAIL — cannot find module `./dates`.
 
 - [ ] **Step 3: Implement the date helpers**
 
-`app-v2/lib/engine/dates.ts`:
+`lib/engine/dates.ts`:
 ```ts
 import { addDays, isWeekend, isSameDay, getYear, getMonth, getDate } from "date-fns";
 import type { EngineHoliday, BdaAdjustment } from "./types";
@@ -415,9 +459,9 @@ export function adjustToBusinessDay(
   holidays: EngineHoliday[]
 ): Date {
   if (adjustment === "NONE") return date;
-  const step = adjustment === "NEXT_BUSINESS_DAY" ? 1 : -1;
+  const stepDir = adjustment === "NEXT_BUSINESS_DAY" ? 1 : -1;
   let d = date;
-  while (!isBusinessDay(d, holidays)) d = addDays(d, step);
+  while (!isBusinessDay(d, holidays)) d = addDays(d, stepDir);
   return d;
 }
 
@@ -441,7 +485,7 @@ export function expandRecurringHolidays(
 }
 ```
 
-`app-v2/lib/engine/index.ts` (append):
+`lib/engine/index.ts` (append):
 ```ts
 export * from "./dates";
 ```
@@ -454,7 +498,7 @@ Expected: PASS (all cases).
 - [ ] **Step 5: Commit**
 
 ```bash
-git add app-v2/lib/engine/dates.ts app-v2/lib/engine/dates.test.ts app-v2/lib/engine/index.ts
+git add lib/engine/dates.ts lib/engine/dates.test.ts lib/engine/index.ts
 git commit -m "feat(engine): business-day and holiday date helpers"
 ```
 
@@ -463,9 +507,9 @@ git commit -m "feat(engine): business-day and holiday date helpers"
 ### Task 4: Instance generation (recurrence + overrides + business-day)
 
 **Files:**
-- Create: `app-v2/lib/engine/instances.ts`
-- Modify: `app-v2/lib/engine/index.ts` (add export)
-- Test: `app-v2/lib/engine/instances.test.ts`
+- Create: `lib/engine/instances.ts`
+- Modify: `lib/engine/index.ts` (add export)
+- Test: `lib/engine/instances.test.ts`
 
 **Interfaces:**
 - Consumes: `EngineParticular`, `EngineHoliday`, `EngineOverride`, `Instance` from `./types`; `adjustToBusinessDay` from `./dates`.
@@ -474,7 +518,7 @@ git commit -m "feat(engine): business-day and holiday date helpers"
 
 - [ ] **Step 1: Write the failing tests**
 
-`app-v2/lib/engine/instances.test.ts`:
+`lib/engine/instances.test.ts`:
 ```ts
 import { describe, it, expect } from "vitest";
 import { generateInstances } from "./instances";
@@ -564,7 +608,7 @@ Expected: FAIL — cannot find module `./instances`.
 
 - [ ] **Step 3: Implement instance generation**
 
-`app-v2/lib/engine/instances.ts`:
+`lib/engine/instances.ts`:
 ```ts
 import { addWeeks, addMonths, addYears, isSameDay } from "date-fns";
 import { adjustToBusinessDay } from "./dates";
@@ -646,7 +690,7 @@ export function generateInstances(
 }
 ```
 
-`app-v2/lib/engine/index.ts` (append):
+`lib/engine/index.ts` (append):
 ```ts
 export * from "./instances";
 ```
@@ -659,7 +703,7 @@ Expected: PASS (all 9 cases).
 - [ ] **Step 5: Commit**
 
 ```bash
-git add app-v2/lib/engine/instances.ts app-v2/lib/engine/instances.test.ts app-v2/lib/engine/index.ts
+git add lib/engine/instances.ts lib/engine/instances.test.ts lib/engine/index.ts
 git commit -m "feat(engine): instance generation with recurrence, overrides, business-day"
 ```
 
@@ -668,9 +712,9 @@ git commit -m "feat(engine): instance generation with recurrence, overrides, bus
 ### Task 5: Anchored forecast replay + monthly/lowest/first-negative
 
 **Files:**
-- Create: `app-v2/lib/engine/forecast.ts`
-- Modify: `app-v2/lib/engine/index.ts` (add export)
-- Test: `app-v2/lib/engine/forecast.test.ts`
+- Create: `lib/engine/forecast.ts`
+- Modify: `lib/engine/types.ts` (re-export ForecastInput/ForecastResult), `lib/engine/index.ts` (add export)
+- Test: `lib/engine/forecast.test.ts`
 
 **Interfaces:**
 - Consumes: `generateInstances` from `./instances`; types from `./types`.
@@ -682,12 +726,11 @@ git commit -m "feat(engine): instance generation with recurrence, overrides, bus
 
 - [ ] **Step 1: Write the failing tests**
 
-`app-v2/lib/engine/forecast.test.ts`:
+`lib/engine/forecast.test.ts`:
 ```ts
 import { describe, it, expect } from "vitest";
 import { computeForecast } from "./forecast";
 import type { EngineParticular, ForecastInput } from "./types";
-import type {} from "./forecast";
 
 const d = (s: string) => new Date(s + "T00:00:00");
 
@@ -769,7 +812,7 @@ Expected: FAIL — cannot find module `./forecast`.
 
 - [ ] **Step 3: Implement the forecast replay**
 
-`app-v2/lib/engine/forecast.ts`:
+`lib/engine/forecast.ts`:
 ```ts
 import { startOfDay, compareAsc, addDays } from "date-fns";
 import { generateInstances } from "./instances";
@@ -861,7 +904,7 @@ export function computeForecast(input: ForecastInput): ForecastResult {
   return {
     days,
     months: summarize(days),
-    firstNegative: days.find((d) => d.isNegative) ?? null,
+    firstNegative: days.find((day) => day.isNegative) ?? null,
     lowest: days.length
       ? days.reduce((lo, c) => (c.closingBalance < lo.closingBalance ? c : lo))
       : null,
@@ -894,12 +937,12 @@ function summarize(days: DailyBalance[]): MonthlySummary[] {
 }
 ```
 
-Also add to `app-v2/lib/engine/types.ts` (append) so tests can import the input type from `./types`:
+Append to `lib/engine/types.ts` so tests can import the input type from `./types`:
 ```ts
 export type { ForecastInput, ForecastResult } from "./forecast";
 ```
 
-`app-v2/lib/engine/index.ts` (append):
+`lib/engine/index.ts` (append):
 ```ts
 export * from "./forecast";
 ```
@@ -912,7 +955,7 @@ Expected: PASS (all 7 cases). Then run the full suite: `npm test -- run` → all
 - [ ] **Step 5: Commit**
 
 ```bash
-git add app-v2/lib/engine
+git add lib/engine
 git commit -m "feat(engine): anchored forecast replay with monthly/lowest/first-negative"
 ```
 
@@ -921,25 +964,22 @@ git commit -m "feat(engine): anchored forecast replay with monthly/lowest/first-
 ### Task 6: Shared Zod schemas
 
 **Files:**
-- Create: `app-v2/lib/schemas/particular.ts`
-- Create: `app-v2/lib/schemas/holiday.ts`
-- Create: `app-v2/lib/schemas/account.ts`
-- Create: `app-v2/lib/schemas/index.ts`
-- Test: `app-v2/lib/schemas/particular.test.ts`
-- Modify: `app-v2/package.json` (add `zod` dependency)
+- Create: `lib/schemas/particular.ts`
+- Create: `lib/schemas/holiday.ts`
+- Create: `lib/schemas/account.ts`
+- Create: `lib/schemas/index.ts`
+- Test: `lib/schemas/particular.test.ts`
 
 **Interfaces:**
-- Produces (all importable without Prisma/React):
+- Produces (all importable without Prisma/React; `zod` already in deps from Task 1):
   - `particularInput` Zod schema → `{ name, type:'INCOME'|'EXPENSE', amount>0, frequency, startDate, endDate?, isCritical, isFixed, businessDayAdjustment }`
   - `overrideInstanceInput` → `{ particularId, originalDate, overriddenAmount?, overriddenDate?, isSkipped }`
   - `holidayInput` → `{ name, date, isRecurring }`
   - `updateBalanceInput` → `{ balance }`
 
-- [ ] **Step 1: Add zod and write the failing test**
+- [ ] **Step 1: Write the failing test**
 
-Add `"zod": "^3.23.0"` to `app-v2/package.json` dependencies, then run `npm install`.
-
-`app-v2/lib/schemas/particular.test.ts`:
+`lib/schemas/particular.test.ts`:
 ```ts
 import { describe, it, expect } from "vitest";
 import { particularInput } from "./particular";
@@ -969,7 +1009,7 @@ Expected: FAIL — cannot find module `./particular`.
 
 - [ ] **Step 3: Implement the schemas**
 
-`app-v2/lib/schemas/particular.ts`:
+`lib/schemas/particular.ts`:
 ```ts
 import { z } from "zod";
 
@@ -1003,7 +1043,7 @@ export type ParticularInput = z.infer<typeof particularInput>;
 export type OverrideInstanceInput = z.infer<typeof overrideInstanceInput>;
 ```
 
-`app-v2/lib/schemas/holiday.ts`:
+`lib/schemas/holiday.ts`:
 ```ts
 import { z } from "zod";
 export const holidayInput = z.object({
@@ -1014,14 +1054,14 @@ export const holidayInput = z.object({
 export type HolidayInput = z.infer<typeof holidayInput>;
 ```
 
-`app-v2/lib/schemas/account.ts`:
+`lib/schemas/account.ts`:
 ```ts
 import { z } from "zod";
 export const updateBalanceInput = z.object({ balance: z.number() });
 export type UpdateBalanceInput = z.infer<typeof updateBalanceInput>;
 ```
 
-`app-v2/lib/schemas/index.ts`:
+`lib/schemas/index.ts`:
 ```ts
 export * from "./particular";
 export * from "./holiday";
@@ -1036,34 +1076,38 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add app-v2/lib/schemas app-v2/package.json app-v2/package-lock.json
+git add lib/schemas
 git commit -m "feat(schemas): shared zod input schemas"
 ```
 
 ---
 
-## Phase 2 — Server (Prisma, Auth.js, tRPC, Express)
+## Phase 2 — Server (Prisma, NextAuth, tRPC) on Next.js route handlers
 
-> Server tasks run from `app-v2/server/`. The server is its own package referencing `../lib`. Use `tsx` for dev. Tests use Vitest with a mocked Prisma client (no live DB needed for router unit tests); the mapper test is pure.
+> Server modules live in `server/` and are server-only. Tests use Vitest with a mocked Prisma client (no live DB needed for router unit tests); the mapper test is pure.
 
 ### Task 7: Prisma schema + client singleton
 
 **Files:**
-- Create: `app-v2/prisma/schema.prisma`
-- Create: `app-v2/server/package.json`
-- Create: `app-v2/server/tsconfig.json`
-- Create: `app-v2/server/src/db.ts`
-- Create: `app-v2/.env.example`
+- Create: `prisma/schema.prisma`
+- Create: `server/db.ts`
+- Create: `.env.example`
 
 **Interfaces:**
-- Produces: `prisma` client singleton exported from `server/src/db.ts`; generated types for `Particular`, `ParticularOverride`, `Holiday`, `FinanceAccount`.
+- Produces: `prisma` client singleton exported from `server/db.ts`; generated types for `Particular`, `ParticularOverride`, `Holiday`, `FinanceAccount`, plus Auth.js tables.
 
 - [ ] **Step 1: Write the Prisma schema**
 
-`app-v2/prisma/schema.prisma`:
+`prisma/schema.prisma`:
 ```prisma
-generator client { provider = "prisma-client-js" }
-datasource db { provider = "postgresql"; url = env("DATABASE_URL") }
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
 
 model User {
   id            String          @id @default(cuid())
@@ -1111,7 +1155,7 @@ model VerificationToken {
 model FinanceAccount {
   id               String   @id @default(cuid())
   name             String   @default("My Account")
-  currentBalance   Decimal  @db.Decimal(15, 2) @default(0)
+  currentBalance   Decimal  @default(0) @db.Decimal(15, 2)
   balanceUpdatedAt DateTime @default(now())
   ownerId          String   @unique
   owner            User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
@@ -1168,65 +1212,18 @@ enum RecurrenceFrequency   { ONCE_OFF WEEKLY FORTNIGHTLY MONTHLY ANNUAL }
 enum BusinessDayAdjustment { NONE NEXT_BUSINESS_DAY PREVIOUS_BUSINESS_DAY }
 ```
 
-- [ ] **Step 2: Create server package + config**
+- [ ] **Step 2: Create the env example**
 
-`app-v2/server/package.json`:
-```json
-{
-  "name": "future-finance-v2-server",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "build": "tsc -p tsconfig.json",
-    "start": "node dist/index.js",
-    "db:push": "prisma db push --schema ../prisma/schema.prisma",
-    "db:generate": "prisma generate --schema ../prisma/schema.prisma",
-    "test": "vitest"
-  },
-  "dependencies": {
-    "@prisma/client": "^6.5.0",
-    "@trpc/server": "^11.0.0",
-    "@auth/express": "^0.7.0",
-    "@auth/prisma-adapter": "^2.7.2",
-    "express": "^4.21.0",
-    "zod": "^3.23.0",
-    "superjson": "^2.2.1"
-  },
-  "devDependencies": {
-    "@types/express": "^5.0.0",
-    "prisma": "^6.5.0",
-    "tsx": "^4.19.0",
-    "typescript": "^5.6.0",
-    "vitest": "^2.1.0"
-  }
-}
-```
-
-`app-v2/server/tsconfig.json`:
-```json
-{
-  "extends": "../tsconfig.base.json",
-  "compilerOptions": {
-    "outDir": "dist",
-    "rootDir": ".",
-    "module": "ESNext",
-    "types": ["node", "vitest/globals"]
-  },
-  "include": ["src", "../lib"]
-}
-```
-
-`app-v2/.env.example`:
+`.env.example`:
 ```
 DATABASE_URL="postgresql://postgres:password@localhost:5432/future_finance_v2"
 AUTH_SECRET="generate-with-openssl-rand-base64-32"
-AUTH_URL="http://localhost:5173"
+NEXTAUTH_URL="http://localhost:3000"
 ```
 
 - [ ] **Step 3: Implement the Prisma client singleton**
 
-`app-v2/server/src/db.ts`:
+`server/db.ts`:
 ```ts
 import { PrismaClient } from "@prisma/client";
 
@@ -1238,16 +1235,16 @@ export const prisma =
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 ```
 
-- [ ] **Step 4: Install deps and generate the client**
+- [ ] **Step 4: Generate the client**
 
-Run (from `app-v2/server/`): `npm install && npm run db:generate`
+Run (from repo root): `npm run db:generate`
 Expected: Prisma client generated without errors. (A live DB is not required to generate.)
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add app-v2/prisma app-v2/server/package.json app-v2/server/tsconfig.json app-v2/server/src/db.ts app-v2/.env.example app-v2/server/package-lock.json
-git commit -m "feat(server): prisma schema, client singleton, server package"
+git add prisma server/db.ts .env.example
+git commit -m "feat(server): prisma schema and client singleton"
 ```
 
 ---
@@ -1255,11 +1252,11 @@ git commit -m "feat(server): prisma schema, client singleton, server package"
 ### Task 8: Prisma → Engine mappers
 
 **Files:**
-- Create: `app-v2/server/src/mappers.ts`
-- Test: `app-v2/server/src/mappers.test.ts`
+- Create: `server/mappers.ts`
+- Test: `server/mappers.test.ts`
 
 **Interfaces:**
-- Consumes: Prisma row shapes for `Particular` (with `overrides`) and `Holiday`; `EngineParticular`, `EngineHoliday` from `../../lib/engine`.
+- Consumes: Prisma row shapes for `Particular` (with `overrides`) and `Holiday`; `EngineParticular`, `EngineHoliday`, `EngineOverride` from `@/lib/engine`.
 - Produces:
   - `toEngineParticular(p: PrismaParticularWithOverrides): EngineParticular`
   - `toEngineHoliday(h: { date: Date; isRecurring: boolean }): EngineHoliday`
@@ -1267,7 +1264,7 @@ git commit -m "feat(server): prisma schema, client singleton, server package"
 
 - [ ] **Step 1: Write the failing test**
 
-`app-v2/server/src/mappers.test.ts`:
+`server/mappers.test.ts`:
 ```ts
 import { describe, it, expect } from "vitest";
 import { toEngineParticular } from "./mappers";
@@ -1301,14 +1298,14 @@ describe("toEngineParticular", () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run (from `app-v2/server/`): `npm test -- run src/mappers.test.ts`
+Run: `npm test -- run server/mappers.test.ts`
 Expected: FAIL — cannot find module `./mappers`.
 
 - [ ] **Step 3: Implement the mappers**
 
-`app-v2/server/src/mappers.ts`:
+`server/mappers.ts`:
 ```ts
-import type { EngineParticular, EngineHoliday, EngineOverride } from "../../lib/engine";
+import type { EngineParticular, EngineHoliday, EngineOverride } from "@/lib/engine";
 
 type DecimalLike = { toString(): string } | number;
 const num = (d: DecimalLike): number => (typeof d === "number" ? d : Number(d.toString()));
@@ -1325,6 +1322,14 @@ interface PrismaParticular {
   overrides: PrismaOverride[];
 }
 
+function toEngineOverride(o: PrismaOverride): EngineOverride {
+  return {
+    id: o.id, originalDate: o.originalDate, overriddenDate: o.overriddenDate,
+    overriddenAmount: o.overriddenAmount === null ? null : Math.abs(num(o.overriddenAmount)),
+    isSkipped: o.isSkipped,
+  };
+}
+
 export function toEngineParticular(p: PrismaParticular): EngineParticular {
   return {
     id: p.id, name: p.name, type: p.type,
@@ -1336,14 +1341,6 @@ export function toEngineParticular(p: PrismaParticular): EngineParticular {
   };
 }
 
-function toEngineOverride(o: PrismaOverride): EngineOverride {
-  return {
-    id: o.id, originalDate: o.originalDate, overriddenDate: o.overriddenDate,
-    overriddenAmount: o.overriddenAmount === null ? null : Math.abs(num(o.overriddenAmount)),
-    isSkipped: o.isSkipped,
-  };
-}
-
 export function toEngineHoliday(h: { date: Date; isRecurring: boolean }): EngineHoliday {
   return { date: h.date, isRecurring: h.isRecurring };
 }
@@ -1351,36 +1348,34 @@ export function toEngineHoliday(h: { date: Date; isRecurring: boolean }): Engine
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npm test -- run src/mappers.test.ts`
+Run: `npm test -- run server/mappers.test.ts`
 Expected: PASS (both cases).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add app-v2/server/src/mappers.ts app-v2/server/src/mappers.test.ts
+git add server/mappers.ts server/mappers.test.ts
 git commit -m "feat(server): prisma-to-engine mappers"
 ```
 
 ---
 
-### Task 9: Auth.js config + tRPC init (context, protectedProcedure, resolveAccount)
+### Task 9: NextAuth v5 config + tRPC init (context, protectedProcedure, resolveAccount)
 
 **Files:**
-- Create: `app-v2/server/src/auth.ts`
-- Create: `app-v2/server/src/trpc.ts`
-- Test: `app-v2/server/src/trpc.test.ts`
+- Create: `server/auth.ts`
+- Create: `server/trpc.ts`
+- Test: `server/trpc.test.ts`
 
 **Interfaces:**
 - Consumes: `prisma` from `./db`.
 - Produces:
-  - `authConfig` (Auth.js ExpressAuth config object) and `getSessionUser(req): Promise<{ id: string } | null>`
-  - `createContext({ req }): Promise<{ user: { id: string } | null }>`
-  - `router`, `publicProcedure`, `protectedProcedure` (throws `UNAUTHORIZED` when `ctx.user` is null)
-  - `resolveAccount(userId): Promise<FinanceAccount>` — finds the user's single account, auto-creating it if missing.
+  - From `auth.ts`: `handlers` (`{ GET, POST }`), `auth`, `signIn`, `signOut` from `NextAuth(...)`, configured with the Prisma adapter and a database session strategy.
+  - From `trpc.ts`: `createContext()` (reads the session via `auth()`), `router`, `publicProcedure`, `protectedProcedure` (throws `UNAUTHORIZED` when no user), and `resolveAccount(userId): Promise<FinanceAccount>` — finds the user's single account, auto-creating it if missing.
 
 - [ ] **Step 1: Write the failing test**
 
-`app-v2/server/src/trpc.test.ts`:
+`server/trpc.test.ts`:
 ```ts
 import { describe, it, expect, vi } from "vitest";
 
@@ -1392,6 +1387,8 @@ vi.mock("./db", () => ({
     },
   },
 }));
+// auth.ts pulls in next-auth (ESM-only at import time); stub it for the unit test.
+vi.mock("./auth", () => ({ auth: vi.fn().mockResolvedValue(null) }));
 
 import { resolveAccount } from "./trpc";
 
@@ -1405,46 +1402,43 @@ describe("resolveAccount", () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npm test -- run src/trpc.test.ts`
+Run: `npm test -- run server/trpc.test.ts`
 Expected: FAIL — cannot find module `./trpc`.
 
 - [ ] **Step 3: Implement auth + trpc**
 
-`app-v2/server/src/auth.ts`:
+`server/auth.ts`:
 ```ts
+import NextAuth from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
-import type { ExpressAuthConfig } from "@auth/express";
-import { getSession } from "@auth/express";
 import { prisma } from "./db";
 
 // Provider list intentionally minimal for the first slice; add OAuth/email providers here.
-export const authConfig: ExpressAuthConfig = {
+export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
   session: { strategy: "database" },
   providers: [],
   secret: process.env.AUTH_SECRET,
-};
-
-export async function getSessionUser(
-  req: { headers: Record<string, unknown> } & object
-): Promise<{ id: string } | null> {
-  const session = await getSession(req as never, authConfig);
-  const id = (session?.user as { id?: string } | undefined)?.id;
-  return id ? { id } : null;
-}
+  callbacks: {
+    session({ session, user }) {
+      if (session.user) session.user.id = user.id;
+      return session;
+    },
+  },
+});
 ```
 
-`app-v2/server/src/trpc.ts`:
+`server/trpc.ts`:
 ```ts
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
-import type { Request } from "express";
 import { prisma } from "./db";
-import { getSessionUser } from "./auth";
+import { auth } from "./auth";
 
-export async function createContext({ req }: { req: Request }) {
-  const user = await getSessionUser(req as never);
-  return { user, prisma };
+export async function createContext() {
+  const session = await auth();
+  const id = session?.user?.id;
+  return { user: id ? { id } : null, prisma };
 }
 export type Context = Awaited<ReturnType<typeof createContext>>;
 
@@ -1466,16 +1460,29 @@ export async function resolveAccount(userId: string) {
 }
 ```
 
+Also create the NextAuth type augmentation so `session.user.id` typechecks.
+
+`types/next-auth.d.ts`:
+```ts
+import type { DefaultSession } from "next-auth";
+
+declare module "next-auth" {
+  interface Session {
+    user: { id: string } & DefaultSession["user"];
+  }
+}
+```
+
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npm test -- run src/trpc.test.ts`
+Run: `npm test -- run server/trpc.test.ts`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add app-v2/server/src/auth.ts app-v2/server/src/trpc.ts app-v2/server/src/trpc.test.ts
-git commit -m "feat(server): auth config, trpc init, resolveAccount"
+git add server/auth.ts server/trpc.ts server/trpc.test.ts types/next-auth.d.ts
+git commit -m "feat(server): nextauth v5 config, trpc init, resolveAccount"
 ```
 
 ---
@@ -1483,22 +1490,22 @@ git commit -m "feat(server): auth config, trpc init, resolveAccount"
 ### Task 10: tRPC routers (account, holiday, particular, forecast) + appRouter
 
 **Files:**
-- Create: `app-v2/server/src/routers/account.ts`
-- Create: `app-v2/server/src/routers/holiday.ts`
-- Create: `app-v2/server/src/routers/particular.ts`
-- Create: `app-v2/server/src/routers/forecast.ts`
-- Create: `app-v2/server/src/routers/_app.ts`
-- Test: `app-v2/server/src/routers/particular.test.ts`
+- Create: `server/routers/account.ts`
+- Create: `server/routers/holiday.ts`
+- Create: `server/routers/particular.ts`
+- Create: `server/routers/forecast.ts`
+- Create: `server/routers/_app.ts`
+- Test: `server/routers/particular.test.ts`
 
 **Interfaces:**
-- Consumes: `router`, `protectedProcedure`, `resolveAccount` from `../trpc`; schemas from `../../../lib/schemas`; mappers from `../mappers`.
-- Produces: `appRouter` and `export type AppRouter = typeof appRouter` from `_app.ts`. Procedures listed in the spec's API surface. `particular.overrideInstance` enforces: amount override rejected if `isFixed`; date/skip rejected if `isCritical`.
+- Consumes: `router`, `protectedProcedure`, `resolveAccount` from `../trpc`; schemas from `@/lib/schemas`.
+- Produces: `appRouter` and `export type AppRouter = typeof appRouter` from `_app.ts`. Procedures listed in the spec's API surface. `assertOverrideAllowed(rule, ov)` enforces: amount override rejected if `isFixed`; date/skip rejected if `isCritical`.
 
 - [ ] **Step 1: Write the failing test (override validation)**
 
-`app-v2/server/src/routers/particular.test.ts`:
+`server/routers/particular.test.ts`:
 ```ts
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { assertOverrideAllowed } from "./particular";
 
 describe("assertOverrideAllowed", () => {
@@ -1525,15 +1532,15 @@ describe("assertOverrideAllowed", () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npm test -- run src/routers/particular.test.ts`
+Run: `npm test -- run server/routers/particular.test.ts`
 Expected: FAIL — cannot find module `./particular`.
 
 - [ ] **Step 3: Implement the routers**
 
-`app-v2/server/src/routers/account.ts`:
+`server/routers/account.ts`:
 ```ts
 import { router, protectedProcedure, resolveAccount } from "../trpc";
-import { updateBalanceInput } from "../../../lib/schemas";
+import { updateBalanceInput } from "@/lib/schemas";
 
 export const accountRouter = router({
   get: protectedProcedure.query(async ({ ctx }) => {
@@ -1550,11 +1557,11 @@ export const accountRouter = router({
 });
 ```
 
-`app-v2/server/src/routers/holiday.ts`:
+`server/routers/holiday.ts`:
 ```ts
 import { z } from "zod";
 import { router, protectedProcedure, resolveAccount } from "../trpc";
-import { holidayInput } from "../../../lib/schemas";
+import { holidayInput } from "@/lib/schemas";
 
 export const holidayRouter = router({
   list: protectedProcedure.query(async ({ ctx }) => {
@@ -1572,12 +1579,12 @@ export const holidayRouter = router({
 });
 ```
 
-`app-v2/server/src/routers/particular.ts`:
+`server/routers/particular.ts`:
 ```ts
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, protectedProcedure, resolveAccount } from "../trpc";
-import { particularInput, overrideInstanceInput } from "../../../lib/schemas";
+import { particularInput, overrideInstanceInput } from "@/lib/schemas";
 
 export function assertOverrideAllowed(
   rule: { isFixed: boolean; isCritical: boolean },
@@ -1648,7 +1655,7 @@ export const particularRouter = router({
 });
 ```
 
-`app-v2/server/src/routers/forecast.ts`:
+`server/routers/forecast.ts`:
 ```ts
 import { z } from "zod";
 import { router, protectedProcedure, resolveAccount } from "../trpc";
@@ -1693,7 +1700,7 @@ export const forecastRouter = router({
 });
 ```
 
-`app-v2/server/src/routers/_app.ts`:
+`server/routers/_app.ts`:
 ```ts
 import { router } from "../trpc";
 import { accountRouter } from "./account";
@@ -1713,202 +1720,152 @@ export type AppRouter = typeof appRouter;
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npm test -- run src/routers/particular.test.ts`
-Expected: PASS (all 3 cases). Then `npm test -- run` (server) → green.
+Run: `npm test -- run server/routers/particular.test.ts`
+Expected: PASS (all 3 cases). Then `npm test -- run` → all engine + server tests green.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add app-v2/server/src/routers
+git add server/routers
 git commit -m "feat(server): account/holiday/particular/forecast routers"
 ```
 
 ---
 
-### Task 11: Express app wiring (auth + trpc + dev server)
+### Task 11: Route handlers (tRPC + NextAuth) on App Router
 
 **Files:**
-- Create: `app-v2/server/src/index.ts`
+- Create: `app/api/trpc/[trpc]/route.ts`
+- Create: `app/api/auth/[...nextauth]/route.ts`
+- Create: `next.config.ts`
+- Create: `next-env.d.ts` (generated; commit it)
 
 **Interfaces:**
-- Consumes: `authConfig` from `./auth`; `appRouter`, `createContext` from routers/trpc.
-- Produces: an Express server on port 3001 mounting `/api/auth/*` (ExpressAuth) and `/api/trpc/*` (tRPC). No new test (integration covered manually in Step 3).
+- Consumes: `appRouter` from `@/server/routers/_app`; `createContext` from `@/server/trpc`; `handlers` from `@/server/auth`.
+- Produces: live `/api/trpc/*` (tRPC fetch adapter) and `/api/auth/*` (NextAuth) endpoints. No new unit test (covered by the full-stack smoke in Task 17).
 
-- [ ] **Step 1: Implement the Express entrypoint**
+- [ ] **Step 1: Implement the tRPC fetch route handler**
 
-`app-v2/server/src/index.ts`:
+`app/api/trpc/[trpc]/route.ts`:
 ```ts
-import express from "express";
-import { ExpressAuth } from "@auth/express";
-import { createExpressMiddleware } from "@trpc/server/adapters/express";
-import { authConfig } from "./auth";
-import { appRouter } from "./routers/_app";
-import { createContext } from "./trpc";
+import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
+import { appRouter } from "@/server/routers/_app";
+import { createContext } from "@/server/trpc";
 
-const app = express();
-app.set("trust proxy", true);
+const handler = (req: Request) =>
+  fetchRequestHandler({
+    endpoint: "/api/trpc",
+    req,
+    router: appRouter,
+    createContext,
+  });
 
-app.use("/api/auth/*", ExpressAuth(authConfig));
-
-app.use(
-  "/api/trpc",
-  createExpressMiddleware({ router: appRouter, createContext }),
-);
-
-app.get("/api/health", (_req, res) => res.json({ ok: true }));
-
-const port = Number(process.env.PORT ?? 3001);
-app.listen(port, () => console.log(`API on http://localhost:${port}`));
+export { handler as GET, handler as POST };
 ```
 
-- [ ] **Step 2: Verify it compiles**
+- [ ] **Step 2: Implement the NextAuth route handler**
 
-Run (from `app-v2/server/`): `npm run build`
-Expected: `tsc` completes with no errors.
+`app/api/auth/[...nextauth]/route.ts`:
+```ts
+import { handlers } from "@/server/auth";
+export const { GET, POST } = handlers;
+```
 
-- [ ] **Step 3: Smoke-test the health route**
+- [ ] **Step 3: Add Next config**
 
-Run (from `app-v2/server/`): `npm run dev` in one terminal, then in another:
-`curl -s http://localhost:3001/api/health`
-Expected: `{"ok":true}`. Stop the dev server.
+`next.config.ts`:
+```ts
+import type { NextConfig } from "next";
 
-- [ ] **Step 4: Commit**
+const nextConfig: NextConfig = {};
+
+export default nextConfig;
+```
+
+- [ ] **Step 4: Verify it builds / generates next-env**
+
+Run (from repo root): `npx next build`
+Expected: build completes (it may warn that no pages render yet, but the route handlers compile). This also generates `next-env.d.ts`.
+
+> If `next build` requires a `DATABASE_URL` at build time, copy `.env.example` → `.env` with any valid-looking Postgres URL first; the routes don't connect at build time.
+
+- [ ] **Step 5: Commit**
 
 ```bash
-git add app-v2/server/src/index.ts
-git commit -m "feat(server): express app wiring for auth + trpc"
+git add app/api next.config.ts next-env.d.ts
+git commit -m "feat(app): trpc and nextauth route handlers"
 ```
 
 ---
 
-## Phase 3 — Client (Vite SPA: theme port, providers, screens)
+## Phase 3 — Client (theme port, providers, screens)
 
-> Client tasks run from `app-v2/client/`. The client references `../lib` and the server's `AppRouter` type. Vite dev proxies `/api` → `localhost:3001`.
+> Client tasks port the `baseline/` theme + components into `app/`. These are already Next.js-native shadcn components, so they drop in with only import-path adjustments. Components using tRPC hooks or browser state are Client Components (`"use client"`).
 
-### Task 12: Vite SPA scaffold + theme port + tRPC/React Query providers
+### Task 12: Tailwind + theme port + design-system/utils helpers
 
 **Files:**
-- Create: `app-v2/client/package.json`, `tsconfig.json`, `vite.config.ts`, `index.html`, `postcss.config.js`
-- Create: `app-v2/client/src/main.tsx`, `src/trpc.ts`, `src/styles/globals.css`, `src/lib/design-system.ts`
-- Create: `app-v2/client/src/App.tsx` (placeholder route shell)
+- Create: `app/globals.css` (ported from `baseline/globals.css`)
+- Create: `postcss.config.mjs`
+- Create: `lib/utils.ts` (ported from `baseline/utils.ts` — `cn`)
+- Create: `lib/design-system.ts` (consolidated helpers only)
+- Test: `lib/design-system.test.ts`
 
 **Interfaces:**
-- Consumes: `AppRouter` type from `../../server/src/routers/_app`.
-- Produces: a running Vite dev server (`npm run dev`) that renders a placeholder, with `trpc` React client + React Query provider wired and `/api` proxied to 3001.
+- Produces:
+  - `cn(...inputs: ClassValue[]): string` from `lib/utils.ts`
+  - `formatCurrency(amount: number): string` (NZD), `getAmountColorClass`, `getAmountBgClass`, `isStale`, `getRelativeTime`, `MIN_TOUCH_TARGET` from `lib/design-system.ts`
 
-- [ ] **Step 1: Create client package + config**
+- [ ] **Step 1: Write the failing test**
 
-`app-v2/client/package.json`:
-```json
-{
-  "name": "future-finance-v2-client",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "preview": "vite preview",
-    "test": "vitest"
-  },
-  "dependencies": {
-    "@tanstack/react-query": "^5.69.0",
-    "@trpc/client": "^11.0.0",
-    "@trpc/react-query": "^11.0.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "react-router-dom": "^7.0.0",
-    "superjson": "^2.2.1",
-    "date-fns": "^4.1.0",
-    "lucide-react": "^0.546.0",
-    "recharts": "^3.3.0",
-    "react-hook-form": "^7.65.0",
-    "@hookform/resolvers": "^5.2.2",
-    "zod": "^3.23.0",
-    "clsx": "^2.1.1",
-    "tailwind-merge": "^2.5.0",
-    "class-variance-authority": "^0.7.1"
-  },
-  "devDependencies": {
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
-    "@vitejs/plugin-react": "^4.3.0",
-    "tailwindcss": "^4.0.0",
-    "@tailwindcss/postcss": "^4.0.0",
-    "postcss": "^8.4.0",
-    "tw-animate-css": "^1.0.0",
-    "typescript": "^5.6.0",
-    "vite": "^6.0.0",
-    "vitest": "^2.1.0"
-  }
-}
-```
-
-`app-v2/client/vite.config.ts`:
+`lib/design-system.test.ts`:
 ```ts
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
-import path from "node:path";
+import { describe, it, expect } from "vitest";
+import { formatCurrency, getAmountColorClass } from "./design-system";
 
-export default defineConfig({
-  plugins: [react()],
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "src"),
-      "~": path.resolve(__dirname, "src"),
-      "@lib": path.resolve(__dirname, "../lib"),
-    },
-  },
-  server: {
-    port: 5173,
-    proxy: { "/api": { target: "http://localhost:3001", changeOrigin: true } },
-  },
+describe("formatCurrency", () => {
+  it("formats NZD with two decimals", () => {
+    expect(formatCurrency(1500)).toBe("$1,500.00");
+  });
+});
+
+describe("getAmountColorClass", () => {
+  it("returns income class for positive amounts", () => {
+    expect(getAmountColorClass(10)).toBe("text-finance-income");
+  });
+  it("returns expense class for negative amounts", () => {
+    expect(getAmountColorClass(-10)).toBe("text-finance-expense");
+  });
 });
 ```
 
-`app-v2/client/tsconfig.json`:
-```json
-{
-  "extends": "../tsconfig.base.json",
-  "compilerOptions": {
-    "jsx": "react-jsx",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "types": ["vite/client"],
-    "paths": {
-      "@/*": ["./src/*"],
-      "~/*": ["./src/*"],
-      "@lib/*": ["../lib/*"]
-    }
-  },
-  "include": ["src", "../lib", "../server/src/routers/_app.ts"]
-}
-```
+- [ ] **Step 2: Run test to verify it fails**
 
-`app-v2/client/postcss.config.js`:
+Run: `npm test -- run lib/design-system.test.ts`
+Expected: FAIL — cannot find module `./design-system`.
+
+- [ ] **Step 3: Port the theme + implement helpers**
+
+Copy the baseline CSS verbatim:
+Run (from repo root): `cp baseline/globals.css app/globals.css`
+
+`postcss.config.mjs`:
 ```js
 export default { plugins: { "@tailwindcss/postcss": {} } };
 ```
 
-`app-v2/client/index.html`:
-```html
-<!doctype html>
-<html lang="en">
-  <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Future Finance</title></head>
-  <body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body>
-</html>
-```
+Copy `cn` from the baseline so the shadcn primitives import it unchanged:
+Run (from repo root): `cp baseline/utils.ts lib/utils.ts`
 
-- [ ] **Step 2: Port theme files**
+> If `baseline/utils.ts` imports anything beyond `clsx`/`tailwind-merge`, trim it to just `cn`. The canonical body is:
+> ```ts
+> import { clsx, type ClassValue } from "clsx";
+> import { twMerge } from "tailwind-merge";
+> export function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
+> ```
 
-Copy `globals.css` verbatim from the old app into `app-v2/client/src/styles/globals.css`:
-
-Run (from repo root):
-`cp src/styles/globals.css app-v2/client/src/styles/globals.css`
-
-Create `app-v2/client/src/lib/design-system.ts` (helpers only — the consolidated version):
+`lib/design-system.ts`:
 ```ts
-export function cn(...classes: (string | false | null | undefined)[]) {
-  return classes.filter(Boolean).join(" ");
-}
 export function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("en-NZ", {
     style: "currency", currency: "NZD", minimumFractionDigits: 2, maximumFractionDigits: 2,
@@ -1940,35 +1897,60 @@ export function getRelativeTime(date: Date): string {
 export const MIN_TOUCH_TARGET = "44px";
 ```
 
-> Note: the old `cn` lives in `lib/utils.ts` using `clsx` + `tailwind-merge`. If you prefer that, port `lib/utils.ts` instead and import `cn` from there; the shadcn `ui/*` components expect `cn` at `@/lib/utils`. To keep `ui/*` ports drop-in, ALSO create `app-v2/client/src/lib/utils.ts`:
-```ts
-import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
-export function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
+> Note: `getAmountColorClass`/`getAmountBgClass`/`text-finance-*` rely on the finance-semantic tokens defined in the ported `globals.css`. The formatCurrency test asserts the `en-NZ` `$` symbol with grouping; if the local ICU differs, normalize the expected string accordingly — the symbol/format come from `Intl`.
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `npm test -- run lib/design-system.test.ts`
+Expected: PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add app/globals.css postcss.config.mjs lib/utils.ts lib/design-system.ts lib/design-system.test.ts
+git commit -m "feat(client): tailwind theme port and design-system helpers"
 ```
 
-- [ ] **Step 3: Wire tRPC client + providers + placeholder app**
+---
 
-`app-v2/client/src/trpc.ts`:
+### Task 13: Root layout + providers (tRPC client, React Query, theme)
+
+**Files:**
+- Create: `trpc/client.ts`
+- Create: `app/providers.tsx`
+- Create: `app/layout.tsx`
+- Create: `app/page.tsx` (temporary placeholder; replaced in Task 16)
+
+**Interfaces:**
+- Consumes: `AppRouter` type from `@/server/routers/_app`.
+- Produces:
+  - `trpc` React client (`createTRPCReact<AppRouter>()`) from `trpc/client.ts`
+  - `Providers` Client Component wrapping children with the tRPC provider, a `QueryClientProvider`, and `next-themes` `ThemeProvider`
+  - A root layout importing `globals.css` and rendering `<Providers>`
+
+- [ ] **Step 1: Create the tRPC React client**
+
+`trpc/client.ts`:
 ```ts
 import { createTRPCReact } from "@trpc/react-query";
-import type { AppRouter } from "../../server/src/routers/_app";
+import type { AppRouter } from "@/server/routers/_app";
 export const trpc = createTRPCReact<AppRouter>();
 ```
 
-`app-v2/client/src/main.tsx`:
+- [ ] **Step 2: Implement the providers (Client Component)**
+
+`app/providers.tsx`:
 ```tsx
-import React, { useState } from "react";
-import ReactDOM from "react-dom/client";
+"use client";
+
+import { useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { httpBatchLink } from "@trpc/client";
 import superjson from "superjson";
-import { BrowserRouter } from "react-router-dom";
-import { trpc } from "./trpc";
-import App from "./App";
-import "./styles/globals.css";
+import { ThemeProvider } from "next-themes";
+import { trpc } from "@/trpc/client";
 
-function Root() {
+export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
   const [trpcClient] = useState(() =>
     trpc.createClient({
@@ -1978,110 +1960,174 @@ function Root() {
   return (
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
-        <BrowserRouter><App /></BrowserRouter>
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+          {children}
+        </ThemeProvider>
       </QueryClientProvider>
     </trpc.Provider>
   );
 }
-
-ReactDOM.createRoot(document.getElementById("root")!).render(
-  <React.StrictMode><Root /></React.StrictMode>,
-);
 ```
 
-`app-v2/client/src/App.tsx` (placeholder — replaced in Task 14):
+- [ ] **Step 3: Implement the root layout + placeholder page**
+
+`app/layout.tsx`:
 ```tsx
-export default function App() {
-  return <div className="p-6 text-foreground bg-background min-h-screen">Future Finance v2</div>;
+import type { Metadata } from "next";
+import "./globals.css";
+import { Providers } from "./providers";
+
+export const metadata: Metadata = { title: "Future Finance" };
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <body className="bg-background text-foreground">
+        <Providers>{children}</Providers>
+      </body>
+    </html>
+  );
 }
 ```
 
-- [ ] **Step 4: Install and verify dev server boots**
+`app/page.tsx` (placeholder — replaced in Task 16):
+```tsx
+export default function Page() {
+  return <div className="p-6">Future Finance v2</div>;
+}
+```
 
-Run (from `app-v2/client/`): `npm install && npm run dev`
-Expected: Vite serves at `http://localhost:5173`; page shows "Future Finance v2" with themed background. Stop the server.
+- [ ] **Step 4: Verify the dev server boots**
+
+> Per local convention, dev may already be running on port 3000 (`dev.log`). If not, run `npm run dev` in a scratch terminal.
+Open `http://localhost:3000`: page shows "Future Finance v2" on the themed background. (Stop any dev server you started.)
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add app-v2/client
-git commit -m "feat(client): vite spa scaffold, theme port, trpc/react-query providers"
+git add trpc/client.ts app/providers.tsx app/layout.tsx app/page.tsx
+git commit -m "feat(client): root layout, trpc/react-query/theme providers"
 ```
 
 ---
 
-### Task 13: Port shared UI primitives + theme provider + app shell
+### Task 14: Port shared UI primitives + theme toggle + app shell
 
 **Files:**
-- Create: `app-v2/client/src/components/ui/*` (ported shadcn components)
-- Create: `app-v2/client/src/components/theme-provider.tsx`, `theme-toggle.tsx`
-- Create: `app-v2/client/src/components/Layout.tsx`, `Sidebar.tsx`, `BottomNav.tsx`
-- Create: `app-v2/client/components.json`
+- Create: `app/_components/ui/*` (ported from `baseline/components/ui/*`)
+- Create: `components.json` (ported from baseline if present; else generated)
+- Create: `app/_components/theme-toggle.tsx`
+- Create: `app/_components/Layout.tsx`, `Sidebar.tsx`, `BottomNav.tsx`
 
 **Interfaces:**
-- Produces: `Layout` (sidebar on desktop ≥768px, bottom-nav on mobile), themed `ui/*` primitives importing `cn` from `@/lib/utils`, and a `ThemeProvider` toggling the `.dark` class via localStorage.
+- Consumes: `cn` from `@/lib/utils`; theme tokens from `app/globals.css`; `useTheme` from `next-themes`.
+- Produces: themed `ui/*` primitives (button, card, dialog, input, select, checkbox, badge, dropdown-menu, label, radio-group, separator, textarea); `ThemeToggle`; `Layout` (sidebar ≥768px, bottom-nav on mobile) using `next/link` + `usePathname()`.
 
-- [ ] **Step 1: Port shadcn UI primitives**
+- [ ] **Step 1: Port shadcn UI primitives + config**
 
-Run (from repo root) to copy the component set and config:
+Run (from repo root):
 ```bash
-cp -r src/components/ui app-v2/client/src/components/ui
-cp components.json app-v2/client/components.json
+mkdir -p app/_components/ui
+cp baseline/components/ui/*.tsx app/_components/ui/
+cp baseline/components.json components.json
 ```
-These import `cn` from `@/lib/utils` (created in Task 12) and reference the CSS tokens already in `globals.css`. No code changes needed.
+These import `cn` from `@/lib/utils` (Task 12). If any ported file imports `cn` from a different path (e.g. `@/components/ui/...`), fix the import to `@/lib/utils`. No other code changes.
 
-- [ ] **Step 2: Implement a Vite-compatible ThemeProvider + toggle**
+- [ ] **Step 2: Implement the theme toggle (Client Component)**
 
-`app-v2/client/src/components/theme-provider.tsx`:
+`app/_components/theme-toggle.tsx`:
 ```tsx
-import { createContext, useContext, useEffect, useState } from "react";
+"use client";
 
-type Theme = "light" | "dark";
-const ThemeCtx = createContext<{ theme: Theme; toggle: () => void }>({ theme: "light", toggle: () => {} });
-
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>(
-    () => (localStorage.getItem("theme") as Theme) ?? "light",
-  );
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", theme === "dark");
-    localStorage.setItem("theme", theme);
-  }, [theme]);
-  return (
-    <ThemeCtx.Provider value={{ theme, toggle: () => setTheme((t) => (t === "dark" ? "light" : "dark")) }}>
-      {children}
-    </ThemeCtx.Provider>
-  );
-}
-export const useTheme = () => useContext(ThemeCtx);
-```
-
-`app-v2/client/src/components/theme-toggle.tsx`:
-```tsx
 import { Moon, Sun } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { useTheme } from "./theme-provider";
+import { useTheme } from "next-themes";
+import { Button } from "@/app/_components/ui/button";
 
 export function ThemeToggle() {
-  const { theme, toggle } = useTheme();
+  const { theme, setTheme } = useTheme();
   return (
-    <Button variant="ghost" size="icon" onClick={toggle} aria-label="Toggle theme">
-      {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+    <Button variant="ghost" size="icon"
+      onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+      aria-label="Toggle theme">
+      <Sun className="h-4 w-4 dark:hidden" />
+      <Moon className="hidden h-4 w-4 dark:block" />
     </Button>
   );
 }
 ```
 
-Wrap the app: in `main.tsx`, import `ThemeProvider` and wrap `<App />` (inside `BrowserRouter`).
+- [ ] **Step 3: Implement the app shell (Client Components)**
 
-- [ ] **Step 3: Port the app shell (Layout, Sidebar, BottomNav)**
+`app/_components/Sidebar.tsx`:
+```tsx
+"use client";
 
-Port `Layout.tsx`, `Sidebar.tsx`, `BottomNav.tsx` from `src/app/_components/` into `app-v2/client/src/components/`. Replace Next-specific bits:
-- `next/link` → `Link` from `react-router-dom`
-- `usePathname()` → `useLocation().pathname`
-- Nav targets: `/` (Dashboard), `/particulars`, `/holidays`.
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { LayoutDashboard, ListOrdered, CalendarDays } from "lucide-react";
+import { ThemeToggle } from "./theme-toggle";
+import { cn } from "@/lib/utils";
 
-`app-v2/client/src/components/Layout.tsx`:
+const items = [
+  { to: "/", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/particulars", label: "Income & Expenses", icon: ListOrdered },
+  { to: "/holidays", label: "Holidays", icon: CalendarDays },
+];
+
+export function Sidebar() {
+  const pathname = usePathname();
+  return (
+    <aside className="hidden md:flex md:w-60 md:flex-col border-r bg-sidebar text-sidebar-foreground">
+      <div className="flex items-center justify-between p-4">
+        <span className="font-bold">Future Finance</span>
+        <ThemeToggle />
+      </div>
+      <nav className="flex flex-col gap-1 p-2">
+        {items.map(({ to, label, icon: Icon }) => (
+          <Link key={to} href={to}
+            className={cn("flex items-center gap-2 rounded-md px-3 py-2 text-sm",
+              pathname === to ? "bg-sidebar-accent text-sidebar-accent-foreground" : "hover:bg-sidebar-accent/50")}>
+            <Icon className="h-4 w-4" />{label}
+          </Link>
+        ))}
+      </nav>
+    </aside>
+  );
+}
+```
+
+`app/_components/BottomNav.tsx`:
+```tsx
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { LayoutDashboard, ListOrdered, CalendarDays } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+const items = [
+  { to: "/", label: "Home", icon: LayoutDashboard },
+  { to: "/particulars", label: "Items", icon: ListOrdered },
+  { to: "/holidays", label: "Holidays", icon: CalendarDays },
+];
+
+export function BottomNav() {
+  const pathname = usePathname();
+  return (
+    <nav className="fixed bottom-0 left-0 right-0 z-20 flex border-t bg-background md:hidden">
+      {items.map(({ to, label, icon: Icon }) => (
+        <Link key={to} href={to}
+          className={cn("flex flex-1 flex-col items-center gap-1 py-2 text-xs",
+            pathname === to ? "text-foreground" : "text-muted-foreground")}>
+          <Icon className="h-5 w-5" />{label}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+```
+
+`app/_components/Layout.tsx`:
 ```tsx
 import { Sidebar } from "./Sidebar";
 import { BottomNav } from "./BottomNav";
@@ -2099,103 +2145,40 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 ```
 
-`app-v2/client/src/components/Sidebar.tsx`:
-```tsx
-import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, ListOrdered, CalendarDays } from "lucide-react";
-import { ThemeToggle } from "./theme-toggle";
-import { cn } from "@/lib/utils";
+- [ ] **Step 4: Verify it builds**
 
-const items = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/particulars", label: "Income & Expenses", icon: ListOrdered },
-  { to: "/holidays", label: "Holidays", icon: CalendarDays },
-];
-
-export function Sidebar() {
-  const { pathname } = useLocation();
-  return (
-    <aside className="hidden md:flex md:w-60 md:flex-col border-r bg-sidebar text-sidebar-foreground">
-      <div className="flex items-center justify-between p-4">
-        <span className="font-bold">Future Finance</span>
-        <ThemeToggle />
-      </div>
-      <nav className="flex flex-col gap-1 p-2">
-        {items.map(({ to, label, icon: Icon }) => (
-          <Link key={to} to={to}
-            className={cn("flex items-center gap-2 rounded-md px-3 py-2 text-sm",
-              pathname === to ? "bg-sidebar-accent text-sidebar-accent-foreground" : "hover:bg-sidebar-accent/50")}>
-            <Icon className="h-4 w-4" />{label}
-          </Link>
-        ))}
-      </nav>
-    </aside>
-  );
-}
-```
-
-`app-v2/client/src/components/BottomNav.tsx`:
-```tsx
-import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, ListOrdered, CalendarDays } from "lucide-react";
-import { cn } from "@/lib/utils";
-
-const items = [
-  { to: "/", label: "Home", icon: LayoutDashboard },
-  { to: "/particulars", label: "Items", icon: ListOrdered },
-  { to: "/holidays", label: "Holidays", icon: CalendarDays },
-];
-
-export function BottomNav() {
-  const { pathname } = useLocation();
-  return (
-    <nav className="fixed bottom-0 left-0 right-0 z-20 flex border-t bg-background md:hidden">
-      {items.map(({ to, label, icon: Icon }) => (
-        <Link key={to} to={to}
-          className={cn("flex flex-1 flex-col items-center gap-1 py-2 text-xs",
-            pathname === to ? "text-foreground" : "text-muted-foreground")}>
-          <Icon className="h-5 w-5" />{label}
-        </Link>
-      ))}
-    </nav>
-  );
-}
-```
-
-- [ ] **Step 4: Verify it compiles and renders**
-
-Run (from `app-v2/client/`): `npm run dev`
-Expected: sidebar visible ≥768px, bottom nav <768px, theme toggle flips light/dark. Stop the server.
+Run (from repo root): `npx next build`
+Expected: build succeeds (shell components compile; primitives resolve `cn` and tokens).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add app-v2/client/src/components app-v2/client/components.json
-git commit -m "feat(client): port ui primitives, theme provider, app shell"
+git add app/_components components.json
+git commit -m "feat(client): port ui primitives, theme toggle, app shell"
 ```
 
 ---
 
-### Task 14: Routes + ActiveAccountProvider + Particulars & Holidays screens
+### Task 15: ActiveAccountProvider + Particulars & Holidays & Login pages
 
 **Files:**
-- Create: `app-v2/client/src/providers/ActiveAccountProvider.tsx`
-- Create: `app-v2/client/src/router.tsx`
-- Modify: `app-v2/client/src/App.tsx` (use the router)
-- Create: `app-v2/client/src/pages/Particulars.tsx` + `ParticularForm.tsx` + `OverrideManagement.tsx`
-- Create: `app-v2/client/src/pages/Holidays.tsx`
-- Create: `app-v2/client/src/pages/Login.tsx`
+- Create: `app/_providers/ActiveAccountProvider.tsx`
+- Create: `app/particulars/page.tsx`, `app/particulars/ParticularForm.tsx`, `app/particulars/OverrideManagement.tsx`
+- Create: `app/holidays/page.tsx`
+- Create: `app/login/page.tsx`
 
 **Interfaces:**
-- Consumes: `trpc` hooks; `particularInput`/`holidayInput` schemas from `@lib/schemas`; `Layout`.
-- Produces: working `/particulars` (list + create/edit/delete + override management) and `/holidays` (list + create/delete) screens; an `ActiveAccountProvider` exposing the single account via `trpc.account.get`.
+- Consumes: `trpc` hooks from `@/trpc/client`; `particularInput`/`holidayInput` from `@/lib/schemas`; `Layout` from `@/app/_components/Layout`; `formatCurrency` from `@/lib/design-system`; ported `ui/*`.
+- Produces: working `/particulars` (list + create/edit/delete + override management), `/holidays` (list + create/delete), `/login`; an `ActiveAccountProvider` exposing the single account via `trpc.account.get`.
 
-- [ ] **Step 1: Implement ActiveAccountProvider**
+- [ ] **Step 1: Implement ActiveAccountProvider (Client Component)**
 
-`app-v2/client/src/providers/ActiveAccountProvider.tsx`:
+`app/_providers/ActiveAccountProvider.tsx`:
 ```tsx
+"use client";
+
 import { createContext, useContext } from "react";
-import { trpc } from "@/trpc";
+import { trpc } from "@/trpc/client";
 
 type Account = { id: string; name: string; currentBalance: number; balanceUpdatedAt: Date };
 const Ctx = createContext<{ account: Account | null; isLoading: boolean }>({ account: null, isLoading: true });
@@ -2207,149 +2190,299 @@ export function ActiveAccountProvider({ children }: { children: React.ReactNode 
 export const useActiveAccount = () => useContext(Ctx);
 ```
 
-- [ ] **Step 2: Implement the router + App**
+- [ ] **Step 2: Implement the Particulars page + form + override management**
 
-`app-v2/client/src/router.tsx`:
+`app/particulars/ParticularForm.tsx` (Client Component — create/edit):
 ```tsx
-import { Routes, Route } from "react-router-dom";
-import { Layout } from "@/components/Layout";
-import { Dashboard } from "@/pages/Dashboard";
-import { Particulars } from "@/pages/Particulars";
-import { Holidays } from "@/pages/Holidays";
-import { Login } from "@/pages/Login";
+"use client";
 
-export function AppRoutes() {
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { particularInput, type ParticularInput } from "@/lib/schemas";
+import { trpc } from "@/trpc/client";
+import { Button } from "@/app/_components/ui/button";
+import { Input } from "@/app/_components/ui/input";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/app/_components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/app/_components/ui/select";
+import { Checkbox } from "@/app/_components/ui/checkbox";
+import { Label } from "@/app/_components/ui/label";
+
+export function ParticularForm(
+  { isOpen, particularId, onClose }: { isOpen: boolean; particularId: string | null; onClose: () => void },
+) {
+  const utils = trpc.useUtils();
+  const { data: existing } = trpc.particular.list.useQuery(undefined, {
+    select: (rows) => rows.find((r) => r.id === particularId) ?? null,
+    enabled: !!particularId,
+  });
+
+  const form = useForm<ParticularInput>({
+    resolver: zodResolver(particularInput),
+    defaultValues: {
+      name: existing?.name ?? "",
+      type: (existing?.type as "INCOME" | "EXPENSE") ?? "EXPENSE",
+      amount: existing ? Math.abs(Number(existing.amount)) : 0,
+      frequency: (existing?.frequency as ParticularInput["frequency"]) ?? "MONTHLY",
+      startDate: existing ? new Date(existing.startDate) : new Date(),
+      isCritical: existing?.isCritical ?? true,
+      isFixed: existing?.isFixed ?? true,
+      businessDayAdjustment: (existing?.businessDayAdjustment as ParticularInput["businessDayAdjustment"]) ?? "NONE",
+    },
+    values: existing
+      ? {
+          name: existing.name,
+          type: existing.type as "INCOME" | "EXPENSE",
+          amount: Math.abs(Number(existing.amount)),
+          frequency: existing.frequency as ParticularInput["frequency"],
+          startDate: new Date(existing.startDate),
+          endDate: existing.endDate ? new Date(existing.endDate) : undefined,
+          isCritical: existing.isCritical,
+          isFixed: existing.isFixed,
+          businessDayAdjustment: existing.businessDayAdjustment as ParticularInput["businessDayAdjustment"],
+        }
+      : undefined,
+  });
+
+  const onDone = () => { utils.particular.list.invalidate(); utils.forecast.getData.invalidate(); onClose(); };
+  const create = trpc.particular.create.useMutation({ onSuccess: onDone });
+  const update = trpc.particular.update.useMutation({ onSuccess: onDone });
+
+  const submit = form.handleSubmit((values) => {
+    if (particularId) update.mutate({ ...values, id: particularId });
+    else create.mutate(values);
+  });
+
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/" element={<Layout><Dashboard /></Layout>} />
-      <Route path="/particulars" element={<Layout><Particulars /></Layout>} />
-      <Route path="/holidays" element={<Layout><Holidays /></Layout>} />
-    </Routes>
-  );
-}
-```
-
-`app-v2/client/src/App.tsx` (replace placeholder):
-```tsx
-import { ThemeProvider } from "@/components/theme-provider";
-import { ActiveAccountProvider } from "@/providers/ActiveAccountProvider";
-import { AppRoutes } from "@/router";
-
-export default function App() {
-  return (
-    <ThemeProvider>
-      <ActiveAccountProvider>
-        <AppRoutes />
-      </ActiveAccountProvider>
-    </ThemeProvider>
-  );
-}
-```
-
-(Remove the `ThemeProvider` wrap from `main.tsx` if added there in Task 13 Step 2 — it now lives in `App.tsx`. Keep only one.)
-
-- [ ] **Step 3: Port Particulars + form + override management**
-
-Port `ParticularForm.tsx` and `OverrideManagement.tsx` from `src/app/_components/`, plus the list page from `src/app/particulars/page.tsx`, into `app-v2/client/src/pages/`. Replace:
-- `api` (Next tRPC) → `trpc` from `@/trpc`
-- `useActiveAccount` import → `@/providers/ActiveAccountProvider`
-- Remove `"use client"` directives
-- Form validation uses `particularInput` from `@lib/schemas` via `@hookform/resolvers/zod`
-- `create`/`update` no longer pass `accountId` (server derives it from the session) — drop that field from the payload
-
-`app-v2/client/src/pages/Particulars.tsx` (list shell — port the form/override components alongside):
-```tsx
-import { useState } from "react";
-import { trpc } from "@/trpc";
-import { Button } from "@/components/ui/button";
-import { formatCurrency } from "@/lib/design-system";
-import { ParticularForm } from "./ParticularForm";
-
-export function Particulars() {
-  const { data: particulars, isLoading } = trpc.particular.list.useQuery();
-  const [editing, setEditing] = useState<null | { id: string }>(null);
-  const [formOpen, setFormOpen] = useState(false);
-
-  if (isLoading) return <p className="text-muted-foreground">Loading…</p>;
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Income &amp; Expenses</h1>
-        <Button size="sm" onClick={() => { setEditing(null); setFormOpen(true); }}>Add</Button>
-      </div>
-      <div className="space-y-2">
-        {(particulars ?? []).map((p) => (
-          <div key={p.id} className="flex justify-between rounded-md border p-3"
-               onClick={() => { setEditing({ id: p.id }); setFormOpen(true); }}>
-            <span>{p.name}</span>
-            <span className={Number(p.amount) < 0 ? "text-finance-expense" : "text-finance-income"}>
-              {formatCurrency(Number(p.amount))}
-            </span>
+    <Dialog open={isOpen} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>{particularId ? "Edit" : "Add"} item</DialogTitle></DialogHeader>
+        <form className="space-y-3" onSubmit={submit}>
+          <div className="space-y-1">
+            <Label>Name</Label>
+            <Input {...form.register("name")} />
           </div>
-        ))}
-      </div>
-      {formOpen && (
-        <ParticularForm
-          isOpen={formOpen}
-          particularId={editing?.id ?? null}
-          onClose={() => setFormOpen(false)}
-        />
-      )}
+          <div className="space-y-1">
+            <Label>Type</Label>
+            <Select value={form.watch("type")} onValueChange={(v) => form.setValue("type", v as "INCOME" | "EXPENSE")}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="INCOME">Income</SelectItem>
+                <SelectItem value="EXPENSE">Expense</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label>Amount</Label>
+            <Input type="number" step="0.01" {...form.register("amount", { valueAsNumber: true })} />
+          </div>
+          <div className="space-y-1">
+            <Label>Frequency</Label>
+            <Select value={form.watch("frequency")} onValueChange={(v) => form.setValue("frequency", v as ParticularInput["frequency"])}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ONCE_OFF">Once-off</SelectItem>
+                <SelectItem value="WEEKLY">Weekly</SelectItem>
+                <SelectItem value="FORTNIGHTLY">Fortnightly</SelectItem>
+                <SelectItem value="MONTHLY">Monthly</SelectItem>
+                <SelectItem value="ANNUAL">Annual</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label>Start date</Label>
+            <Input type="date" {...form.register("startDate", { valueAsDate: true })} />
+          </div>
+          <div className="space-y-1">
+            <Label>End date (optional)</Label>
+            <Input type="date" {...form.register("endDate", { valueAsDate: true })} />
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox checked={form.watch("isCritical")} onCheckedChange={(c) => form.setValue("isCritical", !!c)} />
+            Critical (cannot be skipped or moved)
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox checked={form.watch("isFixed")} onCheckedChange={(c) => form.setValue("isFixed", !!c)} />
+            Fixed (amount cannot be overridden)
+          </label>
+          <div className="space-y-1">
+            <Label>Business-day adjustment</Label>
+            <Select value={form.watch("businessDayAdjustment")} onValueChange={(v) => form.setValue("businessDayAdjustment", v as ParticularInput["businessDayAdjustment"])}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="NONE">None</SelectItem>
+                <SelectItem value="NEXT_BUSINESS_DAY">Next business day</SelectItem>
+                <SelectItem value="PREVIOUS_BUSINESS_DAY">Previous business day</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit">Save</Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+```
+
+`app/particulars/OverrideManagement.tsx` (Client Component):
+```tsx
+"use client";
+
+import { trpc } from "@/trpc/client";
+import { Button } from "@/app/_components/ui/button";
+import { formatCurrency } from "@/lib/design-system";
+import { format } from "date-fns";
+
+export function OverrideManagement({ particularId }: { particularId: string }) {
+  const utils = trpc.useUtils();
+  const { data: overrides } = trpc.particular.listOverrides.useQuery({ particularId });
+  const del = trpc.particular.deleteOverride.useMutation({
+    onSuccess: () => { utils.particular.listOverrides.invalidate({ particularId }); utils.forecast.getData.invalidate(); },
+  });
+
+  if (!overrides?.length) return <p className="text-sm text-muted-foreground">No overrides.</p>;
+  return (
+    <div className="space-y-2">
+      {overrides.map((o) => (
+        <div key={o.id} className="flex items-center justify-between rounded-md border p-2 text-sm">
+          <span>
+            {format(new Date(o.originalDate), "MMM d, yyyy")}
+            {o.isSkipped ? " — skipped"
+              : o.overriddenAmount != null ? ` — ${formatCurrency(Number(o.overriddenAmount))}`
+              : o.overriddenDate ? ` — moved to ${format(new Date(o.overriddenDate), "MMM d")}` : ""}
+          </span>
+          <Button variant="ghost" size="sm" onClick={() => del.mutate({ id: o.id })}>Revert</Button>
+        </div>
+      ))}
     </div>
   );
 }
 ```
 
-> The ported `ParticularForm` keeps the original fields (name, type, amount, frequency, start/end dates, isCritical, isFixed, businessDayAdjustment). On submit it calls `trpc.particular.create` or `trpc.particular.update` and invalidates `trpc.particular.list`. `OverrideManagement` lists `trpc.particular.listOverrides` for a particular and calls `trpc.particular.deleteOverride` to revert.
-
-- [ ] **Step 4: Port Holidays + a minimal Login**
-
-`app-v2/client/src/pages/Holidays.tsx`:
+`app/particulars/page.tsx` (Client Component — list shell):
 ```tsx
+"use client";
+
 import { useState } from "react";
-import { trpc } from "@/trpc";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
+import { trpc } from "@/trpc/client";
+import { Layout } from "@/app/_components/Layout";
+import { Button } from "@/app/_components/ui/button";
+import { formatCurrency } from "@/lib/design-system";
+import { ParticularForm } from "./ParticularForm";
+import { OverrideManagement } from "./OverrideManagement";
+
+export default function ParticularsPage() {
+  const utils = trpc.useUtils();
+  const { data: particulars, isLoading } = trpc.particular.list.useQuery();
+  const del = trpc.particular.delete.useMutation({
+    onSuccess: () => { utils.particular.list.invalidate(); utils.forecast.getData.invalidate(); },
+  });
+  const [editing, setEditing] = useState<string | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  return (
+    <Layout>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Income &amp; Expenses</h1>
+          <Button size="sm" onClick={() => { setEditing(null); setFormOpen(true); }}>Add</Button>
+        </div>
+        {isLoading ? <p className="text-muted-foreground">Loading…</p> : (
+          <div className="space-y-2">
+            {(particulars ?? []).map((p) => {
+              const signed = p.type === "EXPENSE" ? -Math.abs(Number(p.amount)) : Math.abs(Number(p.amount));
+              return (
+                <div key={p.id} className="rounded-md border p-3">
+                  <div className="flex items-center justify-between">
+                    <button className="text-left" onClick={() => setExpanded(expanded === p.id ? null : p.id)}>
+                      <span className="font-medium">{p.name}</span>
+                      <span className="ml-2 text-xs text-muted-foreground">{p.frequency}</span>
+                    </button>
+                    <div className="flex items-center gap-2">
+                      <span className={signed < 0 ? "text-finance-expense" : "text-finance-income"}>
+                        {formatCurrency(signed)}
+                      </span>
+                      <Button variant="ghost" size="sm" onClick={() => { setEditing(p.id); setFormOpen(true); }}>Edit</Button>
+                      <Button variant="ghost" size="sm" onClick={() => del.mutate({ id: p.id })}>Delete</Button>
+                    </div>
+                  </div>
+                  {expanded === p.id && <div className="mt-2"><OverrideManagement particularId={p.id} /></div>}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {formOpen && (
+          <ParticularForm isOpen={formOpen} particularId={editing} onClose={() => setFormOpen(false)} />
+        )}
+      </div>
+    </Layout>
+  );
+}
+```
+
+- [ ] **Step 3: Implement Holidays + Login pages**
+
+`app/holidays/page.tsx` (Client Component):
+```tsx
+"use client";
+
+import { useState } from "react";
+import { trpc } from "@/trpc/client";
+import { Layout } from "@/app/_components/Layout";
+import { Button } from "@/app/_components/ui/button";
+import { Input } from "@/app/_components/ui/input";
+import { Checkbox } from "@/app/_components/ui/checkbox";
 import { format } from "date-fns";
 
-export function Holidays() {
+export default function HolidaysPage() {
   const utils = trpc.useUtils();
   const { data: holidays } = trpc.holiday.list.useQuery();
-  const create = trpc.holiday.create.useMutation({ onSuccess: () => utils.holiday.list.invalidate() });
-  const del = trpc.holiday.delete.useMutation({ onSuccess: () => utils.holiday.list.invalidate() });
+  const create = trpc.holiday.create.useMutation({
+    onSuccess: () => { utils.holiday.list.invalidate(); utils.forecast.getData.invalidate(); },
+  });
+  const del = trpc.holiday.delete.useMutation({
+    onSuccess: () => { utils.holiday.list.invalidate(); utils.forecast.getData.invalidate(); },
+  });
   const [name, setName] = useState(""); const [date, setDate] = useState(""); const [recurring, setRecurring] = useState(false);
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Holidays</h1>
-      <form className="flex flex-wrap items-center gap-2"
-        onSubmit={(e) => { e.preventDefault(); create.mutate({ name, date: new Date(date), isRecurring: recurring }); setName(""); setDate(""); }}>
-        <Input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
-        <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-        <label className="flex items-center gap-1 text-sm">
-          <Checkbox checked={recurring} onCheckedChange={(c) => setRecurring(!!c)} /> Recurring
-        </label>
-        <Button type="submit" size="sm">Add</Button>
-      </form>
-      <div className="space-y-2">
-        {(holidays ?? []).map((h) => (
-          <div key={h.id} className="flex justify-between rounded-md border p-3">
-            <span>{h.name} — {format(new Date(h.date), "MMM d, yyyy")}{h.isRecurring ? " (yearly)" : ""}</span>
-            <Button variant="ghost" size="sm" onClick={() => del.mutate({ id: h.id })}>Delete</Button>
-          </div>
-        ))}
+    <Layout>
+      <div className="space-y-4">
+        <h1 className="text-2xl font-bold">Holidays</h1>
+        <form className="flex flex-wrap items-center gap-2"
+          onSubmit={(e) => { e.preventDefault(); create.mutate({ name, date: new Date(date), isRecurring: recurring }); setName(""); setDate(""); }}>
+          <Input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
+          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          <label className="flex items-center gap-1 text-sm">
+            <Checkbox checked={recurring} onCheckedChange={(c) => setRecurring(!!c)} /> Recurring
+          </label>
+          <Button type="submit" size="sm">Add</Button>
+        </form>
+        <div className="space-y-2">
+          {(holidays ?? []).map((h) => (
+            <div key={h.id} className="flex justify-between rounded-md border p-3">
+              <span>{h.name} — {format(new Date(h.date), "MMM d, yyyy")}{h.isRecurring ? " (yearly)" : ""}</span>
+              <Button variant="ghost" size="sm" onClick={() => del.mutate({ id: h.id })}>Delete</Button>
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
+    </Layout>
   );
 }
 ```
 
-`app-v2/client/src/pages/Login.tsx`:
+`app/login/page.tsx` (Server Component — uses the NextAuth sign-in route):
 ```tsx
-export function Login() {
+export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
       <a href="/api/auth/signin"
@@ -2359,33 +2492,37 @@ export function Login() {
 }
 ```
 
-- [ ] **Step 5: Verify compile + commit**
+- [ ] **Step 4: Verify it builds**
 
-Run (from `app-v2/client/`): `npm run build`
-Expected: `tsc -b && vite build` succeeds.
+Run (from repo root): `npx next build`
+Expected: build succeeds; `/particulars`, `/holidays`, `/login` compile.
+
+- [ ] **Step 5: Commit**
 
 ```bash
-git add app-v2/client/src
-git commit -m "feat(client): routes, active account, particulars and holidays screens"
+git add app/_providers app/particulars app/holidays app/login
+git commit -m "feat(client): active account provider, particulars, holidays, login pages"
 ```
 
 ---
 
-### Task 15: Dashboard/forecast screen (runs the engine locally)
+### Task 16: Dashboard/forecast page (runs the engine locally) + client mapper
 
 **Files:**
-- Create: `app-v2/client/src/pages/Dashboard.tsx`
-- Create: `app-v2/client/src/pages/dashboard/MetricCard.tsx`, `DailyCard.tsx`, `OverrideModal.tsx`, `DangerNotification.tsx`, `BalanceSparkline.tsx`, `UpdateBalanceModal.tsx`, `SkipTodayButton.tsx`
-- Create: `app-v2/client/src/lib/toEngine.ts`
-- Test: `app-v2/client/src/lib/toEngine.test.ts`
+- Create: `lib/toEngine.ts`
+- Test: `lib/toEngine.test.ts`
+- Modify: `app/page.tsx` (replace placeholder with the Dashboard)
+- Create: `app/_components/dashboard/MetricCard.tsx`, `DailyCard.tsx`, `OverrideModal.tsx`, `DangerNotification.tsx`, `BalanceSparkline.tsx`, `UpdateBalanceModal.tsx`, `SkipTodayButton.tsx`
 
 **Interfaces:**
-- Consumes: `trpc.forecast.getData`; `computeForecast` from `@lib/engine`; `useActiveAccount`.
-- Produces: `toEngineInputs(data)` mapping the `forecast.getData` response → `{ particulars: EngineParticular[]; holidays: EngineHoliday[]; anchorBalance; anchorDate }`; a Dashboard that computes balances client-side and renders the ported widgets with today→+3-months horizon and load-more.
+- Consumes: `trpc.forecast.getData`; `computeForecast` from `@/lib/engine`; `useActiveAccount`; ported `ui/*`.
+- Produces:
+  - `toEngineInputs(data)` mapping the `forecast.getData` response → `{ particulars: EngineParticular[]; holidays: EngineHoliday[]; anchorBalance: number; anchorDate: Date }`
+  - A Dashboard (Client Component) that computes balances client-side with today→+3-months horizon and load-more, rendering the ported widgets.
 
 - [ ] **Step 1: Write the failing test for the client mapper**
 
-`app-v2/client/src/lib/toEngine.test.ts`:
+`lib/toEngine.test.ts`:
 ```ts
 import { describe, it, expect } from "vitest";
 import { toEngineInputs } from "./toEngine";
@@ -2410,14 +2547,14 @@ describe("toEngineInputs", () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run (from `app-v2/client/`): `npm test -- run src/lib/toEngine.test.ts`
+Run: `npm test -- run lib/toEngine.test.ts`
 Expected: FAIL — cannot find module `./toEngine`.
 
 - [ ] **Step 3: Implement the client mapper**
 
-`app-v2/client/src/lib/toEngine.ts`:
+`lib/toEngine.ts`:
 ```ts
-import type { EngineParticular, EngineHoliday } from "@lib/engine";
+import type { EngineParticular, EngineHoliday } from "@/lib/engine";
 
 type Row = {
   account: { currentBalance: number; balanceUpdatedAt: Date };
@@ -2457,142 +2594,401 @@ export function toEngineInputs(data: Row) {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npm test -- run src/lib/toEngine.test.ts`
+Run: `npm test -- run lib/toEngine.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Implement the Dashboard + ported widgets**
+- [ ] **Step 5: Implement the dashboard widgets**
 
-Port the widgets (`MetricCard`, `DailyCard`, `OverrideModal`, `DangerNotification`, `BalanceSparkline`, `UpdateBalanceModal`, `SkipTodayButton`) from `src/app/_components/` into `app-v2/client/src/pages/dashboard/`, replacing `api`→`trpc`, removing `"use client"`, and importing types from `@lib/engine` (`DailyBalance`, `DailyEvent`). `OverrideModal` calls `trpc.particular.overrideInstance` and invalidates `trpc.forecast.getData`.
+Create the small presentational widgets. Keep markup faithful to the original UX (cards + finance-semantic colors). These take fully-computed props (no data fetching inside).
 
-`app-v2/client/src/pages/Dashboard.tsx`:
+`app/_components/dashboard/MetricCard.tsx`:
 ```tsx
-import { useMemo, useState } from "react";
-import { addMonths, startOfDay } from "date-fns";
-import { trpc } from "@/trpc";
-import { computeForecast } from "@lib/engine";
-import { toEngineInputs } from "@/lib/toEngine";
-import { MetricCard } from "./dashboard/MetricCard";
-import { DailyCard } from "./dashboard/DailyCard";
-import { DangerNotification } from "./dashboard/DangerNotification";
-import { SkipTodayButton } from "./dashboard/SkipTodayButton";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
 import { formatCurrency } from "@/lib/design-system";
 
-export function Dashboard() {
-  const today = startOfDay(new Date());
-  const [monthsAhead, setMonthsAhead] = useState(3);
-  const [skipToday, setSkipToday] = useState(false);
-  const viewStart = today;
-  const viewEnd = addMonths(today, monthsAhead);
-
-  const { data, isLoading } = trpc.forecast.getData.useQuery({ viewStart, viewEnd });
-
-  const result = useMemo(() => {
-    if (!data) return null;
-    const inputs = toEngineInputs(data as never);
-    return computeForecast({ ...inputs, viewStart, viewEnd, today, skipToday });
-  }, [data, monthsAhead, skipToday]);
-
-  if (isLoading || !result) return <p className="text-muted-foreground">Loading…</p>;
-
-  const current = result.days[0]?.openingBalance ?? 0;
-  const thisMonth = result.months[0];
-
+export function MetricCard(
+  { title, value, subtitle, type }:
+  { title: string; value: number; subtitle?: string; type: "income" | "expense" | "warning" },
+) {
+  const color = type === "income" ? "text-finance-income" : type === "expense" ? "text-finance-expense" : "text-finance-warning";
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Dashboard</h1>
-        <SkipTodayButton skipToday={skipToday} onToggle={() => setSkipToday((s) => !s)} />
-      </div>
+    <Card>
+      <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">{title}</CardTitle></CardHeader>
+      <CardContent>
+        <div className={`text-2xl font-bold ${color}`}>{formatCurrency(value)}</div>
+        {subtitle && <div className="text-xs text-muted-foreground">{subtitle}</div>}
+      </CardContent>
+    </Card>
+  );
+}
+```
 
-      {result.firstNegative && <DangerNotification negativeBalance={result.firstNegative} />}
+`app/_components/dashboard/DailyCard.tsx`:
+```tsx
+import type { DailyBalance } from "@/lib/engine";
+import { Card, CardContent } from "@/app/_components/ui/card";
+import { formatCurrency } from "@/lib/design-system";
+import { format } from "date-fns";
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard title="Current Balance" value={current} type={current >= 0 ? "income" : "expense"} />
-        <MetricCard title="Lowest Balance" value={result.lowest?.closingBalance ?? 0}
-          type={(result.lowest?.closingBalance ?? 0) >= 0 ? "income" : "expense"} />
-        <MetricCard title="Next Negative" value={result.firstNegative?.closingBalance ?? 0} type="warning" />
-        <MetricCard title="This Month" value={thisMonth?.netChange ?? 0}
-          subtitle={`${formatCurrency(thisMonth?.totalIncome ?? 0)} in, ${formatCurrency(thisMonth?.totalExpenses ?? 0)} out`}
-          type={(thisMonth?.netChange ?? 0) >= 0 ? "income" : "expense"} />
-      </div>
+export function DailyCard({ day, onEventClick }: { day: DailyBalance; onEventClick?: (particularId: string, originalDate?: Date) => void }) {
+  return (
+    <Card className={day.isNegative ? "border-finance-expense" : undefined}>
+      <CardContent className="p-3">
+        <div className="flex items-center justify-between">
+          <span className="font-medium">{format(day.date, "EEE, MMM d")}</span>
+          <span className={day.closingBalance < 0 ? "text-finance-expense" : "text-foreground"}>
+            {formatCurrency(day.closingBalance)}
+          </span>
+        </div>
+        {day.events.length > 0 && (
+          <ul className="mt-2 space-y-1">
+            {day.events.map((e, i) => (
+              <li key={`${e.particularId}-${i}`}
+                  className="flex cursor-pointer justify-between text-sm"
+                  onClick={() => onEventClick?.(e.particularId, e.originalDate)}>
+                <span>
+                  {e.name}
+                  {e.isOverridden && <span className="ml-1 text-xs text-finance-warning">(edited)</span>}
+                  {e.isMovedDueToHoliday && <span className="ml-1 text-xs text-muted-foreground">(moved)</span>}
+                </span>
+                <span className={e.amount < 0 ? "text-finance-expense" : "text-finance-income"}>
+                  {formatCurrency(e.amount)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+```
 
-      <div className="space-y-2">
-        <h2 className="text-lg font-semibold">Daily Transactions</h2>
-        {result.days.map((day) => <DailyCard key={day.date.toISOString()} day={day} />)}
-      </div>
+`app/_components/dashboard/DangerNotification.tsx`:
+```tsx
+import type { DailyBalance } from "@/lib/engine";
+import { formatCurrency } from "@/lib/design-system";
+import { format } from "date-fns";
 
-      <div className="flex justify-center">
-        <Button variant="outline" size="sm" onClick={() => setMonthsAhead((m) => m + 1)}>Load next month</Button>
-      </div>
+export function DangerNotification({ negativeBalance }: { negativeBalance: DailyBalance }) {
+  return (
+    <div className="rounded-md border border-finance-expense bg-finance-expense/10 p-3 text-sm">
+      ⚠ Balance goes negative on {format(negativeBalance.date, "MMM d, yyyy")} ({formatCurrency(negativeBalance.closingBalance)}).
     </div>
   );
 }
 ```
 
-> Keep `MetricCard`, `DailyCard`, `OverrideModal`, `DangerNotification`, `BalanceSparkline`, `SkipTodayButton`, `UpdateBalanceModal` faithful to the originals (same markup/classes). The only structural change vs. the old app: balances come from `computeForecast` (anchored), and the horizon is today→+N months instead of −30/+14.
+`app/_components/dashboard/SkipTodayButton.tsx`:
+```tsx
+"use client";
 
-- [ ] **Step 6: Verify build + commit**
+import { Button } from "@/app/_components/ui/button";
 
-Run (from `app-v2/client/`): `npm run build`
+export function SkipTodayButton({ skipToday, onToggle }: { skipToday: boolean; onToggle: () => void }) {
+  return (
+    <Button variant={skipToday ? "default" : "outline"} size="sm" onClick={onToggle}>
+      {skipToday ? "Skipping today" : "Skip today"}
+    </Button>
+  );
+}
+```
+
+`app/_components/dashboard/BalanceSparkline.tsx`:
+```tsx
+"use client";
+
+import type { DailyBalance } from "@/lib/engine";
+import { LineChart, Line, ResponsiveContainer, YAxis } from "recharts";
+
+export function BalanceSparkline({ days }: { days: DailyBalance[] }) {
+  const data = days.map((d) => ({ v: d.closingBalance }));
+  return (
+    <ResponsiveContainer width="100%" height={48}>
+      <LineChart data={data}>
+        <YAxis hide domain={["dataMin", "dataMax"]} />
+        <Line type="monotone" dataKey="v" dot={false} strokeWidth={2} stroke="currentColor" />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+```
+
+`app/_components/dashboard/UpdateBalanceModal.tsx`:
+```tsx
+"use client";
+
+import { useState } from "react";
+import { trpc } from "@/trpc/client";
+import { Button } from "@/app/_components/ui/button";
+import { Input } from "@/app/_components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/app/_components/ui/dialog";
+
+export function UpdateBalanceModal(
+  { isOpen, current, onClose }: { isOpen: boolean; current: number; onClose: () => void },
+) {
+  const utils = trpc.useUtils();
+  const [value, setValue] = useState(String(current));
+  const update = trpc.account.updateBalance.useMutation({
+    onSuccess: () => { utils.account.get.invalidate(); utils.forecast.getData.invalidate(); onClose(); },
+  });
+  return (
+    <Dialog open={isOpen} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Update current balance</DialogTitle></DialogHeader>
+        <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); update.mutate({ balance: Number(value) }); }}>
+          <Input type="number" step="0.01" value={value} onChange={(e) => setValue(e.target.value)} />
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit">Save</Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+```
+
+`app/_components/dashboard/OverrideModal.tsx`:
+```tsx
+"use client";
+
+import { useState } from "react";
+import { trpc } from "@/trpc/client";
+import { Button } from "@/app/_components/ui/button";
+import { Input } from "@/app/_components/ui/input";
+import { Checkbox } from "@/app/_components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/app/_components/ui/dialog";
+
+export function OverrideModal(
+  { isOpen, particularId, originalDate, isFixed, isCritical, onClose }:
+  { isOpen: boolean; particularId: string; originalDate: Date; isFixed: boolean; isCritical: boolean; onClose: () => void },
+) {
+  const utils = trpc.useUtils();
+  const [amount, setAmount] = useState("");
+  const [date, setDate] = useState("");
+  const [skip, setSkip] = useState(false);
+  const override = trpc.particular.overrideInstance.useMutation({
+    onSuccess: () => { utils.forecast.getData.invalidate(); utils.particular.listOverrides.invalidate({ particularId }); onClose(); },
+  });
+
+  return (
+    <Dialog open={isOpen} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Override this occurrence</DialogTitle></DialogHeader>
+        <form className="space-y-3" onSubmit={(e) => {
+          e.preventDefault();
+          override.mutate({
+            particularId, originalDate,
+            overriddenAmount: amount ? Number(amount) : undefined,
+            overriddenDate: date ? new Date(date) : undefined,
+            isSkipped: skip,
+          });
+        }}>
+          {!isFixed && (
+            <div className="space-y-1">
+              <label className="text-sm">New amount</label>
+              <Input type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
+            </div>
+          )}
+          {!isCritical && (
+            <>
+              <div className="space-y-1">
+                <label className="text-sm">Move to date</label>
+                <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              </div>
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox checked={skip} onCheckedChange={(c) => setSkip(!!c)} /> Skip this occurrence
+              </label>
+            </>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit">Save</Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+```
+
+- [ ] **Step 6: Implement the Dashboard page**
+
+`app/page.tsx` (replace placeholder):
+```tsx
+"use client";
+
+import { useMemo, useState } from "react";
+import { addMonths, startOfDay } from "date-fns";
+import { trpc } from "@/trpc/client";
+import { computeForecast } from "@/lib/engine";
+import { toEngineInputs } from "@/lib/toEngine";
+import { Layout } from "@/app/_components/Layout";
+import { Button } from "@/app/_components/ui/button";
+import { formatCurrency } from "@/lib/design-system";
+import { MetricCard } from "@/app/_components/dashboard/MetricCard";
+import { DailyCard } from "@/app/_components/dashboard/DailyCard";
+import { DangerNotification } from "@/app/_components/dashboard/DangerNotification";
+import { SkipTodayButton } from "@/app/_components/dashboard/SkipTodayButton";
+import { BalanceSparkline } from "@/app/_components/dashboard/BalanceSparkline";
+import { UpdateBalanceModal } from "@/app/_components/dashboard/UpdateBalanceModal";
+import { OverrideModal } from "@/app/_components/dashboard/OverrideModal";
+
+export default function DashboardPage() {
+  const today = startOfDay(new Date());
+  const [monthsAhead, setMonthsAhead] = useState(3);
+  const [skipToday, setSkipToday] = useState(false);
+  const [balanceOpen, setBalanceOpen] = useState(false);
+  const [override, setOverride] = useState<{ particularId: string; originalDate: Date; isFixed: boolean; isCritical: boolean } | null>(null);
+
+  const viewStart = today;
+  const viewEnd = addMonths(today, monthsAhead);
+
+  const { data, isLoading } = trpc.forecast.getData.useQuery({ viewStart, viewEnd });
+  const { data: particulars } = trpc.particular.list.useQuery();
+
+  const result = useMemo(() => {
+    if (!data) return null;
+    const inputs = toEngineInputs(data as never);
+    return computeForecast({ ...inputs, viewStart, viewEnd, today, skipToday });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, monthsAhead, skipToday]);
+
+  if (isLoading || !result) return <Layout><p className="text-muted-foreground">Loading…</p></Layout>;
+
+  const current = result.days[0]?.openingBalance ?? 0;
+  const thisMonth = result.months[0];
+
+  const openOverride = (particularId: string, originalDate?: Date) => {
+    if (!originalDate) return;
+    const p = particulars?.find((x) => x.id === particularId);
+    if (!p) return;
+    setOverride({ particularId, originalDate, isFixed: p.isFixed, isCritical: p.isCritical });
+  };
+
+  return (
+    <Layout>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Dashboard</h1>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setBalanceOpen(true)}>Update balance</Button>
+            <SkipTodayButton skipToday={skipToday} onToggle={() => setSkipToday((s) => !s)} />
+          </div>
+        </div>
+
+        {result.firstNegative && <DangerNotification negativeBalance={result.firstNegative} />}
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <MetricCard title="Current Balance" value={current} type={current >= 0 ? "income" : "expense"} />
+          <MetricCard title="Lowest Balance" value={result.lowest?.closingBalance ?? 0}
+            type={(result.lowest?.closingBalance ?? 0) >= 0 ? "income" : "expense"} />
+          <MetricCard title="Next Negative" value={result.firstNegative?.closingBalance ?? 0} type="warning" />
+          <MetricCard title="This Month" value={thisMonth?.netChange ?? 0}
+            subtitle={`${formatCurrency(thisMonth?.totalIncome ?? 0)} in, ${formatCurrency(thisMonth?.totalExpenses ?? 0)} out`}
+            type={(thisMonth?.netChange ?? 0) >= 0 ? "income" : "expense"} />
+        </div>
+
+        <div className="text-foreground"><BalanceSparkline days={result.days} /></div>
+
+        <div className="space-y-2">
+          <h2 className="text-lg font-semibold">Daily Transactions</h2>
+          {result.days.map((day) => (
+            <DailyCard key={day.date.toISOString()} day={day} onEventClick={openOverride} />
+          ))}
+        </div>
+
+        <div className="flex justify-center">
+          <Button variant="outline" size="sm" onClick={() => setMonthsAhead((m) => m + 1)}>Load next month</Button>
+        </div>
+      </div>
+
+      {balanceOpen && <UpdateBalanceModal isOpen={balanceOpen} current={current} onClose={() => setBalanceOpen(false)} />}
+      {override && (
+        <OverrideModal isOpen={!!override} {...override} onClose={() => setOverride(null)} />
+      )}
+    </Layout>
+  );
+}
+```
+
+- [ ] **Step 7: Verify build + commit**
+
+Run (from repo root): `npx next build`
 Expected: build succeeds.
 
 ```bash
-git add app-v2/client/src/pages app-v2/client/src/lib
-git commit -m "feat(client): dashboard forecast screen running the engine locally"
+git add lib/toEngine.ts lib/toEngine.test.ts app/page.tsx app/_components/dashboard
+git commit -m "feat(client): dashboard forecast page running the engine locally"
 ```
 
 ---
 
-### Task 16: Root dev orchestration + end-to-end smoke
+### Task 17: Provision DB, end-to-end smoke, run docs
 
 **Files:**
-- Modify: `app-v2/package.json` (add `dev` script running client + server together)
-- Create: `app-v2/README.md` (run instructions)
+- Create: `README.md` (run instructions — overwrite the seed README)
 
 **Interfaces:**
-- Produces: `npm run dev` at `app-v2/` boots both the API (3001) and the Vite SPA (5173) with the proxy.
+- Produces: a documented, runnable app; `npm test` green across engine + server + client units; manual full-stack smoke verified.
 
-- [ ] **Step 1: Add concurrent dev script**
+- [ ] **Step 1: Provision the database**
 
-Add to `app-v2/package.json`:
-```json
-{
-  "scripts": {
-    "dev": "concurrently -n server,client -c blue,green \"npm --prefix server run dev\" \"npm --prefix client run dev\"",
-    "test": "vitest && npm --prefix server test -- run && npm --prefix client test -- run"
-  },
-  "devDependencies": { "concurrently": "^9.0.0" }
-}
-```
-Run (from `app-v2/`): `npm install`.
-
-- [ ] **Step 2: Provision the database**
-
-Copy `.env.example` → `.env` (in `app-v2/`), set a real `DATABASE_URL` and `AUTH_SECRET` (`openssl rand -base64 32`), then:
-Run (from `app-v2/server/`): `npm run db:push`
+Copy `.env.example` → `.env`, set a real `DATABASE_URL` and `AUTH_SECRET` (`openssl rand -base64 32`), then:
+Run (from repo root): `npm run db:push`
 Expected: schema synced to Postgres.
 
-- [ ] **Step 3: Full-stack smoke test**
+- [ ] **Step 2: Configure at least one auth provider**
 
-Run (from `app-v2/`): `npm run dev`. In the browser at `http://localhost:5173`:
-- Dashboard loads (account auto-created on first authenticated request; if unauthenticated, sign in via `/login` → `/api/auth/signin`).
+`server/auth.ts` ships with `providers: []`. Add a real provider (matching the original app — e.g. an OAuth provider or the email magic-link provider) so sign-in works. Set the provider's env vars in `.env`. This is required for the smoke test's sign-in step.
+
+- [ ] **Step 3: Write the run docs**
+
+`README.md`:
+```markdown
+# Future Finance v2
+
+Single-user financial forecaster (Next.js App Router).
+
+## Setup
+1. `npm install`
+2. Copy `.env.example` → `.env`; set `DATABASE_URL`, `AUTH_SECRET`, and your auth provider vars.
+3. `npm run db:push`
+4. `npm run dev` → http://localhost:3000
+
+## Architecture
+- `lib/engine/` — pure forecast engine (no React/DB), run on both server and client.
+- `lib/schemas/` — shared Zod schemas.
+- `server/` — tRPC routers, Prisma, NextAuth (server-only).
+- `app/` — Next.js App Router pages + `/api/trpc` and `/api/auth` route handlers.
+
+## Test
+`npm test` (Vitest) — engine, server, and client units.
+```
+
+- [ ] **Step 4: Full-stack smoke test**
+
+> Per local convention, dev may already be running on port 3000 (`dev.log`). Otherwise `npm run dev`.
+In the browser at `http://localhost:3000`:
+- Sign in via `/login` → `/api/auth/signin`; the account auto-creates on the first authenticated request.
 - Add an income and an expense on `/particulars`; confirm they appear on the dashboard daily cards with correct signs.
 - Update the balance; confirm projected balances re-anchor.
 - Add a future recurring expense large enough to go negative; confirm the danger notification and "Next Negative" metric appear.
+- Click a daily event for a flexible/adjustable particular; override it; confirm the dashboard recomputes instantly.
 - Click "Load next month"; confirm an extra month renders and its opening balance reflects all prior events.
 Expected: all behaviors correct.
 
-- [ ] **Step 4: Run the full test suite**
+- [ ] **Step 5: Run the full test suite**
 
-Run (from `app-v2/`): `npm test`
+Run (from repo root): `npm test -- run`
 Expected: engine, server, and client unit tests all pass.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add app-v2/package.json app-v2/package-lock.json app-v2/README.md
-git commit -m "chore: root dev orchestration and run docs"
+git add README.md
+git commit -m "chore: db provisioning notes and run docs"
 ```
 
 ---
@@ -2600,26 +2996,29 @@ git commit -m "chore: root dev orchestration and run docs"
 ## Self-Review
 
 **Spec coverage:**
-- Single-user auth (Auth.js + Prisma adapter, session) → Tasks 7, 9, 11.
-- One FinanceAccount per user, growth-shaped (`ownerId @unique`) → Task 7; auto-create on first login → Task 9 (`resolveAccount`).
-- Particulars + recurrence + critical/flexible + fixed/adjustable + business-day → Tasks 2–4 (engine), 7 (schema), 10 (router), 14 (UI).
-- Holidays (one-time + recurring) → Tasks 3, 7, 10, 14.
-- Per-instance overrides (amount/date/skip) keyed by `(particularId, originalDate)`, validation server-side → Tasks 4 (engine), 6/10 (schema + `assertOverrideAllowed`), 15 (override modal).
-- Pure engine run on both sides → Tasks 1–5 (engine), 8/15 (mappers both sides), 15 (client runs `computeForecast`).
+- Single Next.js app, one origin → Tasks 1, 11, 13.
+- Single-user auth (NextAuth v5 + Prisma adapter, database session) → Tasks 7, 9, 11.
+- One FinanceAccount per user, growth-shaped (`ownerId @unique`) → Task 7; auto-create on first authenticated request → Task 9 (`resolveAccount`).
+- Particulars + recurrence + critical/flexible + fixed/adjustable + business-day → Tasks 2–4 (engine), 7 (schema), 10 (router), 15 (UI).
+- Holidays (one-time + recurring) → Tasks 3, 7, 10, 15.
+- Per-instance overrides (amount/date/skip) keyed by `(particularId, originalDate)`, validation server-side → Tasks 4 (engine), 6/10 (schema + `assertOverrideAllowed`), 16 (override modal).
+- Pure engine run on both sides → Tasks 1–5 (engine), 8 (server mapper), 16 (client mapper + `computeForecast` in the dashboard).
 - Anchored replay fix → Task 5 (explicit test: future window reflects pre-viewStart events) + Task 10 `forecast.getData` window.
-- Dashboard widgets (metric cards, danger, lowest, skip today, daily cards) → Task 15.
-- Theme port + token consolidation → Task 12 (globals.css verbatim, helpers-only design-system).
-- App shell responsive → Task 13.
-- Today→+3-months horizon + load-more → Task 15.
-- Vitest everywhere, Vite SPA + Express + dev proxy → Tasks 1, 11, 12, 16.
-- Zod schemas shared both sides → Task 6, consumed in 10 and 14.
+- tRPC 11 via App Router fetch handler → Task 11.
+- Dashboard widgets (metric cards, danger, lowest, skip today, sparkline, daily cards, update balance) → Task 16.
+- Theme port + token consolidation → Task 12 (globals.css verbatim, helpers-only design-system); primitives → Task 14.
+- App shell responsive (`next/link`/`usePathname`) → Task 14.
+- Today→+3-months horizon + load-more → Task 16.
+- Zod 4 schemas shared both sides → Task 6, consumed in 10 and 15.
+- Vitest everywhere; no Playwright → Tasks 1, 16, and all test steps.
 
-**Placeholder scan:** No "TBD/TODO/handle edge cases" left in steps; every code step shows complete code. The one intentional design TBD (debt) is out of scope and absent from the plan.
+**Placeholder scan:** No "TBD/TODO/handle edge cases" in steps; every code step shows complete code. The intentional design TBD (debt) is out of scope and absent. Task 17 Step 2 (add a real auth provider) is a deliberate, scoped configuration action, not a placeholder — the original app's provider choice carries over.
 
-**Type consistency:** `EngineParticular`/`EngineHoliday`/`EngineOverride`/`DailyBalance`/`DailyEvent`/`MonthlySummary` defined in Task 2 are used unchanged in Tasks 3–5, 8, 15. `computeForecast`'s `ForecastInput` (Task 5) matches the call site in Task 15. `assertOverrideAllowed` signature (Task 10 test ↔ impl) matches. `resolveAccount(userId)` (Task 9) matches all router call sites (Task 10). `trpc` client type `AppRouter` (Task 10 export) matches the client import (Task 12).
+**Type consistency:** `EngineParticular`/`EngineHoliday`/`EngineOverride`/`DailyBalance`/`DailyEvent`/`MonthlySummary` (Task 2) are used unchanged in Tasks 3–5, 8, 16. `computeForecast`'s `ForecastInput` (Task 5) matches the dashboard call site (Task 16). `assertOverrideAllowed` signature (Task 10 test ↔ impl) matches. `resolveAccount(userId)` (Task 9) matches all router call sites (Task 10). `trpc` client type `AppRouter` (Task 10 export) matches the client import (Tasks 13–16). `toEngineInputs` return shape (Task 16) matches `computeForecast` inputs (Task 5).
 
-**Known intentional divergences from the old app (not bugs):**
-1. DB stores `amount` positive (sign from `type`); old app stored expenses negative. The engine/mappers apply the sign.
-2. Forecast horizon today→+3mo (old app: −30/+14).
-3. Auth providers list starts empty in `authConfig` — fill in the real provider(s) (OAuth/email) matching the old app's config before production sign-in works; the magic-link/OAuth choice carries over from the spec's "keep NextAuth + provider".
-
+**Known intentional divergences from the original app (not bugs):**
+1. DB stores `amount` positive (sign from `type`); the engine/mappers apply the sign.
+2. Forecast horizon today→+3mo (original: −30/+14).
+3. `server/auth.ts` ships with an empty providers list — fill in the real provider(s) (Task 17 Step 2) before production sign-in works.
+4. NextAuth v5 is the beta (`5.0.0-beta.31`) by design; there is no stable v5.
+</content>
