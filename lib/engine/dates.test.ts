@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isBusinessDay, adjustToBusinessDay } from "./dates";
+import { isBusinessDay, adjustToBusinessDay, expandRecurringHolidays } from "./dates";
 import type { EngineHoliday } from "./types";
 
 const d = (s: string) => new Date(s + "T00:00:00");
@@ -42,5 +42,40 @@ describe("adjustToBusinessDay", () => {
     // Sat -> Mon is holiday -> Tue
     expect(adjustToBusinessDay(d("2026-06-27"), "NEXT_BUSINESS_DAY", h).getTime())
       .toBe(d("2026-06-30").getTime());
+  });
+});
+
+describe("expandRecurringHolidays", () => {
+  it("expands a recurring holiday to one instance per year within [start, end]", () => {
+    const h: EngineHoliday[] = [{ date: d("2000-12-25"), isRecurring: true }];
+    const result = expandRecurringHolidays(h, d("2025-01-01"), d("2027-12-31"));
+    expect(result).toHaveLength(3);
+    expect(result.map((dt) => dt.getFullYear())).toEqual([2025, 2026, 2027]);
+    for (const dt of result) {
+      expect(dt.getMonth()).toBe(11); // December
+      expect(dt.getDate()).toBe(25);
+    }
+    expect(result[0].getTime()).toBe(d("2025-12-25").getTime());
+    expect(result[1].getTime()).toBe(d("2026-12-25").getTime());
+    expect(result[2].getTime()).toBe(d("2027-12-25").getTime());
+  });
+
+  it("includes a one-time holiday inside the range", () => {
+    const h: EngineHoliday[] = [{ date: d("2026-03-15"), isRecurring: false }];
+    const result = expandRecurringHolidays(h, d("2026-01-01"), d("2026-12-31"));
+    expect(result).toHaveLength(1);
+    expect(result[0].getTime()).toBe(d("2026-03-15").getTime());
+  });
+
+  it("excludes a one-time holiday outside the range", () => {
+    const h: EngineHoliday[] = [{ date: d("2024-03-15"), isRecurring: false }];
+    const result = expandRecurringHolidays(h, d("2026-01-01"), d("2026-12-31"));
+    expect(result).toEqual([]);
+  });
+
+  it("excludes a recurring holiday whose month+day falls outside the window for the only year in range", () => {
+    const h: EngineHoliday[] = [{ date: d("2000-12-25"), isRecurring: true }];
+    const result = expandRecurringHolidays(h, d("2026-01-01"), d("2026-06-30"));
+    expect(result).toEqual([]);
   });
 });
