@@ -48,6 +48,11 @@ The forecast always **replays from the account's `balanceUpdatedAt`** (seeded wi
 months reflect every prior event since the last balance update. `Particular.amount`
 is stored positive; the engine applies the sign from `type`.
 
+> **Run the server with `TZ=UTC`.** Date columns are stored as `@db.Date` (UTC
+> midnight), and the engine mixes UTC override-matching with local-time day grouping.
+> This is consistent under a UTC (or non-negative-offset) runtime. Pin `TZ=UTC` in the
+> deploy environment; making the engine uniformly UTC is a tracked follow-up.
+
 ## Auth
 
 NextAuth v5 (`next-auth@5.0.0-beta.31`, beta by design — there is no stable v5) with
