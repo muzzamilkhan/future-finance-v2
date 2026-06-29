@@ -53,6 +53,20 @@ describe("computeForecast", () => {
     expect(r.lowest!.closingBalance).toBe(600);
   });
 
+  it("reports the highest balance day", () => {
+    const income = (id: string, day: string, amt: number): EngineParticular => ({
+      id, name: id, type: "INCOME", amount: amt, frequency: "ONCE_OFF",
+      startDate: d(day), endDate: null, isCritical: true, isFixed: true,
+      businessDayAdjustment: "NONE", overrides: [],
+    });
+    const r = computeForecast(baseInput({
+      particulars: [income("a", "2026-07-02", 300), income("b", "2026-07-03", 100)],
+    }));
+    // Jul 2 closes at 1300, Jul 3 at 1400 — Jul 3 is highest
+    expect(r.highest!.date.getDate()).toBe(3);
+    expect(r.highest!.closingBalance).toBe(1400);
+  });
+
   it("skipToday drops today's events", () => {
     const r = computeForecast(baseInput({
       today: d("2026-07-02"), skipToday: true,
