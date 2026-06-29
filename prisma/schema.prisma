@@ -15,6 +15,7 @@ model User {
   accounts      Account[]
   sessions      Session[]
   financeAccount FinanceAccount?
+  categories    String          @default("")
 }
 
 model Account {
@@ -66,6 +67,7 @@ model Particular {
   id                    String                @id @default(cuid())
   accountId             String
   name                  String
+  category              String?
   type                  ParticularType
   amount                Decimal               @db.Decimal(15, 2)
   frequency             RecurrenceFrequency   @default(ONCE_OFF)

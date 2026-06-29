@@ -34,8 +34,8 @@ describe("buildBudget", () => {
       { type: "EXPENSE", amount: 1200, frequency: "ANNUAL", category: "Insurance" }, // 100/mo
       { type: "EXPENSE", amount: 50, frequency: "WEEKLY", category: "Insurance" },   // 216.67/mo
     ]);
-    expect(s.categories[0].name).toBe("Insurance");
-    expect(s.categories[0].monthly).toBeCloseTo(100 + 50 * 52 / 12);
+    expect(s.categories[0]?.name).toBe("Insurance");
+    expect(s.categories[0]?.monthly).toBeCloseTo(100 + 50 * 52 / 12);
   });
 
   it("reports a negative surplus (deficit) when expenses exceed income", () => {
