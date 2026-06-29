@@ -7,6 +7,7 @@ import { format, isSameDay } from "date-fns";
 import {
   LineChart, Line, ResponsiveContainer, YAxis, XAxis, Tooltip, ReferenceDot,
 } from "recharts";
+import type { MouseHandlerDataParam } from "recharts";
 
 type Point = { i: number; date: Date; v: number };
 
@@ -31,17 +32,23 @@ export function BalanceSparkline({
   const lowIdx = indexOf(lowest);
   const highIdx = indexOf(highest);
 
+  // Shared by mouse + touch: recharts populates activeTooltipIndex on both.
+  const onScrub = (s: MouseHandlerDataParam) => {
+    const idx = typeof s?.activeTooltipIndex === "number" ? s.activeTooltipIndex : -1;
+    setActive(idx >= 0 ? (data[idx] ?? null) : null);
+  };
+
   return (
     <div>
       <div className="mb-1 h-5 text-xs text-muted-foreground tabular-nums">{label}</div>
       <ResponsiveContainer width="100%" height={64}>
         <LineChart
           data={data}
-          onMouseMove={(s) => {
-            const idx = typeof s?.activeTooltipIndex === "number" ? s.activeTooltipIndex : -1;
-            setActive(idx >= 0 ? (data[idx] ?? null) : null);
-          }}
+          onMouseMove={onScrub}
           onMouseLeave={() => setActive(null)}
+          onTouchStart={onScrub}
+          onTouchMove={onScrub}
+          onTouchEnd={() => setActive(null)}
         >
           <XAxis dataKey="i" type="number" domain={[0, data.length - 1]} hide />
           <YAxis hide domain={["dataMin", "dataMax"]} />
