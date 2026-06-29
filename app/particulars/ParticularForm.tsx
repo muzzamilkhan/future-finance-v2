@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { particularInput, type ParticularInput } from "@/lib/schemas";
+import { particularInput, type ParticularInput, toParticularInput } from "@/lib/schemas";
 import { dateToInputValue, inputValueToDate } from "@/lib/dateInput";
 import { trpc } from "@/trpc/client";
 import { Button } from "@/app/_components/ui/button";
@@ -48,20 +48,7 @@ export function ParticularForm(
       businessDayAdjustment: (existing?.businessDayAdjustment as ParticularInput["businessDayAdjustment"]) ?? "NONE",
       category: existing?.category ?? "",
     },
-    values: existing
-      ? {
-          name: existing.name,
-          type: existing.type as "INCOME" | "EXPENSE",
-          amount: Math.abs(Number(existing.amount)),
-          frequency: existing.frequency as ParticularInput["frequency"],
-          startDate: new Date(existing.startDate),
-          endDate: existing.endDate ? new Date(existing.endDate) : undefined,
-          isCritical: existing.isCritical,
-          isFixed: existing.isFixed,
-          businessDayAdjustment: existing.businessDayAdjustment as ParticularInput["businessDayAdjustment"],
-          category: existing.category ?? "",
-        }
-      : undefined,
+    values: existing ? toParticularInput(existing) : undefined,
   });
 
   const onDone = () => { utils.particular.list.invalidate(); utils.forecast.getData.invalidate(); onClose(); };
