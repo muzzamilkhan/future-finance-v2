@@ -2,6 +2,7 @@ import type { DailyBalance } from "@/lib/engine";
 import { Card, CardContent } from "@/app/_components/ui/card";
 import { formatCurrency } from "@/lib/design-system";
 import { format } from "date-fns";
+import { sortDailyEvents } from "./sortEvents";
 
 export function DailyCard({ day, onEventClick }: { day: DailyBalance; onEventClick?: (particularId: string, originalDate?: Date) => void }) {
   return (
@@ -15,7 +16,7 @@ export function DailyCard({ day, onEventClick }: { day: DailyBalance; onEventCli
         </div>
         {day.events.length > 0 && (
           <ul className="mt-2 space-y-1">
-            {day.events.map((e, i) => (
+            {sortDailyEvents(day.events).map((e, i) => (
               <li key={`${e.particularId}-${i}`}
                   className="flex cursor-pointer justify-between text-sm"
                   onClick={() => onEventClick?.(e.particularId, e.originalDate)}>
