@@ -3,6 +3,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { toast } from "sonner";
 import { particularInput, type ParticularInput } from "@/lib/schemas";
 import { dateToInputValue, inputValueToDate } from "@/lib/dateInput";
 import { trpc } from "@/trpc/client";
@@ -61,13 +62,19 @@ export function ParticularForm(
   });
 
   const onDone = () => { utils.particular.list.invalidate(); utils.forecast.getData.invalidate(); onClose(); };
-  const create = trpc.particular.create.useMutation({ onSuccess: onDone });
-  const update = trpc.particular.update.useMutation({ onSuccess: onDone });
+  const onMutationError = (error: { message: string }) =>
+    toast.error(particularId ? "Couldn't save changes" : "Couldn't add item", { description: error.message });
+  const create = trpc.particular.create.useMutation({ onSuccess: onDone, onError: onMutationError });
+  const update = trpc.particular.update.useMutation({ onSuccess: onDone, onError: onMutationError });
 
   const submit = form.handleSubmit((values) => {
     if (particularId) update.mutate({ ...values, id: particularId });
     else create.mutate(values);
   });
+
+  const errors = form.formState.errors;
+  const FieldError = ({ name }: { name: keyof ParticularFormValues }) =>
+    errors[name] ? <p className="text-xs text-destructive">{errors[name]?.message}</p> : null;
 
   return (
     <Dialog open={isOpen} onOpenChange={(o) => !o && onClose()}>
@@ -77,6 +84,7 @@ export function ParticularForm(
           <div className="space-y-1">
             <Label>Name</Label>
             <Input {...form.register("name")} />
+            <FieldError name="name" />
           </div>
           <div className="space-y-1">
             <Label>Type</Label>
@@ -91,6 +99,7 @@ export function ParticularForm(
           <div className="space-y-1">
             <Label>Amount</Label>
             <Input type="number" step="0.01" {...form.register("amount", { valueAsNumber: true })} />
+            <FieldError name="amount" />
           </div>
           <div className="space-y-1">
             <Label>Frequency</Label>
@@ -112,6 +121,7 @@ export function ParticularForm(
               value={dateToInputValue(form.watch("startDate") as Date | undefined)}
               onChange={(e) => form.setValue("startDate", inputValueToDate(e.target.value), { shouldValidate: true })}
             />
+            <FieldError name="startDate" />
           </div>
           <div className="space-y-1">
             <Label>End date (optional)</Label>
@@ -120,6 +130,7 @@ export function ParticularForm(
               value={dateToInputValue(form.watch("endDate") as Date | undefined)}
               onChange={(e) => form.setValue("endDate", inputValueToDate(e.target.value), { shouldValidate: true })}
             />
+            <FieldError name="endDate" />
           </div>
           <label className="flex items-center gap-2 text-sm">
             <Checkbox checked={form.watch("isCritical")} onCheckedChange={(c) => form.setValue("isCritical", !!c)} />
