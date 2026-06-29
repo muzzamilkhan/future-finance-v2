@@ -4,7 +4,7 @@ import { formatCurrency } from "@/lib/design-system";
 import { format } from "date-fns";
 import { sortDailyEvents } from "./sortEvents";
 
-export function DailyCard({ day, onEventClick }: { day: DailyBalance; onEventClick?: (particularId: string, originalDate?: Date) => void }) {
+export function DailyCard({ day, onEventClick }: { day: DailyBalance; onEventClick?: (particularId: string, originalDate?: Date, currentAmount?: number, currentDate?: Date) => void }) {
   return (
     <Card id={`day-${format(day.date, "yyyy-MM-dd")}`} className={day.isNegative ? "border-finance-expense" : undefined}>
       <CardContent className="p-3">
@@ -19,7 +19,7 @@ export function DailyCard({ day, onEventClick }: { day: DailyBalance; onEventCli
             {sortDailyEvents(day.events).map((e, i) => (
               <li key={`${e.particularId}-${i}`}
                   className={`flex justify-between text-sm ${e.isOverridable ? "cursor-pointer" : "cursor-default"}`}
-                  onClick={() => e.isOverridable && onEventClick?.(e.particularId, e.originalDate)}>
+                  onClick={() => e.isOverridable && onEventClick?.(e.particularId, e.originalDate, e.amount, day.date)}>
                 <span>
                   {e.name}
                   {e.isOverridden && <span className="ml-1 text-xs text-finance-warning">(edited)</span>}

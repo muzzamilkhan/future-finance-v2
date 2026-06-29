@@ -21,7 +21,7 @@ export default function DashboardPage() {
   const today = startOfDay(new Date());
   const [monthsAhead, setMonthsAhead] = useState(6);
   const [skipToday, setSkipToday] = useState(false);
-  const [override, setOverride] = useState<{ particularId: string; originalDate: Date; isFixed: boolean; isCritical: boolean } | null>(null);
+  const [override, setOverride] = useState<{ particularId: string; originalDate: Date; isFixed: boolean; isCritical: boolean; currentAmount: number; currentDate: Date } | null>(null);
 
   const viewStart = today;
   const viewEnd = addMonths(today, monthsAhead);
@@ -54,14 +54,14 @@ export default function DashboardPage() {
   const current = result.days[0]?.openingBalance ?? 0;
   const thisMonth = result.months[0];
 
-  const openOverride = (particularId: string, originalDate?: Date) => {
-    if (!originalDate) return;
+  const openOverride = (particularId: string, originalDate?: Date, currentAmount?: number, currentDate?: Date) => {
+    if (!originalDate || currentAmount === undefined || !currentDate) return;
     const p = particulars?.find((x) => x.id === particularId);
     if (!p) return;
     // Fixed + critical occurrences have nothing the user can override
     // (amount needs !isFixed; date/skip needs !isCritical). Don't open the modal.
     if (p.isFixed && p.isCritical) return;
-    setOverride({ particularId, originalDate, isFixed: p.isFixed, isCritical: p.isCritical });
+    setOverride({ particularId, originalDate, isFixed: p.isFixed, isCritical: p.isCritical, currentAmount, currentDate });
   };
 
   return (
