@@ -8,6 +8,7 @@ import { Input } from "@/app/_components/ui/input";
 import { formatCurrency } from "@/lib/design-system";
 import { buildBudget, type BudgetParticular } from "@/lib/budget/budget";
 import { BudgetChart } from "./BudgetChart";
+import { BudgetSummaryStats } from "./BudgetSummaryStats";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "@/server/routers/_app";
 
@@ -72,7 +73,10 @@ export default function BudgetPage() {
           </p>
         ) : (
           <>
-            <BudgetChart summary={summary} />
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-[3fr_7fr]">
+              <BudgetSummaryStats summary={summary} />
+              <BudgetChart summary={summary} />
+            </div>
             <div className="space-y-2">
               {groups.map((g) => {
                 const items = expenses.filter((e) => (e.category ?? "") === g.key);

@@ -40,16 +40,6 @@ export function BudgetChart({ summary }: { summary: BudgetSummary }) {
           {formatCurrency(summary.totalExpense)}
         </span>
       </div>
-      {isDeficit && (
-        <div className="mt-3 rounded-md border border-finance-expense/40 bg-finance-expense/10 p-3 text-center">
-          <span className="font-semibold text-finance-expense">
-            Deficit: {formatCurrency(Math.abs(summary.surplus))}
-          </span>
-          <p className="text-xs text-muted-foreground">
-            Monthly expenses exceed income by {formatCurrency(Math.abs(summary.surplus))}.
-          </p>
-        </div>
-      )}
     </div>
   );
 }
