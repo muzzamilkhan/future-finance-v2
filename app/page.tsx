@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { addMonths, format, isSameDay, startOfDay } from "date-fns";
+import { keepPreviousData } from "@tanstack/react-query";
 import { trpc } from "@/trpc/client";
 import { computeForecast } from "@/lib/engine";
 import { toEngineInputs } from "@/lib/toEngine";
@@ -26,7 +27,10 @@ export default function DashboardPage() {
   const viewEnd = addMonths(today, monthsAhead);
 
   const utils = trpc.useUtils();
-  const { data, isLoading } = trpc.forecast.getData.useQuery({ viewStart, viewEnd });
+  const { data, isLoading } = trpc.forecast.getData.useQuery(
+    { viewStart, viewEnd },
+    { placeholderData: keepPreviousData },
+  );
   const { data: particulars } = trpc.particular.list.useQuery();
   const updateBalance = trpc.account.updateBalance.useMutation({
     onSuccess: () => { utils.account.get.invalidate(); utils.forecast.getData.invalidate(); },
