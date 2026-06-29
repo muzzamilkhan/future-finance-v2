@@ -14,6 +14,7 @@ import { DangerNotification } from "@/app/_components/dashboard/DangerNotificati
 import { SkipTodayButton } from "@/app/_components/dashboard/SkipTodayButton";
 import { BalanceSparkline } from "@/app/_components/dashboard/BalanceSparkline";
 import { OverrideModal } from "@/app/_components/dashboard/OverrideModal";
+import { CollapsibleTopSection } from "@/app/_components/dashboard/CollapsibleTopSection";
 
 export default function DashboardPage() {
   const today = startOfDay(new Date());
@@ -68,24 +69,37 @@ export default function DashboardPage() {
 
         {result.firstNegative && <DangerNotification negativeBalance={result.firstNegative} />}
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <MetricCard title="Current Balance" value={current} type={current >= 0 ? "income" : "expense"}
-            editable onSave={(balance) => updateBalance.mutate({ balance })} />
-          <MetricCard title="Lowest Balance" value={result.lowest?.closingBalance ?? 0}
-            type={(result.lowest?.closingBalance ?? 0) >= 0 ? "income" : "expense"}
-            subtitle={result.lowest ? format(result.lowest.date, "EEE, MMM d") : undefined}
-            onClick={result.lowest ? () => scrollToDay(result.lowest!.date) : undefined} />
-          <MetricCard title="Next Negative" value={result.firstNegative?.closingBalance ?? 0} type="warning"
-            subtitle={result.firstNegative ? format(result.firstNegative.date, "EEE, MMM d") : undefined}
-            onClick={result.firstNegative ? () => scrollToDay(result.firstNegative!.date) : undefined} />
-          <MetricCard title="This Month" value={thisMonth?.netChange ?? 0}
-            subtitle={`${formatCurrency(thisMonth?.totalIncome ?? 0)} in, ${formatCurrency(thisMonth?.totalExpenses ?? 0)} out`}
-            type={(thisMonth?.netChange ?? 0) >= 0 ? "income" : "expense"} />
-        </div>
+        <CollapsibleTopSection
+          compact={
+            <div className="flex items-center justify-between text-sm">
+              <span className="font-medium">{formatCurrency(current)}</span>
+              {result.lowest && (
+                <span className="text-muted-foreground">
+                  Low {formatCurrency(result.lowest.closingBalance)} · {format(result.lowest.date, "MMM d")}
+                </span>
+              )}
+            </div>
+          }
+        >
+          <div className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-4">
+            <MetricCard title="Current Balance" value={current} type={current >= 0 ? "income" : "expense"}
+              editable onSave={(balance) => updateBalance.mutate({ balance })} />
+            <MetricCard title="Lowest Balance" value={result.lowest?.closingBalance ?? 0}
+              type={(result.lowest?.closingBalance ?? 0) >= 0 ? "income" : "expense"}
+              subtitle={result.lowest ? format(result.lowest.date, "EEE, MMM d") : undefined}
+              onClick={result.lowest ? () => scrollToDay(result.lowest!.date) : undefined} />
+            <MetricCard title="Next Negative" value={result.firstNegative?.closingBalance ?? 0} type="warning"
+              subtitle={result.firstNegative ? format(result.firstNegative.date, "EEE, MMM d") : undefined}
+              onClick={result.firstNegative ? () => scrollToDay(result.firstNegative!.date) : undefined} />
+            <MetricCard title="This Month" value={thisMonth?.netChange ?? 0}
+              subtitle={`${formatCurrency(thisMonth?.totalIncome ?? 0)} in, ${formatCurrency(thisMonth?.totalExpenses ?? 0)} out`}
+              type={(thisMonth?.netChange ?? 0) >= 0 ? "income" : "expense"} />
+          </div>
 
-        <div className="text-foreground">
-          <BalanceSparkline days={result.days} lowest={result.lowest} highest={result.highest} />
-        </div>
+          <div className="mt-4 text-foreground">
+            <BalanceSparkline days={result.days} lowest={result.lowest} highest={result.highest} />
+          </div>
+        </CollapsibleTopSection>
 
         <div className="space-y-2">
           <h2 className="text-lg font-semibold">Daily Transactions</h2>
