@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { normalizeCategory } from "@/lib/budget/category";
 
 export const particularType = z.enum(["INCOME", "EXPENSE"]);
 export const frequency = z.enum(["ONCE_OFF", "WEEKLY", "FORTNIGHTLY", "MONTHLY", "ANNUAL"]);
@@ -16,6 +17,10 @@ export const particularInput = z.object({
   isCritical: z.boolean().default(true),
   isFixed: z.boolean().default(true),
   businessDayAdjustment: bdaAdjustment.default("NONE"),
+  category: z.preprocess(
+    emptyToUndefined,
+    z.string().transform((s) => normalizeCategory(s)).optional(),
+  ).transform((v) => (v === "" ? undefined : v)),
 }).refine((v) => !v.endDate || v.endDate >= v.startDate, {
   message: "End date must be on or after start date", path: ["endDate"],
 });

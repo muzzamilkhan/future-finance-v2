@@ -51,3 +51,19 @@ describe("particularInput", () => {
     },
   );
 });
+
+describe("particularInput category", () => {
+  const base = { name: "Power", type: "EXPENSE", amount: 100, frequency: "MONTHLY", startDate: "2026-06-01" };
+  it("normalizes a provided category", () => {
+    const parsed = particularInput.parse({ ...base, category: "  power  bills " });
+    expect(parsed.category).toBe("Power Bills");
+  });
+  it("treats blank category as undefined", () => {
+    const parsed = particularInput.parse({ ...base, category: "   " });
+    expect(parsed.category).toBeUndefined();
+  });
+  it("allows omitting category", () => {
+    const parsed = particularInput.parse(base);
+    expect(parsed.category).toBeUndefined();
+  });
+});

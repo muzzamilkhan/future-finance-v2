@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
-import { LayoutDashboard, ListOrdered, CalendarDays, Sun, Moon } from "lucide-react";
+import { LayoutDashboard, ListOrdered, CalendarDays, PieChart, Sun, Moon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const items = [
   { to: "/", label: "Home", icon: LayoutDashboard },
   { to: "/particulars", label: "Items", icon: ListOrdered },
   { to: "/holidays", label: "Holidays", icon: CalendarDays },
+  { to: "/budget", label: "Budget", icon: PieChart },
 ];
 
 const itemClass = "flex min-w-[5rem] flex-1 flex-col items-center gap-1 py-2 text-xs";

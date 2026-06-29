@@ -33,6 +33,7 @@ export function ParticularForm(
     select: (rows) => rows.find((r) => r.id === particularId) ?? null,
     enabled: !!particularId,
   });
+  const { data: categoryOptions = [] } = trpc.category.list.useQuery();
 
   const form = useForm<ParticularFormValues>({
     resolver: zodResolver(particularInput),
@@ -45,6 +46,7 @@ export function ParticularForm(
       isCritical: existing?.isCritical ?? true,
       isFixed: existing?.isFixed ?? true,
       businessDayAdjustment: (existing?.businessDayAdjustment as ParticularInput["businessDayAdjustment"]) ?? "NONE",
+      category: existing?.category ?? "",
     },
     values: existing
       ? {
@@ -57,6 +59,7 @@ export function ParticularForm(
           isCritical: existing.isCritical,
           isFixed: existing.isFixed,
           businessDayAdjustment: existing.businessDayAdjustment as ParticularInput["businessDayAdjustment"],
+          category: existing.category ?? "",
         }
       : undefined,
   });
@@ -101,6 +104,21 @@ export function ParticularForm(
             <Input type="number" step="0.01" {...form.register("amount", { valueAsNumber: true })} />
             <FieldError name="amount" />
           </div>
+          {form.watch("type") === "EXPENSE" && (
+            <div className="space-y-1">
+              <Label>Category</Label>
+              <Input
+                list="category-options"
+                placeholder="e.g. Groceries"
+                {...form.register("category")}
+              />
+              <datalist id="category-options">
+                {categoryOptions.map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
+            </div>
+          )}
           <div className="space-y-1">
             <Label>Frequency</Label>
             <Select value={form.watch("frequency")} onValueChange={(v) => form.setValue("frequency", v as ParticularInput["frequency"])}>
