@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, protectedProcedure, resolveAccount } from "../trpc";
 import { particularInput, overrideInstanceInput } from "@/lib/schemas";
+import { syncUserCategories } from "../categorySync";
 
 export function assertOverrideAllowed(
   rule: { isFixed: boolean; isCritical: boolean },
@@ -22,7 +23,9 @@ export const particularRouter = router({
   }),
   create: protectedProcedure.input(particularInput).mutation(async ({ ctx, input }) => {
     const a = await resolveAccount(ctx.user.id);
-    return ctx.prisma.particular.create({ data: { ...input, accountId: a.id } });
+    const created = await ctx.prisma.particular.create({ data: { ...input, accountId: a.id } });
+    await syncUserCategories(ctx.prisma, ctx.user.id, a.id);
+    return created;
   }),
   update: protectedProcedure.input(particularInput.and(z.object({ id: z.string() })))
     .mutation(async ({ ctx, input }) => {
@@ -30,11 +33,15 @@ export const particularRouter = router({
       const { id, ...data } = input;
       const owned = await ctx.prisma.particular.findFirst({ where: { id, accountId: a.id } });
       if (!owned) throw new TRPCError({ code: "NOT_FOUND" });
-      return ctx.prisma.particular.update({ where: { id }, data });
+      const updated = await ctx.prisma.particular.update({ where: { id }, data });
+      await syncUserCategories(ctx.prisma, ctx.user.id, a.id);
+      return updated;
     }),
   delete: protectedProcedure.input(z.object({ id: z.string() })).mutation(async ({ ctx, input }) => {
     const a = await resolveAccount(ctx.user.id);
-    return ctx.prisma.particular.deleteMany({ where: { id: input.id, accountId: a.id } });
+    const result = await ctx.prisma.particular.deleteMany({ where: { id: input.id, accountId: a.id } });
+    await syncUserCategories(ctx.prisma, ctx.user.id, a.id);
+    return result;
   }),
   overrideInstance: protectedProcedure.input(overrideInstanceInput).mutation(async ({ ctx, input }) => {
     const a = await resolveAccount(ctx.user.id);
