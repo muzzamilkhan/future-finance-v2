@@ -73,9 +73,9 @@ export default function BudgetPage() {
           </p>
         ) : (
           <>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-[3fr_7fr]">
-              <BudgetSummaryStats summary={summary} />
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-[7fr_3fr]">
               <BudgetChart summary={summary} />
+              <BudgetSummaryStats summary={summary} />
             </div>
             <div className="space-y-2">
               {groups.map((g) => {
