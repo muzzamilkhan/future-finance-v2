@@ -5,7 +5,7 @@ export function BudgetSummaryStats({ summary }: { summary: BudgetSummary }) {
   const isDeficit = summary.surplus < 0;
 
   return (
-    <div className="flex flex-col justify-center gap-4">
+    <div className="flex flex-col justify-center gap-4 text-right">
       <Stat
         label="Total income"
         value={formatCurrency(summary.monthlyIncome)}
