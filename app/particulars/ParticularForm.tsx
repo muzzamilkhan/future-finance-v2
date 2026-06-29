@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { particularInput, type ParticularInput } from "@/lib/schemas";
+import { dateToInputValue, inputValueToDate } from "@/lib/dateInput";
 import { trpc } from "@/trpc/client";
 import { Button } from "@/app/_components/ui/button";
 import { Input } from "@/app/_components/ui/input";
@@ -106,11 +107,19 @@ export function ParticularForm(
           </div>
           <div className="space-y-1">
             <Label>Start date</Label>
-            <Input type="date" {...form.register("startDate", { valueAsDate: true })} />
+            <Input
+              type="date"
+              value={dateToInputValue(form.watch("startDate") as Date | undefined)}
+              onChange={(e) => form.setValue("startDate", inputValueToDate(e.target.value), { shouldValidate: true })}
+            />
           </div>
           <div className="space-y-1">
             <Label>End date (optional)</Label>
-            <Input type="date" {...form.register("endDate", { valueAsDate: true })} />
+            <Input
+              type="date"
+              value={dateToInputValue(form.watch("endDate") as Date | undefined)}
+              onChange={(e) => form.setValue("endDate", inputValueToDate(e.target.value), { shouldValidate: true })}
+            />
           </div>
           <label className="flex items-center gap-2 text-sm">
             <Checkbox checked={form.watch("isCritical")} onCheckedChange={(c) => form.setValue("isCritical", !!c)} />
