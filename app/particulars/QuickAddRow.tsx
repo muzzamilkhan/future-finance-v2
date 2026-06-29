@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { particularInput } from "@/lib/schemas";
+import { dateToInputValue, inputValueToDate } from "@/lib/dateInput";
 import { trpc } from "@/trpc/client";
 import { Button } from "@/app/_components/ui/button";
 import { Input } from "@/app/_components/ui/input";
@@ -93,7 +94,12 @@ export function QuickAddRow() {
           <p className="mt-1 text-xs text-destructive">Amount must be positive</p>
         )}
       </div>
-      <Input type="date" className="w-40" {...form.register("startDate", { valueAsDate: true })} />
+      <Input
+        type="date"
+        className="w-40"
+        value={dateToInputValue(form.watch("startDate") as Date | undefined)}
+        onChange={(e) => form.setValue("startDate", inputValueToDate(e.target.value), { shouldValidate: true })}
+      />
       <Button type="submit">Add</Button>
     </form>
   );
