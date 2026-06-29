@@ -8,6 +8,7 @@ import { formatCurrency } from "@/lib/design-system";
 import { ParticularForm } from "./ParticularForm";
 import { OverrideManagement } from "./OverrideManagement";
 import { QuickAddRow } from "./QuickAddRow";
+import { CategoryPill } from "./CategoryPill";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "@/server/routers/_app";
 
@@ -46,10 +47,13 @@ export default function ParticularsPage() {
     return (
       <div key={p.id} className="rounded-md border p-3">
         <div className="flex items-center justify-between">
-          <button className="text-left" onClick={() => setExpanded(expanded === p.id ? null : p.id)}>
-            <span className="font-medium">{p.name}</span>
-            <span className="ml-2 text-xs text-muted-foreground">{p.frequency}</span>
-          </button>
+          <div className="flex min-w-0 items-center gap-2">
+            <button className="text-left" onClick={() => setExpanded(expanded === p.id ? null : p.id)}>
+              <span className="font-medium">{p.name}</span>
+              <span className="ml-2 text-xs text-muted-foreground">{p.frequency}</span>
+            </button>
+            {p.type === "EXPENSE" && <CategoryPill particular={p} />}
+          </div>
           <div className="flex items-center gap-2">
             <span className={signed < 0 ? "text-finance-expense" : "text-finance-income"}>
               {formatCurrency(signed)}

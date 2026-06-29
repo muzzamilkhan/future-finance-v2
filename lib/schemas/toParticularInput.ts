@@ -3,13 +3,14 @@ import { particularInput } from "./particular";
 
 /**
  * Shape of a stored particular as it comes back from the API — kept loose so this
- * module stays free of React/Prisma imports (see CLAUDE.md). `amount` may be a
- * Prisma Decimal serialized as string|number; dates may be strings or Date.
+ * module stays free of React/Prisma imports (see CLAUDE.md). `amount` is anything
+ * Number()-able — covers a Prisma Decimal (via toString) as well as number/string;
+ * dates may be strings or Date.
  */
 export type StoredParticular = {
   name: string;
   type: "INCOME" | "EXPENSE";
-  amount: number | string;
+  amount: number | string | { toString(): string };
   frequency: "ONCE_OFF" | "WEEKLY" | "FORTNIGHTLY" | "MONTHLY" | "ANNUAL";
   startDate: Date | string;
   endDate?: Date | string | null;
