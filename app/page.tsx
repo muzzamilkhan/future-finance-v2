@@ -83,7 +83,9 @@ export default function DashboardPage() {
             type={(thisMonth?.netChange ?? 0) >= 0 ? "income" : "expense"} />
         </div>
 
-        <div className="text-foreground"><BalanceSparkline days={result.days} /></div>
+        <div className="text-foreground">
+          <BalanceSparkline days={result.days} lowest={result.lowest} highest={result.highest} />
+        </div>
 
         <div className="space-y-2">
           <h2 className="text-lg font-semibold">Daily Transactions</h2>
