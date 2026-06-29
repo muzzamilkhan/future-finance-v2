@@ -19,7 +19,7 @@ import { CollapsibleTopSection } from "@/app/_components/dashboard/CollapsibleTo
 
 export default function DashboardPage() {
   const today = startOfDay(new Date());
-  const [monthsAhead, setMonthsAhead] = useState(3);
+  const [monthsAhead, setMonthsAhead] = useState(6);
   const [skipToday, setSkipToday] = useState(false);
   const [override, setOverride] = useState<{ particularId: string; originalDate: Date; isFixed: boolean; isCritical: boolean } | null>(null);
 
