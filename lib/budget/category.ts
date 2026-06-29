@@ -1,5 +1,5 @@
 export function normalizeCategory(raw: string): string {
-  const collapsed = raw.trim().replace(/\s+/g, " ");
+  const collapsed = raw.replace(/,/g, " ").trim().replace(/\s+/g, " ");
   if (collapsed === "") return "";
   return collapsed
     .split(" ")

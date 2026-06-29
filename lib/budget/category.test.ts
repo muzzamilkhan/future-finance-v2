@@ -11,6 +11,9 @@ describe("normalizeCategory", () => {
     expect(normalizeCategory("   ")).toBe("");
     expect(normalizeCategory("")).toBe("");
   });
+  it("strips commas so a category name can't corrupt the CSV cache", () => {
+    expect(normalizeCategory("food, drink")).toBe("Food Drink");
+  });
 });
 
 describe("parseCategories", () => {

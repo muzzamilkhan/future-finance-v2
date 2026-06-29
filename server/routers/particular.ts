@@ -23,7 +23,9 @@ export const particularRouter = router({
   }),
   create: protectedProcedure.input(particularInput).mutation(async ({ ctx, input }) => {
     const a = await resolveAccount(ctx.user.id);
-    const created = await ctx.prisma.particular.create({ data: { ...input, accountId: a.id } });
+    const created = await ctx.prisma.particular.create({
+      data: { ...input, category: input.category ?? null, accountId: a.id },
+    });
     await syncUserCategories(ctx.prisma, ctx.user.id, a.id);
     return created;
   }),
@@ -33,7 +35,9 @@ export const particularRouter = router({
       const { id, ...data } = input;
       const owned = await ctx.prisma.particular.findFirst({ where: { id, accountId: a.id } });
       if (!owned) throw new TRPCError({ code: "NOT_FOUND" });
-      const updated = await ctx.prisma.particular.update({ where: { id }, data });
+      const updated = await ctx.prisma.particular.update({
+        where: { id }, data: { ...data, category: data.category ?? null },
+      });
       await syncUserCategories(ctx.prisma, ctx.user.id, a.id);
       return updated;
     }),
