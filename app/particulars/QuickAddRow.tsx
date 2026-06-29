@@ -3,6 +3,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { toast } from "sonner";
 import { particularInput } from "@/lib/schemas";
 import { dateToInputValue, inputValueToDate } from "@/lib/dateInput";
 import { trpc } from "@/trpc/client";
@@ -34,9 +35,13 @@ export function QuickAddRow() {
   });
 
   const create = trpc.particular.create.useMutation({
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       utils.particular.list.invalidate();
       utils.forecast.getData.invalidate();
+      toast.success(`Added “${variables.name}”`);
+    },
+    onError: (error, variables) => {
+      toast.error(`Couldn't add “${variables.name}”`, { description: error.message });
     },
   });
 
