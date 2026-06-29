@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, ListOrdered, CalendarDays } from "lucide-react";
+import { LayoutDashboard, ListOrdered, CalendarDays, PieChart } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const items = [
   { to: "/", label: "Home", icon: LayoutDashboard },
   { to: "/particulars", label: "Items", icon: ListOrdered },
   { to: "/holidays", label: "Holidays", icon: CalendarDays },
+  { to: "/budget", label: "Budget", icon: PieChart },
 ];
 
 export function BottomNav() {

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, ListOrdered, CalendarDays } from "lucide-react";
+import { LayoutDashboard, ListOrdered, CalendarDays, PieChart } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
 import { cn } from "@/lib/utils";
 
@@ -10,6 +10,7 @@ const items = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/particulars", label: "Income & Expenses", icon: ListOrdered },
   { to: "/holidays", label: "Holidays", icon: CalendarDays },
+  { to: "/budget", label: "Budget", icon: PieChart },
 ];
 
 export function Sidebar() {
