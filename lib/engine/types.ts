@@ -47,6 +47,9 @@ export interface DailyEvent {
   isOverridden: boolean;
   isSkipped: boolean;
   isMovedDueToHoliday: boolean;
+  // false when the particular is both fixed AND critical — nothing to override
+  // (amount needs !isFixed; date/skip needs !isCritical).
+  isOverridable: boolean;
   originalDate?: Date;
 }
 

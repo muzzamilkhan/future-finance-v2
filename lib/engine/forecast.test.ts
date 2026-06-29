@@ -67,6 +67,17 @@ describe("computeForecast", () => {
     expect(r.highest!.closingBalance).toBe(1400);
   });
 
+  it("marks events overridable unless fixed AND critical", () => {
+    const locked = expense("locked", "2026-07-02", 100); // isFixed + isCritical
+    const flexible: EngineParticular = { ...locked, id: "flex", name: "flex", isFixed: false };
+    const r = computeForecast(baseInput({ particulars: [locked, flexible] }));
+    const jul2 = r.days.find((x) => x.date.getDate() === 2)!;
+    const lockedEv = jul2.events.find((e) => e.particularId === "locked")!;
+    const flexEv = jul2.events.find((e) => e.particularId === "flex")!;
+    expect(lockedEv.isOverridable).toBe(false);
+    expect(flexEv.isOverridable).toBe(true);
+  });
+
   it("skipToday drops today's events", () => {
     const r = computeForecast(baseInput({
       today: d("2026-07-02"), skipToday: true,

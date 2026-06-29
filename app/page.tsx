@@ -58,6 +58,9 @@ export default function DashboardPage() {
     if (!originalDate) return;
     const p = particulars?.find((x) => x.id === particularId);
     if (!p) return;
+    // Fixed + critical occurrences have nothing the user can override
+    // (amount needs !isFixed; date/skip needs !isCritical). Don't open the modal.
+    if (p.isFixed && p.isCritical) return;
     setOverride({ particularId, originalDate, isFixed: p.isFixed, isCritical: p.isCritical });
   };
 

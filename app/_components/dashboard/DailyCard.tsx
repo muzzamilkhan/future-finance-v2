@@ -18,8 +18,8 @@ export function DailyCard({ day, onEventClick }: { day: DailyBalance; onEventCli
           <ul className="mt-2 space-y-1">
             {sortDailyEvents(day.events).map((e, i) => (
               <li key={`${e.particularId}-${i}`}
-                  className="flex cursor-pointer justify-between text-sm"
-                  onClick={() => onEventClick?.(e.particularId, e.originalDate)}>
+                  className={`flex justify-between text-sm ${e.isOverridable ? "cursor-pointer" : "cursor-default"}`}
+                  onClick={() => e.isOverridable && onEventClick?.(e.particularId, e.originalDate)}>
                 <span>
                   {e.name}
                   {e.isOverridden && <span className="ml-1 text-xs text-finance-warning">(edited)</span>}
