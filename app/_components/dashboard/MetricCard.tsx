@@ -34,7 +34,7 @@ export function MetricCard(
       className={interactive ? "cursor-pointer transition-colors hover:bg-accent/50" : undefined}
       onClick={interactive ? (editable ? startEdit : onClick) : undefined}
     >
-      <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">{title}</CardTitle></CardHeader>
+      <CardHeader className="pb-1 sm:pb-2"><CardTitle className="text-sm text-muted-foreground">{title}</CardTitle></CardHeader>
       <CardContent>
         {editing ? (
           <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
@@ -58,7 +58,7 @@ export function MetricCard(
           </div>
         ) : (
           <>
-            <div className={`text-2xl font-bold ${color}`}>{formatCurrency(value)}</div>
+            <div className={`text-xl font-bold sm:text-2xl ${color}`}>{formatCurrency(value)}</div>
             {subtitle && <div className="text-xs text-muted-foreground">{subtitle}</div>}
           </>
         )}

@@ -20,6 +20,7 @@ export interface ForecastResult {
   months: MonthlySummary[];
   firstNegative: DailyBalance | null;
   lowest: DailyBalance | null;
+  highest: DailyBalance | null;
 }
 
 export function computeForecast(input: ForecastInput): ForecastResult {
@@ -91,6 +92,9 @@ export function computeForecast(input: ForecastInput): ForecastResult {
     firstNegative: days.find((day) => day.isNegative) ?? null,
     lowest: days.length
       ? days.reduce((lo, c) => (c.closingBalance < lo.closingBalance ? c : lo))
+      : null,
+    highest: days.length
+      ? days.reduce((hi, c) => (c.closingBalance > hi.closingBalance ? c : hi))
       : null,
   };
 }
