@@ -38,4 +38,14 @@ describe("toParticularInput", () => {
   it("uses the absolute value of the amount", () => {
     expect(toParticularInput({ ...base, amount: "-2000" }).amount).toBe(2000);
   });
+
+  it("carries TRANSFER type and toAccountId", () => {
+    const out = toParticularInput({
+      name: "Card payment", type: "TRANSFER", amount: 100, frequency: "ONCE_OFF",
+      startDate: "2026-01-10", endDate: null, isCritical: true, isFixed: true,
+      businessDayAdjustment: "NONE", category: null, accountId: "debit", toAccountId: "credit",
+    } as never);
+    expect(out.type).toBe("TRANSFER");
+    expect((out as { toAccountId?: string }).toAccountId).toBe("credit");
+  });
 });

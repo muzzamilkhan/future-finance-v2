@@ -9,7 +9,7 @@ import { particularInput } from "./particular";
  */
 export type StoredParticular = {
   name: string;
-  type: "INCOME" | "EXPENSE";
+  type: "INCOME" | "EXPENSE" | "TRANSFER";
   amount: number | string | { toString(): string };
   frequency: "ONCE_OFF" | "WEEKLY" | "FORTNIGHTLY" | "MONTHLY" | "ANNUAL";
   startDate: Date | string;
@@ -18,6 +18,8 @@ export type StoredParticular = {
   isFixed: boolean;
   businessDayAdjustment: "NONE" | "NEXT_BUSINESS_DAY" | "PREVIOUS_BUSINESS_DAY";
   category?: string | null;
+  accountId?: string | null;
+  toAccountId?: string | null;
 };
 
 /**
@@ -39,5 +41,6 @@ export function toParticularInput(p: StoredParticular): z.input<typeof particula
     isFixed: p.isFixed,
     businessDayAdjustment: p.businessDayAdjustment,
     category: p.category ?? "",
+    toAccountId: p.toAccountId ?? undefined,
   };
 }
