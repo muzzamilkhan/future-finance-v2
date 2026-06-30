@@ -16,7 +16,8 @@ import { useActiveAccount } from "@/app/_components/AccountContext";
 type Particular = inferRouterOutputs<AppRouter>["particular"]["list"][number];
 
 export default function BudgetPage() {
-  const { accountId } = useActiveAccount();
+  const { accountId, activeMembership } = useActiveAccount();
+  const canEditItems = !activeMembership || activeMembership.role === "OWNER" || activeMembership.canEditItems;
   const utils = trpc.useUtils();
   const { data: particulars = [], isLoading } = trpc.particular.list.useQuery(
     { accountId: accountId! },
@@ -108,6 +109,7 @@ export default function BudgetPage() {
                               list="budget-category-options"
                               defaultValue={e.category ?? ""}
                               placeholder="Untagged"
+                              disabled={!canEditItems}
                               onBlur={(ev) => {
                                 const v = ev.target.value;
                                 if (v !== (e.category ?? "")) retag(e, v);

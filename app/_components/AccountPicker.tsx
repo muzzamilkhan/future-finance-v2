@@ -11,10 +11,11 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "./ui/dialog";
 import { Badge } from "./ui/badge";
-import { ChevronsUpDown, Plus, Star, LogOut, Archive, Share2 } from "lucide-react";
+import { ChevronsUpDown, Plus, Star, LogOut, Archive, Share2, Wallet } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { SharePanel } from "./SharePanel";
 
-export function AccountPicker() {
+export function AccountPicker({ variant = "sidebar" }: { variant?: "sidebar" | "compact" }) {
   const { accounts, accountId, setAccountId, activeMembership } = useActiveAccount();
   const [sharingOpen, setSharingOpen] = useState(false);
   const utils = trpc.useUtils();
@@ -28,12 +29,29 @@ export function AccountPicker() {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="w-full justify-between">
-            <span className="truncate">{activeMembership?.name ?? "Select account"}</span>
-            <ChevronsUpDown className="h-4 w-4 opacity-50" />
-          </Button>
+          {variant === "compact" ? (
+            <button
+              type="button"
+              className={cn(
+                "flex min-w-[5rem] flex-1 flex-col items-center gap-1 py-2 text-xs text-muted-foreground"
+              )}
+              aria-label="Switch account"
+            >
+              <Wallet className="h-5 w-5" />
+              <span className="max-w-[5rem] truncate">{activeMembership?.name ?? "Account"}</span>
+            </button>
+          ) : (
+            <Button variant="outline" size="sm" className="w-full justify-between">
+              <span className="truncate">{activeMembership?.name ?? "Select account"}</span>
+              <ChevronsUpDown className="h-4 w-4 opacity-50" />
+            </Button>
+          )}
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-56">
+        <DropdownMenuContent
+          align={variant === "compact" ? "end" : "start"}
+          side={variant === "compact" ? "top" : "bottom"}
+          className="w-56"
+        >
           {accounts.map((a) => (
             <DropdownMenuItem key={a.id} onClick={() => setAccountId(a.id)}>
               <span className="truncate">{a.name}</span>

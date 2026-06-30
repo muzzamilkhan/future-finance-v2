@@ -6,9 +6,15 @@ import { Button } from "./ui/button";
 import { Checkbox } from "./ui/checkbox";
 import { Label } from "./ui/label";
 
+const PERM_KEYS = ["canEditItems", "canEditOverrides", "canEditHolidays", "canUpdateBalance"] as const;
+type PermKey = (typeof PERM_KEYS)[number];
+type Perms = Record<PermKey, boolean>;
+
+const permLabel = (k: PermKey) => k.replace("can", "").replace(/([A-Z])/g, " $1").trim();
+
 export function SharePanel() {
   const { accountId } = useActiveAccount();
-  const [perms, setPerms] = useState({
+  const [perms, setPerms] = useState<Perms>({
     canEditItems: false,
     canEditOverrides: false,
     canEditHolidays: false,
@@ -25,15 +31,31 @@ export function SharePanel() {
   const remove = trpc.account.removeMember.useMutation({
     onSuccess: () => members.refetch(),
   });
-  const toggle = (k: keyof typeof perms) => setPerms((p) => ({ ...p, [k]: !p[k] }));
+  const updatePerms = trpc.account.updateMemberPerms.useMutation({
+    onSuccess: () => members.refetch(),
+    onError: (e) => window.alert(e.message),
+  });
+  const toggle = (k: PermKey) => setPerms((p) => ({ ...p, [k]: !p[k] }));
+
+  const toggleMember = (m: { userId: string } & Perms, k: PermKey) => {
+    updatePerms.mutate({
+      accountId: accountId!,
+      userId: m.userId,
+      canEditItems: m.canEditItems,
+      canEditOverrides: m.canEditOverrides,
+      canEditHolidays: m.canEditHolidays,
+      canUpdateBalance: m.canUpdateBalance,
+      [k]: !m[k],
+    });
+  };
 
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        {(["canEditItems", "canEditOverrides", "canEditHolidays", "canUpdateBalance"] as const).map((k) => (
+        {PERM_KEYS.map((k) => (
           <div key={k} className="flex items-center gap-2">
             <Checkbox id={k} checked={perms[k]} onCheckedChange={() => toggle(k)} />
-            <Label htmlFor={k}>{k.replace("can", "").replace(/([A-Z])/g, " $1").trim()}</Label>
+            <Label htmlFor={k}>{permLabel(k)}</Label>
           </div>
         ))}
         <Button
@@ -56,16 +78,33 @@ export function SharePanel() {
         {members.data
           ?.filter((m) => m.role === "MEMBER")
           .map((m) => (
-            <div key={m.userId} className="flex items-center justify-between text-sm py-1">
-              <span>{m.name ?? m.email}</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => remove.mutate({ accountId: accountId!, userId: m.userId })}
-                disabled={remove.isPending}
-              >
-                Remove
-              </Button>
+            <div key={m.userId} className="space-y-2 border-t py-2">
+              <div className="flex items-center justify-between text-sm">
+                <span>{m.name ?? m.email}</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => remove.mutate({ accountId: accountId!, userId: m.userId })}
+                  disabled={remove.isPending}
+                >
+                  Remove
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 pl-1">
+                {PERM_KEYS.map((k) => (
+                  <div key={k} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`${m.userId}-${k}`}
+                      checked={m[k]}
+                      disabled={updatePerms.isPending}
+                      onCheckedChange={() => toggleMember(m, k)}
+                    />
+                    <Label htmlFor={`${m.userId}-${k}`} className="text-xs font-normal">
+                      {permLabel(k)}
+                    </Label>
+                  </div>
+                ))}
+              </div>
             </div>
           ))}
       </div>
