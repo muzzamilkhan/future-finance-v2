@@ -11,13 +11,21 @@ import { BudgetChart } from "./BudgetChart";
 import { BudgetSummaryStats } from "./BudgetSummaryStats";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "@/server/routers/_app";
+import { useActiveAccount } from "@/app/_components/AccountContext";
 
 type Particular = inferRouterOutputs<AppRouter>["particular"]["list"][number];
 
 export default function BudgetPage() {
+  const { accountId } = useActiveAccount();
   const utils = trpc.useUtils();
-  const { data: particulars = [], isLoading } = trpc.particular.list.useQuery();
-  const { data: categoryOptions = [] } = trpc.category.list.useQuery();
+  const { data: particulars = [], isLoading } = trpc.particular.list.useQuery(
+    { accountId: accountId! },
+    { enabled: !!accountId },
+  );
+  const { data: categoryOptions = [] } = trpc.category.list.useQuery(
+    { accountId: accountId! },
+    { enabled: !!accountId },
+  );
   const update = trpc.particular.update.useMutation({
     onSuccess: () => {
       utils.particular.list.invalidate();
@@ -38,6 +46,7 @@ export default function BudgetPage() {
 
   const retag = (p: Particular, category: string) => {
     update.mutate({
+      accountId: accountId!,
       id: p.id,
       name: p.name,
       type: p.type as "INCOME" | "EXPENSE",

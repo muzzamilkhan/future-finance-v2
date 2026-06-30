@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { particularInput } from "@/lib/schemas";
 import { dateToInputValue, inputValueToDate } from "@/lib/dateInput";
 import { trpc } from "@/trpc/client";
+import { useActiveAccount } from "@/app/_components/AccountContext";
 import { Button } from "@/app/_components/ui/button";
 import { Input } from "@/app/_components/ui/input";
 import {
@@ -28,6 +29,7 @@ const defaults = (): QuickAddValues => ({
 });
 
 export function QuickAddRow() {
+  const { accountId } = useActiveAccount();
   const utils = trpc.useUtils();
   const form = useForm<QuickAddValues>({
     resolver: zodResolver(particularInput),
@@ -49,7 +51,7 @@ export function QuickAddRow() {
   // server. The mutation fires in the background; the list/forecast refresh
   // when it lands. Concurrent submissions are independent and safe.
   const submit = form.handleSubmit((values) => {
-    create.mutate(values);
+    create.mutate({ accountId: accountId!, ...values });
     form.reset(defaults());
     form.setFocus("name");
   });

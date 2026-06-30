@@ -11,6 +11,7 @@ import { QuickAddRow } from "./QuickAddRow";
 import { CategoryPill } from "./CategoryPill";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "@/server/routers/_app";
+import { useActiveAccount } from "@/app/_components/AccountContext";
 
 type Particular = inferRouterOutputs<AppRouter>["particular"]["list"][number];
 
@@ -24,8 +25,12 @@ function byFrequency(a: Particular, b: Particular) {
 }
 
 export default function ParticularsPage() {
+  const { accountId } = useActiveAccount();
   const utils = trpc.useUtils();
-  const { data: particulars, isLoading } = trpc.particular.list.useQuery();
+  const { data: particulars, isLoading } = trpc.particular.list.useQuery(
+    { accountId: accountId! },
+    { enabled: !!accountId },
+  );
   const del = trpc.particular.delete.useMutation({
     onSuccess: () => { utils.particular.list.invalidate(); utils.forecast.getData.invalidate(); },
   });
@@ -59,7 +64,7 @@ export default function ParticularsPage() {
               {formatCurrency(signed)}
             </span>
             <Button variant="ghost" size="sm" onClick={() => { setEditing(p.id); setFormOpen(true); }}>Edit</Button>
-            <Button variant="ghost" size="sm" onClick={() => del.mutate({ id: p.id })}>Delete</Button>
+            <Button variant="ghost" size="sm" onClick={() => del.mutate({ accountId: accountId!, id: p.id })}>Delete</Button>
           </div>
         </div>
         {expanded === p.id && <div className="mt-2"><OverrideManagement particularId={p.id} /></div>}

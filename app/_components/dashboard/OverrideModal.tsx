@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { format } from "date-fns";
 import { trpc } from "@/trpc/client";
+import { useActiveAccount } from "@/app/_components/AccountContext";
 import { Button } from "@/app/_components/ui/button";
 import { Input } from "@/app/_components/ui/input";
 import { Checkbox } from "@/app/_components/ui/checkbox";
@@ -12,6 +13,7 @@ export function OverrideModal(
   { isOpen, particularId, originalDate, isFixed, isCritical, currentAmount, currentDate, onClose }:
   { isOpen: boolean; particularId: string; originalDate: Date; isFixed: boolean; isCritical: boolean; currentAmount: number; currentDate: Date; onClose: () => void },
 ) {
+  const { accountId } = useActiveAccount();
   const utils = trpc.useUtils();
   // Pre-populate with the occurrence's current values. Amount is stored signed in
   // the engine but overrides expect a positive magnitude (sign is applied from type).
@@ -29,6 +31,7 @@ export function OverrideModal(
         <form className="space-y-3" onSubmit={(e) => {
           e.preventDefault();
           override.mutate({
+            accountId: accountId!,
             particularId, originalDate,
             // Only send fields the user can actually override for this particular —
             // the server rejects amount on fixed and date/skip on critical.

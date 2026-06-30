@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { particularInput, type ParticularInput, toParticularInput } from "@/lib/schemas";
 import { dateToInputValue, inputValueToDate } from "@/lib/dateInput";
 import { trpc } from "@/trpc/client";
+import { useActiveAccount } from "@/app/_components/AccountContext";
 import { Button } from "@/app/_components/ui/button";
 import { Input } from "@/app/_components/ui/input";
 import {
@@ -28,12 +29,19 @@ type ParticularFormValues = z.input<typeof particularInput>;
 export function ParticularForm(
   { isOpen, particularId, onClose }: { isOpen: boolean; particularId: string | null; onClose: () => void },
 ) {
+  const { accountId } = useActiveAccount();
   const utils = trpc.useUtils();
-  const { data: existing } = trpc.particular.list.useQuery(undefined, {
-    select: (rows) => rows.find((r) => r.id === particularId) ?? null,
-    enabled: !!particularId,
-  });
-  const { data: categoryOptions = [] } = trpc.category.list.useQuery();
+  const { data: existing } = trpc.particular.list.useQuery(
+    { accountId: accountId! },
+    {
+      select: (rows) => rows.find((r) => r.id === particularId) ?? null,
+      enabled: !!particularId && !!accountId,
+    },
+  );
+  const { data: categoryOptions = [] } = trpc.category.list.useQuery(
+    { accountId: accountId! },
+    { enabled: !!accountId },
+  );
 
   const form = useForm<ParticularFormValues>({
     resolver: zodResolver(particularInput),
@@ -58,8 +66,8 @@ export function ParticularForm(
   const update = trpc.particular.update.useMutation({ onSuccess: onDone, onError: onMutationError });
 
   const submit = form.handleSubmit((values) => {
-    if (particularId) update.mutate({ ...values, id: particularId });
-    else create.mutate(values);
+    if (particularId) update.mutate({ accountId: accountId!, ...values, id: particularId });
+    else create.mutate({ accountId: accountId!, ...values });
   });
 
   const errors = form.formState.errors;

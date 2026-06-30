@@ -1,13 +1,18 @@
 "use client";
 
 import { trpc } from "@/trpc/client";
+import { useActiveAccount } from "@/app/_components/AccountContext";
 import { Button } from "@/app/_components/ui/button";
 import { formatCurrency } from "@/lib/design-system";
 import { format } from "date-fns";
 
 export function OverrideManagement({ particularId }: { particularId: string }) {
+  const { accountId } = useActiveAccount();
   const utils = trpc.useUtils();
-  const { data: overrides } = trpc.particular.listOverrides.useQuery({ particularId });
+  const { data: overrides } = trpc.particular.listOverrides.useQuery(
+    { accountId: accountId!, particularId },
+    { enabled: !!accountId },
+  );
   const del = trpc.particular.deleteOverride.useMutation({
     onSuccess: () => { utils.particular.listOverrides.invalidate({ particularId }); utils.forecast.getData.invalidate(); },
   });
@@ -23,7 +28,7 @@ export function OverrideManagement({ particularId }: { particularId: string }) {
               : o.overriddenAmount != null ? ` — ${formatCurrency(Number(o.overriddenAmount))}`
               : o.overriddenDate ? ` — moved to ${format(new Date(o.overriddenDate), "MMM d")}` : ""}
           </span>
-          <Button variant="ghost" size="sm" onClick={() => del.mutate({ id: o.id })}>Revert</Button>
+          <Button variant="ghost" size="sm" onClick={() => del.mutate({ accountId: accountId!, id: o.id })}>Revert</Button>
         </div>
       ))}
     </div>

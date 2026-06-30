@@ -16,6 +16,7 @@ import { SkipTodayButton } from "@/app/_components/dashboard/SkipTodayButton";
 import { BalanceSparkline } from "@/app/_components/dashboard/BalanceSparkline";
 import { OverrideModal } from "@/app/_components/dashboard/OverrideModal";
 import { CollapsibleTopSection } from "@/app/_components/dashboard/CollapsibleTopSection";
+import { useActiveAccount } from "@/app/_components/AccountContext";
 
 export default function DashboardPage() {
   const today = startOfDay(new Date());
@@ -26,14 +27,18 @@ export default function DashboardPage() {
   const viewStart = today;
   const viewEnd = addMonths(today, monthsAhead);
 
+  const { accountId } = useActiveAccount();
   const utils = trpc.useUtils();
   const { data, isLoading } = trpc.forecast.getData.useQuery(
-    { viewStart, viewEnd },
-    { placeholderData: keepPreviousData },
+    { accountId: accountId!, viewStart, viewEnd },
+    { placeholderData: keepPreviousData, enabled: !!accountId },
   );
-  const { data: particulars } = trpc.particular.list.useQuery();
+  const { data: particulars } = trpc.particular.list.useQuery(
+    { accountId: accountId! },
+    { enabled: !!accountId },
+  );
   const updateBalance = trpc.account.updateBalance.useMutation({
-    onSuccess: () => { utils.account.get.invalidate(); utils.forecast.getData.invalidate(); },
+    onSuccess: () => { utils.account.list.invalidate(); utils.forecast.getData.invalidate(); },
   });
 
   const scrollToDay = (date: Date) => {
@@ -90,7 +95,7 @@ export default function DashboardPage() {
         >
           <div className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-4">
             <MetricCard title="Current Balance" value={current} type={current >= 0 ? "income" : "expense"}
-              editable onSave={(balance) => updateBalance.mutate({ balance })} />
+              editable onSave={(balance) => updateBalance.mutate({ accountId: accountId!, balance })} />
             <MetricCard title="Lowest Balance" value={result.lowest?.closingBalance ?? 0}
               type={(result.lowest?.closingBalance ?? 0) >= 0 ? "income" : "expense"}
               subtitle={result.lowest ? format(result.lowest.date, "EEE, MMM d") : undefined}

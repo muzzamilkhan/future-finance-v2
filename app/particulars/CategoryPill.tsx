@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { trpc } from "@/trpc/client";
+import { useActiveAccount } from "@/app/_components/AccountContext";
 import { toParticularInput } from "@/lib/schemas";
 import { Badge } from "@/app/_components/ui/badge";
 import { Input } from "@/app/_components/ui/input";
@@ -20,8 +21,12 @@ type Particular = inferRouterOutputs<AppRouter>["particular"]["list"][number];
  * both particular.list and forecast.getData.
  */
 export function CategoryPill({ particular }: { particular: Particular }) {
+  const { accountId } = useActiveAccount();
   const utils = trpc.useUtils();
-  const { data: categoryOptions = [] } = trpc.category.list.useQuery();
+  const { data: categoryOptions = [] } = trpc.category.list.useQuery(
+    { accountId: accountId! },
+    { enabled: !!accountId },
+  );
   const update = trpc.particular.update.useMutation({
     onSuccess: () => {
       utils.particular.list.invalidate();
@@ -50,7 +55,7 @@ export function CategoryPill({ particular }: { particular: Particular }) {
     setEditing(false);
     const next = value.trim();
     if (next === (particular.category ?? "")) return; // no change
-    update.mutate({ ...toParticularInput(particular), category: next, id: particular.id });
+    update.mutate({ accountId: accountId!, ...toParticularInput(particular), category: next, id: particular.id });
   };
 
   const cancel = () => {
