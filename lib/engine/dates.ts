@@ -1,12 +1,26 @@
-import { addDays, isWeekend, isSameDay, getYear, getMonth, getDate } from "date-fns";
 import type { EngineHoliday, BdaAdjustment } from "./types";
 
+/** UTC same-day compare (timezone-safe). */
+function sameUtcDay(a: Date, b: Date): boolean {
+  return (
+    a.getUTCFullYear() === b.getUTCFullYear() &&
+    a.getUTCMonth() === b.getUTCMonth() &&
+    a.getUTCDate() === b.getUTCDate()
+  );
+}
+
+/** Snap a date to UTC midnight. */
+function utcDay(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+}
+
 export function isBusinessDay(date: Date, holidays: EngineHoliday[]): boolean {
-  if (isWeekend(date)) return false;
+  const dow = date.getUTCDay(); // 0 = Sun, 6 = Sat
+  if (dow === 0 || dow === 6) return false;
   const isHoliday = holidays.some((h) =>
     h.isRecurring
-      ? getMonth(h.date) === getMonth(date) && getDate(h.date) === getDate(date)
-      : isSameDay(h.date, date)
+      ? h.date.getUTCMonth() === date.getUTCMonth() && h.date.getUTCDate() === date.getUTCDate()
+      : sameUtcDay(h.date, date)
   );
   return !isHoliday;
 }
@@ -19,7 +33,9 @@ export function adjustToBusinessDay(
   if (adjustment === "NONE") return date;
   const stepDir = adjustment === "NEXT_BUSINESS_DAY" ? 1 : -1;
   let d = date;
-  while (!isBusinessDay(d, holidays)) d = addDays(d, stepDir);
+  while (!isBusinessDay(d, holidays)) {
+    d = new Date(utcDay(d).getTime() + stepDir * 86_400_000);
+  }
   return d;
 }
 
@@ -31,8 +47,8 @@ export function expandRecurringHolidays(
   const out: Date[] = [];
   for (const h of holidays) {
     if (h.isRecurring) {
-      for (let y = getYear(start); y <= getYear(end); y++) {
-        const inst = new Date(y, getMonth(h.date), getDate(h.date));
+      for (let y = start.getUTCFullYear(); y <= end.getUTCFullYear(); y++) {
+        const inst = new Date(Date.UTC(y, h.date.getUTCMonth(), h.date.getUTCDate()));
         if (inst >= start && inst <= end) out.push(inst);
       }
     } else if (h.date >= start && h.date <= end) {

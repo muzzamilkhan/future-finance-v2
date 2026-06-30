@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { generateInstances } from "./instances";
 import type { EngineParticular } from "./types";
 
-const d = (s: string) => new Date(s + "T00:00:00");
+const d = (s: string) => new Date(s + "T00:00:00Z");
 const base: EngineParticular = {
   id: "p1", name: "Test", type: "EXPENSE", amount: 100,
   accountId: "debit", toAccountId: null,
