@@ -7,7 +7,7 @@ const SESSION_COOKIES = [
   "__Secure-authjs.session-token",
 ];
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const hasSession = SESSION_COOKIES.some((name) => req.cookies.has(name));
   if (hasSession) return NextResponse.next();
 
