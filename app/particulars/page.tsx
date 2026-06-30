@@ -4,6 +4,7 @@ import { useState } from "react";
 import { trpc } from "@/trpc/client";
 import { Layout } from "@/app/_components/Layout";
 import { Button } from "@/app/_components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/app/_components/ui/dialog";
 import { formatCurrency } from "@/lib/design-system";
 import { ParticularForm } from "./ParticularForm";
 import { OverrideManagement } from "./OverrideManagement";
@@ -32,8 +33,9 @@ export default function ParticularsPage() {
     { accountId: accountId! },
     { enabled: !!accountId },
   );
+  const [pendingDelete, setPendingDelete] = useState<Particular | null>(null);
   const del = trpc.particular.delete.useMutation({
-    onSuccess: () => { utils.particular.list.invalidate(); utils.forecast.getData.invalidate(); },
+    onSuccess: () => { utils.particular.list.invalidate(); utils.forecast.getData.invalidate(); setPendingDelete(null); },
   });
   const [editing, setEditing] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -68,7 +70,7 @@ export default function ParticularsPage() {
               {formatCurrency(signed)}
             </span>
             <Button variant="ghost" size="sm" disabled={!canEditItems} onClick={() => { setEditing(p.id); setFormOpen(true); }}>Edit</Button>
-            <Button variant="ghost" size="sm" disabled={!canEditItems} onClick={() => del.mutate({ accountId: accountId!, id: p.id })}>Delete</Button>
+            <Button variant="ghost" size="sm" disabled={!canEditItems} onClick={() => setPendingDelete(p)}>Delete</Button>
           </div>
         </div>
         {expanded === p.id && <div className="mt-2"><OverrideManagement particularId={p.id} /></div>}
@@ -103,6 +105,28 @@ export default function ParticularsPage() {
         {formOpen && (
           <ParticularForm isOpen={formOpen} particularId={editing} onClose={() => setFormOpen(false)} />
         )}
+        <Dialog open={!!pendingDelete} onOpenChange={(o) => { if (!o && !del.isPending) setPendingDelete(null); }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete item?</DialogTitle>
+              <DialogDescription>
+                {pendingDelete
+                  ? `“${pendingDelete.name}” will be permanently removed. This can’t be undone.`
+                  : null}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" disabled={del.isPending} onClick={() => setPendingDelete(null)}>Cancel</Button>
+              <Button
+                variant="destructive"
+                disabled={del.isPending}
+                onClick={() => { if (pendingDelete) del.mutate({ accountId: accountId!, id: pendingDelete.id }); }}
+              >
+                {del.isPending ? "Deleting…" : "Delete"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );
