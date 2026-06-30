@@ -52,16 +52,19 @@ export default function ParticularsPage() {
     const signed = p.type === "EXPENSE" ? -Math.abs(Number(p.amount)) : Math.abs(Number(p.amount));
     return (
       <div key={p.id} className="rounded-md border p-3">
-        <div className="flex items-center justify-between">
-          <div className="flex min-w-0 items-center gap-2">
-            <button className="text-left" onClick={() => setExpanded(expanded === p.id ? null : p.id)}>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center justify-between gap-2 sm:justify-start">
+            <button className="min-w-0 text-left" onClick={() => setExpanded(expanded === p.id ? null : p.id)}>
               <span className="font-medium">{p.name}</span>
               <span className="ml-2 text-xs text-muted-foreground">{p.frequency}</span>
             </button>
             {p.type === "EXPENSE" && <CategoryPill particular={p} />}
+            <span className={`ml-auto shrink-0 sm:hidden ${signed < 0 ? "text-finance-expense" : "text-finance-income"}`}>
+              {formatCurrency(signed)}
+            </span>
           </div>
-          <div className="flex items-center gap-2">
-            <span className={signed < 0 ? "text-finance-expense" : "text-finance-income"}>
+          <div className="flex items-center justify-end gap-2">
+            <span className={`hidden sm:inline ${signed < 0 ? "text-finance-expense" : "text-finance-income"}`}>
               {formatCurrency(signed)}
             </span>
             <Button variant="ghost" size="sm" disabled={!canEditItems} onClick={() => { setEditing(p.id); setFormOpen(true); }}>Edit</Button>

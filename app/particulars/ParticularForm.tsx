@@ -18,7 +18,7 @@ import {
 } from "@/app/_components/ui/select";
 import { Checkbox } from "@/app/_components/ui/checkbox";
 import { Label } from "@/app/_components/ui/label";
-import { CategoryChips } from "./CategoryChips";
+import { CategoryCombobox } from "./CategoryCombobox";
 
 // `particularInput` is a refined (ZodEffects) schema, so its `input` type (what
 // react-hook-form/zodResolver and tRPC's `.mutate()` actually expect — pre-coercion
@@ -98,7 +98,7 @@ export function ParticularForm(
           {form.watch("type") === "EXPENSE" && (
             <div className="space-y-1">
               <Label>Category</Label>
-              <CategoryChips
+              <CategoryCombobox
                 value={(form.watch("category") as string | undefined) ?? ""}
                 onChange={(v) => form.setValue("category", v)}
               />

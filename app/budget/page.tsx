@@ -5,7 +5,7 @@ import { useState } from "react";
 import { trpc } from "@/trpc/client";
 import { Layout } from "@/app/_components/Layout";
 import { formatCurrency } from "@/lib/design-system";
-import { CategoryChips } from "@/app/particulars/CategoryChips";
+import { CategoryCombobox } from "@/app/particulars/CategoryCombobox";
 import { buildBudget, type BudgetParticular } from "@/lib/budget/budget";
 import { BudgetChart } from "./BudgetChart";
 import { BudgetSummaryStats } from "./BudgetSummaryStats";
@@ -100,7 +100,7 @@ export default function BudgetPage() {
                         {items.map((e) => (
                           <div key={e.id} className="flex items-center justify-between gap-2">
                             <span className="text-sm">{e.name}</span>
-                            <CategoryChips
+                            <CategoryCombobox
                               value={e.category ?? ""}
                               disabled={!canEditItems}
                               onChange={(v) => { if (v !== (e.category ?? "")) retag(e, v); }}
