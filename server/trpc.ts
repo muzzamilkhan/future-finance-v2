@@ -34,14 +34,30 @@ export async function resolveMembership(userId: string, accountId: string) {
 export async function ensureBootstrapAccount(userId: string) {
   const count = await prisma.accountMembership.count({ where: { userId } });
   if (count === 0) {
+    // Race-safe bootstrap: two simultaneous first-logins from the same new user could
+    // both see count===0 and each try to create an account + membership. We catch the
+    // unique-constraint violation on (userId, accountId) from the membership create
+    // (Prisma error code P2002), delete the orphan account we just created, and fall
+    // through to the findFirst below to return the winner's membership.
     const account = await prisma.financeAccount.create({ data: { name: "My Account" } });
-    const membership = await prisma.accountMembership.create({
-      data: {
-        userId, accountId: account.id, role: "OWNER", isDefault: true,
-        canEditItems: true, canEditOverrides: true, canEditHolidays: true, canUpdateBalance: true,
-      },
-    });
-    return { account, membership };
+    try {
+      const membership = await prisma.accountMembership.create({
+        data: {
+          userId, accountId: account.id, role: "OWNER", isDefault: true,
+          canEditItems: true, canEditOverrides: true, canEditHolidays: true, canUpdateBalance: true,
+        },
+      });
+      return { account, membership };
+    } catch (err: unknown) {
+      // P2002 = unique constraint violation — another concurrent bootstrap won the race.
+      // Clean up the orphan account we created, then fall through to return existing.
+      const code = (err as { code?: string })?.code;
+      if (code === "P2002") {
+        await prisma.financeAccount.delete({ where: { id: account.id } }).catch(() => {/* best-effort */});
+      } else {
+        throw err;
+      }
+    }
   }
   const m = await prisma.accountMembership.findFirst({
     where: { userId, account: { closedAt: null } },
