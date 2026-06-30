@@ -4,8 +4,8 @@
 import { useState } from "react";
 import { trpc } from "@/trpc/client";
 import { Layout } from "@/app/_components/Layout";
-import { Input } from "@/app/_components/ui/input";
 import { formatCurrency } from "@/lib/design-system";
+import { CategoryChips } from "@/app/particulars/CategoryChips";
 import { buildBudget, type BudgetParticular } from "@/lib/budget/budget";
 import { BudgetChart } from "./BudgetChart";
 import { BudgetSummaryStats } from "./BudgetSummaryStats";
@@ -20,10 +20,6 @@ export default function BudgetPage() {
   const canEditItems = !activeMembership || activeMembership.role === "OWNER" || activeMembership.canEditItems;
   const utils = trpc.useUtils();
   const { data: particulars = [], isLoading } = trpc.particular.list.useQuery(
-    { accountId: accountId! },
-    { enabled: !!accountId },
-  );
-  const { data: categoryOptions = [] } = trpc.category.list.useQuery(
     { accountId: accountId! },
     { enabled: !!accountId },
   );
@@ -104,16 +100,10 @@ export default function BudgetPage() {
                         {items.map((e) => (
                           <div key={e.id} className="flex items-center justify-between gap-2">
                             <span className="text-sm">{e.name}</span>
-                            <Input
-                              className="h-8 w-40"
-                              list="budget-category-options"
-                              defaultValue={e.category ?? ""}
-                              placeholder="Untagged"
+                            <CategoryChips
+                              value={e.category ?? ""}
                               disabled={!canEditItems}
-                              onBlur={(ev) => {
-                                const v = ev.target.value;
-                                if (v !== (e.category ?? "")) retag(e, v);
-                              }}
+                              onChange={(v) => { if (v !== (e.category ?? "")) retag(e, v); }}
                             />
                           </div>
                         ))}
@@ -122,11 +112,6 @@ export default function BudgetPage() {
                   </div>
                 );
               })}
-              <datalist id="budget-category-options">
-                {categoryOptions.map((c) => (
-                  <option key={c} value={c} />
-                ))}
-              </datalist>
             </div>
           </>
         )}

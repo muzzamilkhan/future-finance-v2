@@ -18,6 +18,7 @@ import {
 } from "@/app/_components/ui/select";
 import { Checkbox } from "@/app/_components/ui/checkbox";
 import { Label } from "@/app/_components/ui/label";
+import { CategoryChips } from "./CategoryChips";
 
 // `particularInput` is a refined (ZodEffects) schema, so its `input` type (what
 // react-hook-form/zodResolver and tRPC's `.mutate()` actually expect — pre-coercion
@@ -38,11 +39,6 @@ export function ParticularForm(
       enabled: !!particularId && !!accountId,
     },
   );
-  const { data: categoryOptions = [] } = trpc.category.list.useQuery(
-    { accountId: accountId! },
-    { enabled: !!accountId },
-  );
-
   const form = useForm<ParticularFormValues>({
     resolver: zodResolver(particularInput),
     defaultValues: {
@@ -102,16 +98,10 @@ export function ParticularForm(
           {form.watch("type") === "EXPENSE" && (
             <div className="space-y-1">
               <Label>Category</Label>
-              <Input
-                list="category-options"
-                placeholder="e.g. Groceries"
-                {...form.register("category")}
+              <CategoryChips
+                value={(form.watch("category") as string | undefined) ?? ""}
+                onChange={(v) => form.setValue("category", v)}
               />
-              <datalist id="category-options">
-                {categoryOptions.map((c) => (
-                  <option key={c} value={c} />
-                ))}
-              </datalist>
             </div>
           )}
           <div className="space-y-1">

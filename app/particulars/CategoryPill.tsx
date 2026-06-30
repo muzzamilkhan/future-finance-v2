@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { trpc } from "@/trpc/client";
 import { useActiveAccount } from "@/app/_components/AccountContext";
 import { toParticularInput } from "@/lib/schemas";
 import { Badge } from "@/app/_components/ui/badge";
-import { Input } from "@/app/_components/ui/input";
 import { cn } from "@/lib/utils";
+import { CategoryChips } from "./CategoryChips";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "@/server/routers/_app";
 
@@ -15,18 +15,14 @@ type Particular = inferRouterOutputs<AppRouter>["particular"]["list"][number];
 
 /**
  * Inline category display + editor for an expense row. Idle: a pill showing the
- * category (or a faint "+ Category" prompt). Click to edit via a datalist-backed
- * input; saves on Enter / pick / blur, cancels on Esc, empty clears the category.
+ * category (or a faint "+ Category" prompt). Click to expand a quick-pick chip
+ * row; picking a chip (or adding/clearing one) saves immediately and collapses.
  * Category changes are expense-only and feed the budget view, so we invalidate
  * both particular.list and forecast.getData.
  */
 export function CategoryPill({ particular }: { particular: Particular }) {
   const { accountId } = useActiveAccount();
   const utils = trpc.useUtils();
-  const { data: categoryOptions = [] } = trpc.category.list.useQuery(
-    { accountId: accountId! },
-    { enabled: !!accountId },
-  );
   const update = trpc.particular.update.useMutation({
     onSuccess: () => {
       utils.particular.list.invalidate();
@@ -36,53 +32,17 @@ export function CategoryPill({ particular }: { particular: Particular }) {
   });
 
   const [editing, setEditing] = useState(false);
-  const [value, setValue] = useState(particular.category ?? "");
-  const inputRef = useRef<HTMLInputElement>(null);
-  // Guards against blur firing after Enter/Esc already committed/cancelled.
-  const committed = useRef(false);
 
-  useEffect(() => {
-    if (editing) {
-      setValue(particular.category ?? "");
-      committed.current = false;
-      inputRef.current?.focus();
-    }
-  }, [editing, particular.category]);
-
-  const commit = () => {
-    if (committed.current) return;
-    committed.current = true;
+  const onPick = (next: string) => {
     setEditing(false);
-    const next = value.trim();
     if (next === (particular.category ?? "")) return; // no change
     update.mutate({ accountId: accountId!, ...toParticularInput(particular), category: next, id: particular.id });
-  };
-
-  const cancel = () => {
-    committed.current = true;
-    setEditing(false);
-    setValue(particular.category ?? "");
   };
 
   if (editing) {
     return (
       <span onClick={(e) => e.stopPropagation()}>
-        <Input
-          ref={inputRef}
-          list="category-options"
-          value={value}
-          placeholder="Category"
-          className="h-6 w-32 px-2 py-0 text-xs"
-          onChange={(e) => setValue(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") { e.preventDefault(); commit(); }
-            else if (e.key === "Escape") { e.preventDefault(); cancel(); }
-          }}
-        />
-        <datalist id="category-options">
-          {categoryOptions.map((c) => <option key={c} value={c} />)}
-        </datalist>
+        <CategoryChips value={particular.category ?? ""} onChange={onPick} />
       </span>
     );
   }
