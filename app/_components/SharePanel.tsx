@@ -26,7 +26,11 @@ export function SharePanel() {
     { enabled: !!accountId }
   );
   const create = trpc.invite.create.useMutation({
-    onSuccess: (r) => setUrl(`${window.location.origin}${r.url}`),
+    onSuccess: (r) => {
+      const link = `${window.location.origin}${r.url}`;
+      setUrl(link);
+      navigator.clipboard?.writeText(link).catch(() => {});
+    },
   });
   const remove = trpc.account.removeMember.useMutation({
     onSuccess: () => members.refetch(),
@@ -68,10 +72,11 @@ export function SharePanel() {
             Create share link
           </Button>
           {url && (
-            <input
+            <textarea
               readOnly
               value={url}
-              className="w-full border rounded px-2 py-1 text-sm break-all"
+              rows={3}
+              className="w-full border rounded px-2 py-1 text-sm resize-none break-all"
               onFocus={(e) => e.target.select()}
             />
           )}
