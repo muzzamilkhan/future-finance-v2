@@ -15,7 +15,7 @@ function findOverride(overrides: EngineOverride[], date: Date): EngineOverride |
 }
 
 function signed(type: EngineParticular["type"], amount: number): number {
-  return type === "EXPENSE" ? -Math.abs(amount) : Math.abs(amount);
+  return type === "INCOME" ? Math.abs(amount) : -Math.abs(amount);
 }
 
 function step(date: Date, freq: EngineParticular["frequency"]): Date {
