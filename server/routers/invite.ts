@@ -53,7 +53,7 @@ export const inviteRouter = router({
   get: protectedProcedure.input(z.object({ token: z.string() })).query(async ({ ctx, input }) => {
     const invite = await ctx.prisma.shareInvite.findUnique({
       where: { token: input.token },
-      include: { account: true },
+      include: { account: { select: { name: true } } },
     });
     if (!invite) throw new TRPCError({ code: "NOT_FOUND" });
     assertInviteUsable(invite, new Date());
@@ -72,21 +72,33 @@ export const inviteRouter = router({
     const invite = await ctx.prisma.shareInvite.findUnique({ where: { token: input.token } });
     if (!invite) throw new TRPCError({ code: "NOT_FOUND" });
     assertInviteUsable(invite, new Date());
-    await ctx.prisma.$transaction(async (tx) => {
+    return ctx.prisma.$transaction(async (tx) => {
+      // Atomic single-use consume: only the first concurrent caller flips acceptedAt from null.
+      const consumed = await tx.shareInvite.updateMany({
+        where: { id: invite.id, acceptedAt: null },
+        data: { acceptedAt: new Date() },
+      });
+
+      // Did the caller already have a membership on this account? (idempotent revisit / owner self-accept)
       const existing = await tx.accountMembership.findUnique({
         where: { userId_accountId: { userId: ctx.user.id, accountId: invite.accountId } },
       });
+
+      if (consumed.count === 0) {
+        // We lost the consume race (or the link was already used). That's fine ONLY if this
+        // user already belongs to the account (idempotent revisit). Otherwise the link is spent.
+        if (existing) return { accountId: invite.accountId };
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This invite link has already been used" });
+      }
+
+      // We won the consume. Create the membership unless the user already has one
+      // (e.g. owner accepting their own invite) — never overwrite existing perms.
       if (!existing) {
         await tx.accountMembership.create({
-          data: {
-            userId: ctx.user.id,
-            accountId: invite.accountId,
-            ...permsFromInvite(invite),
-          },
+          data: { userId: ctx.user.id, accountId: invite.accountId, ...permsFromInvite(invite) },
         });
       }
-      await tx.shareInvite.update({ where: { id: invite.id }, data: { acceptedAt: new Date() } });
+      return { accountId: invite.accountId };
     });
-    return { accountId: invite.accountId };
   }),
 });

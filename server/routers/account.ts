@@ -123,9 +123,10 @@ export const accountRouter = router({
   removeMember: accountProcedure.input(z.object({ userId: z.string() })).mutation(async ({ ctx, input }) => {
     if (ctx.membership.role !== "OWNER") throw new TRPCError({ code: "FORBIDDEN" });
     if (input.userId === ctx.user.id) throw new TRPCError({ code: "BAD_REQUEST", message: "Owner cannot remove self" });
-    await ctx.prisma.accountMembership.delete({
-      where: { userId_accountId: { userId: input.userId, accountId: ctx.account.id } },
+    const res = await ctx.prisma.accountMembership.deleteMany({
+      where: { userId: input.userId, accountId: ctx.account.id, role: "MEMBER" },
     });
+    if (res.count === 0) throw new TRPCError({ code: "NOT_FOUND", message: "No such member to remove" });
     return { ok: true };
   }),
 });
