@@ -9,6 +9,35 @@ import { Checkbox } from "@/app/_components/ui/checkbox";
 import { format } from "date-fns";
 import { useActiveAccount } from "@/app/_components/AccountContext";
 
+type HolidayItem = { id: string; name: string; date: string | Date; isRecurring: boolean; source: string };
+
+function HolidaySection({ title, holidays, canEdit, onDelete }: {
+  title: string;
+  holidays: HolidayItem[];
+  canEdit: boolean;
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <h2 className="text-lg font-semibold">{title}</h2>
+      {holidays.length === 0 ? (
+        <p className="text-sm text-muted-foreground">None yet</p>
+      ) : (
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {holidays.map((h) => (
+            <div key={h.id} className="flex items-center justify-between rounded-md border p-3">
+              <span>
+                {h.name} — {format(new Date(h.date), "MMM d, yyyy")}{h.isRecurring ? " (yearly)" : ""}
+              </span>
+              <Button variant="ghost" size="sm" disabled={!canEdit} onClick={() => onDelete(h.id)}>Delete</Button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function HolidaysPage() {
   const { accountId, activeMembership } = useActiveAccount();
   const canEditHolidays = !activeMembership || activeMembership.role === "OWNER" || activeMembership.canEditHolidays;
@@ -48,6 +77,7 @@ export default function HolidaysPage() {
     <Layout>
       <div className="space-y-4">
         <h1 className="text-2xl font-bold">Holidays</h1>
+        <div className="grid grid-cols-1 items-stretch gap-4 md:grid-cols-2">
         <div className="flex flex-wrap items-end gap-2 rounded-md border p-3">
           <div className="flex flex-col gap-1 text-sm">
             <span>Country</span>
@@ -77,28 +107,30 @@ export default function HolidaysPage() {
           </Button>
           {importMsg && <span className="text-sm text-muted-foreground">{importMsg}</span>}
         </div>
-        <form className="flex flex-wrap items-center gap-2"
+        <form className="flex flex-wrap items-end gap-2 rounded-md border p-3"
           onSubmit={(e) => { e.preventDefault(); create.mutate({ accountId: accountId!, name, date: new Date(date), isRecurring: recurring }); setName(""); setDate(""); }}>
-          <Input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
-          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-          <label className="flex items-center gap-1 text-sm">
+          <div className="flex flex-col gap-1 text-sm">
+            <span>Name</span>
+            <Input className="w-40" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-1 text-sm">
+            <span>Date</span>
+            <Input className="w-36" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </div>
+          <label className="flex h-9 items-center gap-1 text-sm">
             <Checkbox checked={recurring} onCheckedChange={(c) => setRecurring(!!c)} /> Recurring
           </label>
           <Button type="submit" size="sm" disabled={!canEditHolidays}>Add</Button>
         </form>
-        <div className="space-y-2">
-          {(holidays ?? []).map((h) => (
-            <div key={h.id} className="flex justify-between rounded-md border p-3">
-              <span>
-                {h.name} — {format(new Date(h.date), "MMM d, yyyy")}{h.isRecurring ? " (yearly)" : ""}
-                <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-                  {h.source === "IMPORTED" ? "Imported" : "Custom"}
-                </span>
-              </span>
-              <Button variant="ghost" size="sm" disabled={!canEditHolidays} onClick={() => del.mutate({ accountId: accountId!, id: h.id })}>Delete</Button>
-            </div>
-          ))}
         </div>
+        <HolidaySection title="Imported Holidays"
+          holidays={(holidays ?? []).filter((h) => h.source === "IMPORTED")}
+          canEdit={canEditHolidays}
+          onDelete={(id) => del.mutate({ accountId: accountId!, id })} />
+        <HolidaySection title="Custom Holidays"
+          holidays={(holidays ?? []).filter((h) => h.source !== "IMPORTED")}
+          canEdit={canEditHolidays}
+          onDelete={(id) => del.mutate({ accountId: accountId!, id })} />
       </div>
     </Layout>
   );
