@@ -1,5 +1,5 @@
 import { describe, it, expectTypeOf } from "vitest";
-import type { EngineAccount, EngineParticular, DailyBalance, DailyEvent } from "./types";
+import type { EngineAccount, EngineParticular, DailyBalance, DailyEvent, ForecastInput } from "./types";
 
 describe("engine types", () => {
   it("EngineParticular carries amount as a number", () => {
@@ -22,7 +22,7 @@ describe("engine types for credit + transfers", () => {
     expectTypeOf<EngineParticular["type"]>().toEqualTypeOf<"INCOME" | "EXPENSE" | "TRANSFER">();
   });
   it("ForecastInput takes accounts, DailyBalance reports combined + per-account", () => {
-    // ForecastInput["accounts"] assertion intentionally omitted — that change lands in Task 4 (forecast.ts)
+    expectTypeOf<ForecastInput["accounts"]>().toEqualTypeOf<EngineAccount[]>();
     expectTypeOf<DailyBalance["combined"]>().toEqualTypeOf<number>();
     expectTypeOf<DailyEvent["fromAccountId"]>().toEqualTypeOf<string>();
     expectTypeOf<DailyEvent["toAccountId"]>().toEqualTypeOf<string | null>();
