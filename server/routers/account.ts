@@ -86,4 +86,46 @@ export const accountRouter = router({
       where: { id: ctx.account.id }, data: { currentBalance: input.balance, balanceUpdatedAt: new Date() },
     });
   }),
+
+  members: accountProcedure.query(async ({ ctx }) => {
+    if (ctx.membership.role !== "OWNER") throw new TRPCError({ code: "FORBIDDEN" });
+    const ms = await ctx.prisma.accountMembership.findMany({
+      where: { accountId: ctx.account.id },
+      include: { user: { select: { id: true, name: true, email: true } } },
+      orderBy: { createdAt: "asc" },
+    });
+    return ms.map((m) => ({
+      userId: m.userId, name: m.user.name, email: m.user.email, role: m.role,
+      canEditItems: m.canEditItems, canEditOverrides: m.canEditOverrides,
+      canEditHolidays: m.canEditHolidays, canUpdateBalance: m.canUpdateBalance,
+    }));
+  }),
+
+  updateMemberPerms: accountProcedure.input(z.object({
+    userId: z.string(),
+    canEditItems: z.boolean(),
+    canEditOverrides: z.boolean(),
+    canEditHolidays: z.boolean(),
+    canUpdateBalance: z.boolean(),
+  })).mutation(async ({ ctx, input }) => {
+    if (ctx.membership.role !== "OWNER") throw new TRPCError({ code: "FORBIDDEN" });
+    if (input.userId === ctx.user.id) throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot change owner perms" });
+    await ctx.prisma.accountMembership.update({
+      where: { userId_accountId: { userId: input.userId, accountId: ctx.account.id } },
+      data: {
+        canEditItems: input.canEditItems, canEditOverrides: input.canEditOverrides,
+        canEditHolidays: input.canEditHolidays, canUpdateBalance: input.canUpdateBalance,
+      },
+    });
+    return { ok: true };
+  }),
+
+  removeMember: accountProcedure.input(z.object({ userId: z.string() })).mutation(async ({ ctx, input }) => {
+    if (ctx.membership.role !== "OWNER") throw new TRPCError({ code: "FORBIDDEN" });
+    if (input.userId === ctx.user.id) throw new TRPCError({ code: "BAD_REQUEST", message: "Owner cannot remove self" });
+    await ctx.prisma.accountMembership.delete({
+      where: { userId_accountId: { userId: input.userId, accountId: ctx.account.id } },
+    });
+    return { ok: true };
+  }),
 });
