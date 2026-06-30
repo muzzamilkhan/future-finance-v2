@@ -8,6 +8,7 @@ import { Button } from "@/app/_components/ui/button";
 import { Input } from "@/app/_components/ui/input";
 import { Checkbox } from "@/app/_components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/app/_components/ui/dialog";
+import { upsertRowBy, removeRow, newTempId } from "@/lib/optimistic";
 
 export function OverrideModal(
   { isOpen, particularId, originalDate, isFixed, isCritical, currentAmount, currentDate, overrideId, onClose }:
@@ -20,9 +21,44 @@ export function OverrideModal(
   const [amount, setAmount] = useState(String(Math.abs(currentAmount)));
   const [date, setDate] = useState(format(currentDate, "yyyy-MM-dd"));
   const [skip, setSkip] = useState(false);
-  const onSuccess = () => { utils.forecast.getData.invalidate(); utils.particular.listOverrides.invalidate({ particularId }); onClose(); };
-  const override = trpc.particular.overrideInstance.useMutation({ onSuccess });
-  const revert = trpc.particular.deleteOverride.useMutation({ onSuccess });
+  const settle = () => { utils.forecast.getData.invalidate(); utils.particular.listOverrides.invalidate({ accountId: accountId!, particularId }); };
+  const override = trpc.particular.overrideInstance.useMutation({
+    onMutate: async (vars) => {
+      const key = { accountId: accountId!, particularId };
+      await utils.particular.listOverrides.cancel(key);
+      const prev = utils.particular.listOverrides.getData(key);
+      const origTime = new Date(vars.originalDate as Date).getTime();
+      utils.particular.listOverrides.setData(key, (old) =>
+        upsertRowBy(
+          old,
+          (r) => new Date(r.originalDate).getTime() === origTime,
+          {
+            id: newTempId(),
+            originalDate: vars.originalDate,
+            overriddenAmount: vars.overriddenAmount ?? null,
+            overriddenDate: vars.overriddenDate ?? null,
+            isSkipped: vars.isSkipped ?? false,
+          } as never,
+        ),
+      );
+      onClose();
+      return { prev, key };
+    },
+    onError: (_e, _vars, ctx) => { if (ctx) utils.particular.listOverrides.setData(ctx.key, ctx.prev); },
+    onSettled: settle,
+  });
+  const revert = trpc.particular.deleteOverride.useMutation({
+    onMutate: async (vars) => {
+      const key = { accountId: accountId!, particularId };
+      await utils.particular.listOverrides.cancel(key);
+      const prev = utils.particular.listOverrides.getData(key);
+      utils.particular.listOverrides.setData(key, (old) => removeRow(old, vars.id));
+      onClose();
+      return { prev, key };
+    },
+    onError: (_e, _vars, ctx) => { if (ctx) utils.particular.listOverrides.setData(ctx.key, ctx.prev); },
+    onSettled: settle,
+  });
 
   return (
     <Dialog open={isOpen} onOpenChange={(o) => !o && onClose()}>
