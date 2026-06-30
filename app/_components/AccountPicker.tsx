@@ -13,10 +13,10 @@ export function AccountPicker() {
   const { accounts, accountId, setAccountId, activeMembership } = useActiveAccount();
   const utils = trpc.useUtils();
   const invalidate = () => utils.account.list.invalidate();
-  const create = trpc.account.create.useMutation({ onSuccess: (r) => { invalidate(); setAccountId(r.id); } });
-  const setDefault = trpc.account.setDefault.useMutation({ onSuccess: invalidate });
-  const close = trpc.account.close.useMutation({ onSuccess: invalidate });
-  const leave = trpc.account.leave.useMutation({ onSuccess: invalidate });
+  const create = trpc.account.create.useMutation({ onSuccess: (r) => { invalidate(); setAccountId(r.id); }, onError: (e) => window.alert(e.message) });
+  const setDefault = trpc.account.setDefault.useMutation({ onSuccess: invalidate, onError: (e) => window.alert(e.message) });
+  const close = trpc.account.close.useMutation({ onSuccess: invalidate, onError: (e) => window.alert(e.message) });
+  const leave = trpc.account.leave.useMutation({ onSuccess: invalidate, onError: (e) => window.alert(e.message) });
 
   return (
     <DropdownMenu>

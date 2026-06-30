@@ -4,7 +4,7 @@ import { formatCurrency } from "@/lib/design-system";
 import { format } from "date-fns";
 import { sortDailyEvents } from "./sortEvents";
 
-export function DailyCard({ day, onEventClick }: { day: DailyBalance; onEventClick?: (particularId: string, originalDate?: Date, currentAmount?: number, currentDate?: Date) => void }) {
+export function DailyCard({ day, onEventClick, interactive = true }: { day: DailyBalance; onEventClick?: (particularId: string, originalDate?: Date, currentAmount?: number, currentDate?: Date) => void; interactive?: boolean }) {
   return (
     <Card id={`day-${format(day.date, "yyyy-MM-dd")}`} className={day.isNegative ? "border-finance-expense" : undefined}>
       <CardContent className="p-3">
@@ -16,10 +16,12 @@ export function DailyCard({ day, onEventClick }: { day: DailyBalance; onEventCli
         </div>
         {day.events.length > 0 && (
           <ul className="mt-2 space-y-1">
-            {sortDailyEvents(day.events).map((e, i) => (
+            {sortDailyEvents(day.events).map((e, i) => {
+              const clickable = interactive && e.isOverridable;
+              return (
               <li key={`${e.particularId}-${i}`}
-                  className={`flex justify-between text-sm ${e.isOverridable ? "cursor-pointer" : "cursor-default"}`}
-                  onClick={() => e.isOverridable && onEventClick?.(e.particularId, e.originalDate, e.amount, day.date)}>
+                  className={`flex justify-between text-sm ${clickable ? "cursor-pointer" : "cursor-default"}`}
+                  onClick={() => clickable && onEventClick?.(e.particularId, e.originalDate, e.amount, day.date)}>
                 <span>
                   {e.name}
                   {e.isOverridden && <span className="ml-1 text-xs text-finance-warning">(edited)</span>}
@@ -29,7 +31,8 @@ export function DailyCard({ day, onEventClick }: { day: DailyBalance; onEventCli
                   {formatCurrency(e.amount)}
                 </span>
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </CardContent>

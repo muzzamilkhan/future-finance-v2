@@ -125,7 +125,7 @@ export default function DashboardPage() {
               (result.firstNegative && isSameDay(day.date, result.firstNegative.date)),
             )
             .map((day) => (
-              <DailyCard key={day.date.toISOString()} day={day} onEventClick={openOverride} />
+              <DailyCard key={day.date.toISOString()} day={day} onEventClick={openOverride} interactive={canEditOverrides} />
             ))}
         </div>
 
