@@ -59,6 +59,7 @@ model FinanceAccount {
   particulars      Particular[]
   holidays         Holiday[]
   memberships      AccountMembership[]
+  invites          ShareInvite[]
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }
@@ -84,6 +85,23 @@ model AccountMembership {
 enum MembershipRole {
   OWNER
   MEMBER
+}
+
+model ShareInvite {
+  id               String         @id @default(cuid())
+  token            String         @unique
+  accountId        String
+  createdByUserId  String
+  role             MembershipRole @default(MEMBER)
+  canEditItems     Boolean        @default(false)
+  canEditOverrides Boolean        @default(false)
+  canEditHolidays  Boolean        @default(false)
+  canUpdateBalance Boolean        @default(false)
+  acceptedAt       DateTime?
+  expiresAt        DateTime?
+  createdAt        DateTime       @default(now())
+  account          FinanceAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  @@index([accountId])
 }
 
 model Particular {
