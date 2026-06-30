@@ -1,12 +1,12 @@
 import { z } from "zod";
-import { router, protectedProcedure, resolveAccount } from "../trpc";
+import { router, accountProcedure } from "../trpc";
 
 export const forecastRouter = router({
   // Returns raw data for the FULL replay window [balanceUpdatedAt .. viewEnd].
-  getData: protectedProcedure
+  getData: accountProcedure
     .input(z.object({ viewStart: z.coerce.date(), viewEnd: z.coerce.date() }))
     .query(async ({ ctx, input }) => {
-      const a = await resolveAccount(ctx.user.id);
+      const a = ctx.account;
       const windowStart = a.balanceUpdatedAt < input.viewStart ? a.balanceUpdatedAt : input.viewStart;
 
       const particulars = await ctx.prisma.particular.findMany({

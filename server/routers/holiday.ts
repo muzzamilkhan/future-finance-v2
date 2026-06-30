@@ -1,18 +1,20 @@
 import { z } from "zod";
-import { router, protectedProcedure, resolveAccount } from "../trpc";
+import { router, accountProcedure } from "../trpc";
+import { assertCan } from "../permissions";
 import { holidayInput } from "@/lib/schemas";
 
 export const holidayRouter = router({
-  list: protectedProcedure.query(async ({ ctx }) => {
-    const a = await resolveAccount(ctx.user.id);
-    return ctx.prisma.holiday.findMany({ where: { accountId: a.id }, orderBy: { date: "asc" } });
+  list: accountProcedure.query(({ ctx }) =>
+    ctx.prisma.holiday.findMany({ where: { accountId: ctx.account.id }, orderBy: { date: "asc" } })),
+
+  create: accountProcedure.input(holidayInput).mutation(async ({ ctx, input }) => {
+    assertCan(ctx.membership, "editHolidays");
+    const { accountId: _a, ...rest } = input as typeof input & { accountId: string };
+    return ctx.prisma.holiday.create({ data: { ...rest, accountId: ctx.account.id } });
   }),
-  create: protectedProcedure.input(holidayInput).mutation(async ({ ctx, input }) => {
-    const a = await resolveAccount(ctx.user.id);
-    return ctx.prisma.holiday.create({ data: { ...input, accountId: a.id } });
-  }),
-  delete: protectedProcedure.input(z.object({ id: z.string() })).mutation(async ({ ctx, input }) => {
-    const a = await resolveAccount(ctx.user.id);
-    return ctx.prisma.holiday.deleteMany({ where: { id: input.id, accountId: a.id } });
+
+  delete: accountProcedure.input(z.object({ id: z.string() })).mutation(async ({ ctx, input }) => {
+    assertCan(ctx.membership, "editHolidays");
+    return ctx.prisma.holiday.deleteMany({ where: { id: input.id, accountId: ctx.account.id } });
   }),
 });
