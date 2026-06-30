@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { normalizeCategory } from "@/lib/budget/category";
 
-export const particularType = z.enum(["INCOME", "EXPENSE"]);
+export const particularType = z.enum(["INCOME", "EXPENSE", "TRANSFER"]);
 export const frequency = z.enum(["ONCE_OFF", "WEEKLY", "FORTNIGHTLY", "MONTHLY", "ANNUAL"]);
 export const bdaAdjustment = z.enum(["NONE", "NEXT_BUSINESS_DAY", "PREVIOUS_BUSINESS_DAY"]);
 
@@ -21,8 +21,14 @@ export const particularInput = z.object({
     emptyToUndefined,
     z.string().transform((s) => normalizeCategory(s)).optional(),
   ).transform((v) => (v === "" ? undefined : v)),
+  accountId: z.string().optional(),
+  toAccountId: z.preprocess(emptyToUndefined, z.string().optional()),
 }).refine((v) => !v.endDate || v.endDate >= v.startDate, {
   message: "End date must be on or after start date", path: ["endDate"],
+}).refine((v) => v.type !== "TRANSFER" || (!!v.toAccountId && v.toAccountId !== v.accountId), {
+  message: "Transfers need a different destination account", path: ["toAccountId"],
+}).refine((v) => v.type === "TRANSFER" || !v.toAccountId, {
+  message: "Only transfers may set a destination account", path: ["toAccountId"],
 });
 
 export const overrideInstanceInput = z.object({
