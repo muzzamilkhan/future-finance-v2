@@ -137,14 +137,20 @@ model ParticularOverride {
   @@unique([particularId, originalDate])
 }
 
+enum HolidaySource {
+  IMPORTED
+  CUSTOM
+}
+
 model Holiday {
   id          String         @id @default(cuid())
   accountId   String
   name        String
   date        DateTime       @db.Date
   isRecurring Boolean        @default(false)
+  source      HolidaySource  @default(CUSTOM)
   account     FinanceAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  @@unique([accountId, date])
+  @@unique([accountId, name, source])
 }
 
 enum ParticularType {

@@ -7,3 +7,10 @@ export const holidayInput = z.object({
 });
 
 export type HolidayInput = z.infer<typeof holidayInput>;
+
+export const importHolidaysInput = z.object({
+  countryCode: z.string().length(2),
+  stateCode: z.string().optional(),
+});
+
+export type ImportHolidaysInput = z.infer<typeof importHolidaysInput>;

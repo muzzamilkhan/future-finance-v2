@@ -88,7 +88,6 @@ git commit -m "feat(holidays): add source enum and name-based dedup key"
 - Produces:
   - `type NagerHoliday = { date: string; name: string; global: boolean; counties: string[] | null }`
   - `type ImportedHoliday = { name: string; date: string }`
-  - `type UpsertPlan = { name: string; date: string }[]` (alias of `ImportedHoliday[]`)
   - `fetchHolidays(countryCode: string, year: number): Promise<NagerHoliday[]>`
   - `fetchCountries(): Promise<{ countryCode: string; name: string }[]>`
   - `subdivisionsForCountry(countryCode: string, year: number): Promise<string[]>`
