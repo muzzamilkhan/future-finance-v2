@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 import { trpc } from "@/trpc/client";
 import { useActiveAccount } from "./AccountContext";
 import { Button } from "./ui/button";
@@ -21,6 +22,15 @@ export function SharePanel() {
     canUpdateBalance: false,
   });
   const [url, setUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const resetForm = () =>
+    setPerms({
+      canEditItems: false,
+      canEditOverrides: false,
+      canEditHolidays: false,
+      canUpdateBalance: false,
+    });
   const members = trpc.account.members.useQuery(
     { accountId: accountId! },
     { enabled: !!accountId }
@@ -30,6 +40,11 @@ export function SharePanel() {
       const link = `${window.location.origin}${r.url}`;
       setUrl(link);
       navigator.clipboard?.writeText(link).catch(() => {});
+      setCopied(true);
+      setTimeout(() => {
+        setCopied(false);
+        resetForm();
+      }, 1500);
     },
   });
   const remove = trpc.account.removeMember.useMutation({
@@ -68,8 +83,9 @@ export function SharePanel() {
           <Button
             onClick={() => create.mutate({ accountId: accountId!, ...perms })}
             disabled={create.isPending}
+            className={cn(copied && "bg-green-600 text-white hover:bg-green-600")}
           >
-            Create share link
+            {copied ? "Copied!" : "Create share link"}
           </Button>
           {url && (
             <textarea
