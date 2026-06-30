@@ -10,8 +10,8 @@ import { Checkbox } from "@/app/_components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/app/_components/ui/dialog";
 
 export function OverrideModal(
-  { isOpen, particularId, originalDate, isFixed, isCritical, currentAmount, currentDate, onClose }:
-  { isOpen: boolean; particularId: string; originalDate: Date; isFixed: boolean; isCritical: boolean; currentAmount: number; currentDate: Date; onClose: () => void },
+  { isOpen, particularId, originalDate, isFixed, isCritical, currentAmount, currentDate, overrideId, onClose }:
+  { isOpen: boolean; particularId: string; originalDate: Date; isFixed: boolean; isCritical: boolean; currentAmount: number; currentDate: Date; overrideId?: string; onClose: () => void },
 ) {
   const { accountId } = useActiveAccount();
   const utils = trpc.useUtils();
@@ -20,9 +20,9 @@ export function OverrideModal(
   const [amount, setAmount] = useState(String(Math.abs(currentAmount)));
   const [date, setDate] = useState(format(currentDate, "yyyy-MM-dd"));
   const [skip, setSkip] = useState(false);
-  const override = trpc.particular.overrideInstance.useMutation({
-    onSuccess: () => { utils.forecast.getData.invalidate(); utils.particular.listOverrides.invalidate({ particularId }); onClose(); },
-  });
+  const onSuccess = () => { utils.forecast.getData.invalidate(); utils.particular.listOverrides.invalidate({ particularId }); onClose(); };
+  const override = trpc.particular.overrideInstance.useMutation({ onSuccess });
+  const revert = trpc.particular.deleteOverride.useMutation({ onSuccess });
 
   return (
     <Dialog open={isOpen} onOpenChange={(o) => !o && onClose()}>
@@ -57,9 +57,18 @@ export function OverrideModal(
               </label>
             </>
           )}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="submit">Save</Button>
+          <div className="flex items-center justify-between gap-2">
+            {overrideId ? (
+              <Button type="button" variant="destructive"
+                disabled={revert.isPending}
+                onClick={() => revert.mutate({ accountId: accountId!, id: overrideId })}>
+                Revert override
+              </Button>
+            ) : <span />}
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+              <Button type="submit" disabled={override.isPending}>Save</Button>
+            </div>
           </div>
         </form>
       </DialogContent>

@@ -78,6 +78,20 @@ describe("computeForecast", () => {
     expect(flexEv.isOverridable).toBe(true);
   });
 
+  it("surfaces overrideId on overridden events and leaves it undefined otherwise", () => {
+    const flexible: EngineParticular = {
+      ...expense("flex", "2026-07-02", 100), isFixed: false,
+      overrides: [{ id: "ov-1", originalDate: d("2026-07-02"), overriddenDate: null, overriddenAmount: 250, isSkipped: false }],
+    };
+    const plain = expense("plain", "2026-07-03", 100);
+    const r = computeForecast(baseInput({ particulars: [flexible, plain] }));
+    const flexEv = r.days.find((x) => x.date.getDate() === 2)!.events.find((e) => e.particularId === "flex")!;
+    const plainEv = r.days.find((x) => x.date.getDate() === 3)!.events.find((e) => e.particularId === "plain")!;
+    expect(flexEv.isOverridden).toBe(true);
+    expect(flexEv.overrideId).toBe("ov-1");
+    expect(plainEv.overrideId).toBeUndefined();
+  });
+
   it("skipToday drops today's events", () => {
     const r = computeForecast(baseInput({
       today: d("2026-07-02"), skipToday: true,

@@ -51,6 +51,7 @@ export interface DailyEvent {
   // (amount needs !isFixed; date/skip needs !isCritical).
   isOverridable: boolean;
   originalDate?: Date;
+  overrideId?: string;
 }
 
 export interface DailyBalance {

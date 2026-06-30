@@ -34,7 +34,7 @@ export function computeForecast(input: ForecastInput): ForecastResult {
   // Generate every instance across the replay window, grouped by day.
   const byDay = new Map<number, { name: string; particularId: string; amount: number;
     isOverridden: boolean; isSkipped: boolean; isMovedDueToHoliday: boolean;
-    isOverridable: boolean; originalDate?: Date }[]>();
+    isOverridable: boolean; originalDate?: Date; overrideId?: string }[]>();
 
   for (const p of particulars) {
     const isOverridable = !p.isFixed || !p.isCritical;
@@ -46,7 +46,7 @@ export function computeForecast(input: ForecastInput): ForecastResult {
         name: p.name, particularId: p.id, amount: inst.amount,
         isOverridden: inst.isOverridden, isSkipped: inst.isSkipped,
         isMovedDueToHoliday: inst.isMovedDueToHoliday, isOverridable,
-        originalDate: inst.originalDate,
+        originalDate: inst.originalDate, overrideId: inst.overrideId,
       });
       byDay.set(key, list);
     }
@@ -74,6 +74,7 @@ export function computeForecast(input: ForecastInput): ForecastResult {
         isMovedDueToHoliday: raw.isMovedDueToHoliday,
         isOverridable: raw.isOverridable,
         originalDate: raw.originalDate,
+        overrideId: raw.overrideId,
       });
       running += raw.amount;
     }
