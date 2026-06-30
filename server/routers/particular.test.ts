@@ -7,7 +7,7 @@ import { describe, it, expect, vi } from "vitest";
 vi.mock("../db", () => ({ prisma: {} }));
 vi.mock("../auth", () => ({ auth: vi.fn().mockResolvedValue(null) }));
 
-import { assertOverrideAllowed } from "./particular";
+import { assertOverrideAllowed, ownedAccountIds, assertReassignAllowed } from "./particular";
 
 describe("assertOverrideAllowed", () => {
   it("rejects amount override on a fixed particular", () => {
@@ -27,5 +27,33 @@ describe("assertOverrideAllowed", () => {
       { isFixed: false, isCritical: true },
       { overriddenAmount: 50, overriddenDate: undefined, isSkipped: false },
     )).not.toThrow();
+  });
+});
+
+describe("ownedAccountIds", () => {
+  it("returns the set of open account ids the user is a member of", async () => {
+    const fakePrisma = {
+      accountMembership: { findMany: vi.fn(async () => [{ accountId: "debit" }, { accountId: "credit" }]) },
+    } as never;
+    const set = await ownedAccountIds(fakePrisma, "u1");
+    expect(set.has("debit")).toBe(true);
+    expect(set.has("credit")).toBe(true);
+    expect(set.has("other")).toBe(false);
+  });
+});
+
+describe("assertReassignAllowed", () => {
+  const owned = new Set(["debit", "credit"]);
+  it("allows moving an expense to another owned account", () => {
+    expect(() => assertReassignAllowed({ type: "EXPENSE" }, "debit", "credit", owned)).not.toThrow();
+  });
+  it("rejects reassigning a transfer", () => {
+    expect(() => assertReassignAllowed({ type: "TRANSFER" }, "debit", "credit", owned)).toThrow(/Transfers cannot be reassigned/);
+  });
+  it("rejects moving to the same account", () => {
+    expect(() => assertReassignAllowed({ type: "EXPENSE" }, "debit", "debit", owned)).toThrow(/Already on this account/);
+  });
+  it("rejects an unowned destination", () => {
+    expect(() => assertReassignAllowed({ type: "EXPENSE" }, "debit", "savings", owned)).toThrow(/not found/);
   });
 });

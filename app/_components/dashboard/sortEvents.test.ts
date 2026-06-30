@@ -4,6 +4,7 @@ import type { DailyEvent } from "@/lib/engine";
 
 const ev = (name: string, kind: "income" | "expense", amount: number): DailyEvent => ({
   particularId: name, name, amount, kind,
+  fromAccountId: "debit", toAccountId: null,
   isOverridden: false, isSkipped: false, isMovedDueToHoliday: false, isOverridable: true,
 });
 

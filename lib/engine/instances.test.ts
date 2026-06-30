@@ -2,9 +2,10 @@ import { describe, it, expect } from "vitest";
 import { generateInstances } from "./instances";
 import type { EngineParticular } from "./types";
 
-const d = (s: string) => new Date(s + "T00:00:00");
+const d = (s: string) => new Date(s + "T00:00:00Z");
 const base: EngineParticular = {
   id: "p1", name: "Test", type: "EXPENSE", amount: 100,
+  accountId: "debit", toAccountId: null,
   frequency: "ONCE_OFF", startDate: d("2026-07-10"), endDate: null,
   isCritical: true, isFixed: true, businessDayAdjustment: "NONE", overrides: [],
 };
@@ -76,4 +77,20 @@ describe("generateInstances", () => {
     expect(r[0]!.date.getTime()).toBe(d("2026-07-13").getTime()); // Mon
     expect(r[0]!.isMovedDueToHoliday).toBe(true);
   });
+});
+
+function transfer(over: Partial<EngineParticular> = {}): EngineParticular {
+  return {
+    id: "t1", name: "Card payment", type: "TRANSFER",
+    accountId: "debit", toAccountId: "credit", amount: 100,
+    frequency: "ONCE_OFF", startDate: new Date(Date.UTC(2026, 0, 10)),
+    endDate: null, isCritical: true, isFixed: true, businessDayAdjustment: "NONE",
+    overrides: [], ...over,
+  };
+}
+
+it("a transfer instance is negative (the from-account leg)", () => {
+  const out = generateInstances(transfer(), new Date(Date.UTC(2026, 0, 1)), new Date(Date.UTC(2026, 0, 31)), []);
+  expect(out).toHaveLength(1);
+  expect(out[0]!.amount).toBe(-100);
 });

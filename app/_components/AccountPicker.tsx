@@ -14,16 +14,20 @@ import { Badge } from "./ui/badge";
 import { ChevronsUpDown, Plus, Star, LogOut, Archive, Share2, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SharePanel } from "./SharePanel";
+import { AddCreditAccountDialog } from "./account/AddCreditAccountDialog";
 
 export function AccountPicker({ variant = "sidebar" }: { variant?: "sidebar" | "compact" }) {
   const { accounts, accountId, setAccountId, activeMembership } = useActiveAccount();
   const [sharingOpen, setSharingOpen] = useState(false);
+  const [addCreditOpen, setAddCreditOpen] = useState(false);
   const utils = trpc.useUtils();
   const invalidate = () => utils.account.list.invalidate();
   const create = trpc.account.create.useMutation({ onSuccess: (r) => { invalidate(); setAccountId(r.id); }, onError: (e) => window.alert(e.message) });
   const setDefault = trpc.account.setDefault.useMutation({ onSuccess: invalidate, onError: (e) => window.alert(e.message) });
   const close = trpc.account.close.useMutation({ onSuccess: invalidate, onError: (e) => window.alert(e.message) });
   const leave = trpc.account.leave.useMutation({ onSuccess: invalidate, onError: (e) => window.alert(e.message) });
+  const updateCreditLimit = trpc.account.updateCreditLimit.useMutation({ onSuccess: () => { invalidate(); utils.forecast.getCombined.invalidate(); }, onError: (e) => window.alert(e.message) });
+  const hasCredit = accounts.some((a) => a.type === "CREDIT");
 
   return (
     <>
@@ -64,6 +68,18 @@ export function AccountPicker({ variant = "sidebar" }: { variant?: "sidebar" | "
             const name = window.prompt("New account name", "New Account");
             if (name) create.mutate({ name });
           }}><Plus className="mr-2 h-4 w-4" />New account</DropdownMenuItem>
+          {!hasCredit && (
+            <DropdownMenuItem onClick={() => setAddCreditOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />Add credit account</DropdownMenuItem>
+          )}
+          {activeMembership?.type === "CREDIT" && activeMembership.role === "OWNER" && (
+            <DropdownMenuItem onClick={() => {
+              const cur = activeMembership.creditLimit ?? 0;
+              const next = window.prompt("New credit limit", String(cur));
+              const n = next === null ? null : Number(next);
+              if (n !== null && Number.isFinite(n) && n > 0) updateCreditLimit.mutate({ accountId: accountId!, creditLimit: n });
+            }}><Wallet className="mr-2 h-4 w-4" />Edit credit limit</DropdownMenuItem>
+          )}
           {accountId && activeMembership && !activeMembership.isDefault && (
             <DropdownMenuItem onClick={() => setDefault.mutate({ accountId })}>
               <Star className="mr-2 h-4 w-4" />Set as default</DropdownMenuItem>
@@ -91,6 +107,8 @@ export function AccountPicker({ variant = "sidebar" }: { variant?: "sidebar" | "
           <SharePanel />
         </DialogContent>
       </Dialog>
+
+      <AddCreditAccountDialog isOpen={addCreditOpen} onClose={() => setAddCreditOpen(false)} onCreated={(id) => setAccountId(id)} />
     </>
   );
 }

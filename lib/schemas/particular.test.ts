@@ -52,6 +52,22 @@ describe("particularInput", () => {
   );
 });
 
+const base = {
+  name: "x", amount: 100, frequency: "ONCE_OFF" as const,
+  startDate: "2026-01-10", isCritical: true, isFixed: true, businessDayAdjustment: "NONE" as const,
+};
+
+it("TRANSFER requires a distinct toAccountId", () => {
+  expect(particularInput.safeParse({ ...base, type: "TRANSFER", accountId: "a", toAccountId: "b" }).success).toBe(true);
+  expect(particularInput.safeParse({ ...base, type: "TRANSFER", accountId: "a" }).success).toBe(false);
+  expect(particularInput.safeParse({ ...base, type: "TRANSFER", accountId: "a", toAccountId: "a" }).success).toBe(false);
+});
+
+it("INCOME/EXPENSE must not carry a toAccountId", () => {
+  expect(particularInput.safeParse({ ...base, type: "EXPENSE", toAccountId: "b" }).success).toBe(false);
+  expect(particularInput.safeParse({ ...base, type: "EXPENSE" }).success).toBe(true);
+});
+
 describe("particularInput category", () => {
   const base = { name: "Power", type: "EXPENSE", amount: 100, frequency: "MONTHLY", startDate: "2026-06-01" };
   it("normalizes a provided category", () => {

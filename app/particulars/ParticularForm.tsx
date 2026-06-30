@@ -40,11 +40,12 @@ export function ParticularForm(
       enabled: !!particularId && !!accountId,
     },
   );
+  const { data: accounts } = trpc.account.list.useQuery();
   const form = useForm<ParticularFormValues>({
     resolver: zodResolver(particularInput),
     defaultValues: {
       name: existing?.name ?? "",
-      type: (existing?.type as "INCOME" | "EXPENSE") ?? "EXPENSE",
+      type: (existing?.type as "INCOME" | "EXPENSE" | "TRANSFER") ?? "EXPENSE",
       amount: existing ? Math.abs(Number(existing.amount)) : 0,
       frequency: (existing?.frequency as ParticularInput["frequency"]) ?? "MONTHLY",
       startDate: existing ? new Date(existing.startDate) : new Date(),
@@ -74,6 +75,7 @@ export function ParticularForm(
           startDate: vars.startDate as Date, endDate: (vars.endDate as Date | undefined) ?? null,
           isCritical: vars.isCritical, isFixed: vars.isFixed,
           businessDayAdjustment: vars.businessDayAdjustment, category: vars.category ?? null,
+          toAccountId: (vars.toAccountId as string | undefined) ?? null,
         } as never),
       );
       return { prev };
@@ -91,6 +93,7 @@ export function ParticularForm(
           startDate: vars.startDate as Date, endDate: (vars.endDate as Date | undefined) ?? null,
           isCritical: vars.isCritical, isFixed: vars.isFixed,
           businessDayAdjustment: vars.businessDayAdjustment, category: vars.category ?? null,
+          toAccountId: (vars.toAccountId as string | undefined) ?? null,
         } as never),
       );
       return { prev };
@@ -100,8 +103,8 @@ export function ParticularForm(
   });
 
   const submit = form.handleSubmit((values) => {
-    if (particularId) update.mutate({ accountId: accountId!, ...values, id: particularId });
-    else create.mutate({ accountId: accountId!, ...values });
+    if (particularId) update.mutate({ ...values, accountId: accountId!, id: particularId });
+    else create.mutate({ ...values, accountId: accountId! });
     onClose();
   });
 
@@ -121,14 +124,50 @@ export function ParticularForm(
           </div>
           <div className="space-y-1">
             <Label>Type</Label>
-            <Select value={form.watch("type")} onValueChange={(v) => form.setValue("type", v as "INCOME" | "EXPENSE")}>
+            <Select value={form.watch("type")} onValueChange={(v) => form.setValue("type", v as "INCOME" | "EXPENSE" | "TRANSFER")}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="INCOME">Income</SelectItem>
                 <SelectItem value="EXPENSE">Expense</SelectItem>
+                <SelectItem value="TRANSFER">Transfer</SelectItem>
               </SelectContent>
             </Select>
           </div>
+          {form.watch("type") === "TRANSFER" && (
+            <>
+              <div className="space-y-1">
+                <Label>From account</Label>
+                <Select
+                  value={(form.watch("accountId") as string | undefined) ?? accountId ?? ""}
+                  onValueChange={(v) => form.setValue("accountId", v)}
+                >
+                  <SelectTrigger><SelectValue placeholder="Select account" /></SelectTrigger>
+                  <SelectContent>
+                    {(accounts ?? []).map((a) => (
+                      <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>To account</Label>
+                <Select
+                  value={(form.watch("toAccountId") as string | undefined) ?? ""}
+                  onValueChange={(v) => form.setValue("toAccountId", v)}
+                >
+                  <SelectTrigger><SelectValue placeholder="Select destination" /></SelectTrigger>
+                  <SelectContent>
+                    {(accounts ?? [])
+                      .filter((a) => a.id !== ((form.watch("accountId") as string | undefined) ?? accountId))
+                      .map((a) => (
+                        <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                <FieldError name="toAccountId" />
+              </div>
+            </>
+          )}
           <div className="space-y-1">
             <Label>Amount</Label>
             <Input type="number" step="0.01" {...form.register("amount", { valueAsNumber: true })} />

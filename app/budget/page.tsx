@@ -41,6 +41,7 @@ export default function BudgetPage() {
       utils.particular.list.invalidate();
       utils.category.list.invalidate();
       utils.forecast.getData.invalidate();
+      utils.forecast.getCombined.invalidate();
     },
   });
   const [expanded, setExpanded] = useState<string | null>(null);

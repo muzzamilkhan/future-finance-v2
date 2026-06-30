@@ -3,16 +3,29 @@ import { TRPCError } from "@trpc/server";
 import { router, protectedProcedure, accountProcedure, ensureBootstrapAccount } from "../trpc";
 import { assertCan } from "../permissions";
 import { pickNextDefault } from "../defaultAccount";
-import { updateBalanceInput } from "@/lib/schemas";
+import { updateBalanceInput, createCreditAccountInput, updateCreditLimitInput } from "@/lib/schemas";
+
+/** Prisma `data` for creating a credit account. Outstanding is entered positive (amount owed); stored negative. */
+export function creditAccountCreateData(input: { name: string; creditLimit: number; outstanding: number }) {
+  return {
+    name: input.name,
+    type: "CREDIT" as const,
+    creditLimit: input.creditLimit,
+    currentBalance: -input.outstanding,
+    balanceUpdatedAt: new Date(),
+  };
+}
 
 export function mapMembershipToListItem(m: {
   role: "OWNER" | "MEMBER"; isDefault: boolean;
   canEditItems: boolean; canEditOverrides: boolean; canEditHolidays: boolean; canUpdateBalance: boolean;
-  account: { id: string; name: string; currentBalance: unknown; balanceUpdatedAt: Date };
+  account: { id: string; name: string; currentBalance: unknown; balanceUpdatedAt: Date; type: "DEBIT" | "CREDIT"; creditLimit: unknown };
 }) {
   return {
     id: m.account.id, name: m.account.name,
     currentBalance: Number(m.account.currentBalance), balanceUpdatedAt: m.account.balanceUpdatedAt,
+    type: m.account.type,
+    creditLimit: m.account.creditLimit === null ? null : Number(m.account.creditLimit),
     role: m.role, isDefault: m.isDefault,
     canEditItems: m.canEditItems, canEditOverrides: m.canEditOverrides,
     canEditHolidays: m.canEditHolidays, canUpdateBalance: m.canUpdateBalance,
@@ -133,5 +146,29 @@ export const accountRouter = router({
     });
     if (res.count === 0) throw new TRPCError({ code: "NOT_FOUND", message: "No such member to remove" });
     return { ok: true };
+  }),
+
+  createCredit: protectedProcedure.input(createCreditAccountInput).mutation(async ({ ctx, input }) => {
+    await ensureBootstrapAccount(ctx.user.id);
+    const existingCredit = await ctx.prisma.accountMembership.findFirst({
+      where: { userId: ctx.user.id, role: "OWNER", account: { type: "CREDIT", closedAt: null } },
+    });
+    if (existingCredit) throw new TRPCError({ code: "BAD_REQUEST", message: "You already have a credit account" });
+    const account = await ctx.prisma.financeAccount.create({ data: creditAccountCreateData(input) });
+    await ctx.prisma.accountMembership.create({
+      data: {
+        userId: ctx.user.id, accountId: account.id, role: "OWNER", isDefault: false,
+        canEditItems: true, canEditOverrides: true, canEditHolidays: true, canUpdateBalance: true,
+      },
+    });
+    return { id: account.id };
+  }),
+
+  updateCreditLimit: accountProcedure.input(updateCreditLimitInput).mutation(async ({ ctx, input }) => {
+    assertCan(ctx.membership, "updateBalance");
+    if (ctx.account.type !== "CREDIT") throw new TRPCError({ code: "BAD_REQUEST", message: "Not a credit account" });
+    return ctx.prisma.financeAccount.update({
+      where: { id: ctx.account.id }, data: { creditLimit: input.creditLimit },
+    });
   }),
 });

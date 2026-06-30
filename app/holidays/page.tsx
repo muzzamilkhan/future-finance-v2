@@ -67,7 +67,7 @@ export default function HolidaysPage() {
     onError: (_e, _vars, ctx) => {
       if (ctx) utils.holiday.list.setData(ctx.key, ctx.prev);
     },
-    onSettled: () => { utils.holiday.list.invalidate(); utils.forecast.getData.invalidate(); },
+    onSettled: () => { utils.holiday.list.invalidate(); utils.forecast.getData.invalidate(); utils.forecast.getCombined.invalidate(); },
   });
   const del = trpc.holiday.delete.useMutation({
     onMutate: async (vars) => {
@@ -80,7 +80,7 @@ export default function HolidaysPage() {
     onError: (_e, _vars, ctx) => {
       if (ctx) utils.holiday.list.setData(ctx.key, ctx.prev);
     },
-    onSettled: () => { utils.holiday.list.invalidate(); utils.forecast.getData.invalidate(); },
+    onSettled: () => { utils.holiday.list.invalidate(); utils.forecast.getData.invalidate(); utils.forecast.getCombined.invalidate(); },
   });
   const [name, setName] = useState(""); const [date, setDate] = useState(""); const [recurring, setRecurring] = useState(false);
 
@@ -98,7 +98,7 @@ export default function HolidaysPage() {
   const importHolidays = trpc.holiday.import.useMutation({
     onSuccess: (r) => {
       setImportMsg(`Imported ${r.imported}, updated ${r.updated}.`);
-      utils.holiday.list.invalidate(); utils.forecast.getData.invalidate();
+      utils.holiday.list.invalidate(); utils.forecast.getData.invalidate(); utils.forecast.getCombined.invalidate();
     },
     onError: (e) => setImportMsg(`Import failed: ${e.message}`),
   });

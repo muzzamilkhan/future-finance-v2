@@ -3,8 +3,9 @@ import { Card, CardContent } from "@/app/_components/ui/card";
 import { formatCurrency } from "@/lib/design-system";
 import { format } from "date-fns";
 import { sortDailyEvents } from "./sortEvents";
+import { eventLabel } from "./eventLabel";
 
-export function DailyCard({ day, onEventClick, interactive = true }: { day: DailyBalance; onEventClick?: (particularId: string, originalDate?: Date, currentAmount?: number, currentDate?: Date, overrideId?: string) => void; interactive?: boolean }) {
+export function DailyCard({ day, onEventClick, interactive = true, accountNames }: { day: DailyBalance; onEventClick?: (particularId: string, originalDate?: Date, currentAmount?: number, currentDate?: Date, overrideId?: string) => void; interactive?: boolean; accountNames?: Map<string, string> }) {
   return (
     <Card id={`day-${format(day.date, "yyyy-MM-dd")}`} className={day.isNegative ? "border-finance-expense" : undefined}>
       <CardContent className="p-3">
@@ -23,7 +24,7 @@ export function DailyCard({ day, onEventClick, interactive = true }: { day: Dail
                   className={`flex justify-between text-sm ${clickable ? "cursor-pointer" : "cursor-default"}`}
                   onClick={() => clickable && onEventClick?.(e.particularId, e.originalDate, e.amount, day.date, e.overrideId)}>
                 <span>
-                  {e.name}
+                  {eventLabel(e, accountNames)}
                   {e.isOverridden && <span className="ml-1 text-xs text-finance-warning">(edited)</span>}
                   {e.isMovedDueToHoliday && <span className="ml-1 text-xs text-muted-foreground">(moved)</span>}
                 </span>

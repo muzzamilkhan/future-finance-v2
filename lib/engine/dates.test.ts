@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { isBusinessDay, adjustToBusinessDay, expandRecurringHolidays } from "./dates";
 import type { EngineHoliday } from "./types";
 
-const d = (s: string) => new Date(s + "T00:00:00");
+const d = (s: string) => new Date(s + "T00:00:00Z");
 
 describe("isBusinessDay", () => {
   it("returns false on a Saturday", () => {
@@ -45,15 +45,44 @@ describe("adjustToBusinessDay", () => {
   });
 });
 
+// I1: UTC-keyed business-day and recurring-holiday logic must hold regardless of host TZ.
+describe("UTC-keyed business-day logic (timezone-independent)", () => {
+  const utc = (s: string) => new Date(s + "T00:00:00Z");
+
+  it("treats a UTC-midnight Saturday as a weekend", () => {
+    expect(isBusinessDay(utc("2026-06-27"), [])).toBe(false); // Sat (UTC)
+  });
+
+  it("NEXT_BUSINESS_DAY moves a UTC-midnight Saturday to Monday", () => {
+    const out = adjustToBusinessDay(utc("2026-06-27"), "NEXT_BUSINESS_DAY", []);
+    expect(out.getTime()).toBe(utc("2026-06-29").getTime()); // Mon (UTC midnight)
+    expect(out.getUTCDay()).toBe(1);
+  });
+
+  it("matches a recurring holiday by UTC month/day across years", () => {
+    const h: EngineHoliday[] = [{ date: utc("2000-12-25"), isRecurring: true }];
+    expect(isBusinessDay(utc("2026-12-25"), h)).toBe(false);
+  });
+
+  it("expands recurring holidays at UTC midnight", () => {
+    const h: EngineHoliday[] = [{ date: utc("2000-12-25"), isRecurring: true }];
+    const result = expandRecurringHolidays(h, utc("2026-01-01"), utc("2026-12-31"));
+    expect(result).toHaveLength(1);
+    expect(result[0]!.getTime()).toBe(utc("2026-12-25").getTime());
+    expect(result[0]!.getUTCMonth()).toBe(11);
+    expect(result[0]!.getUTCDate()).toBe(25);
+  });
+});
+
 describe("expandRecurringHolidays", () => {
   it("expands a recurring holiday to one instance per year within [start, end]", () => {
     const h: EngineHoliday[] = [{ date: d("2000-12-25"), isRecurring: true }];
     const result = expandRecurringHolidays(h, d("2025-01-01"), d("2027-12-31"));
     expect(result).toHaveLength(3);
-    expect(result.map((dt) => dt.getFullYear())).toEqual([2025, 2026, 2027]);
+    expect(result.map((dt) => dt.getUTCFullYear())).toEqual([2025, 2026, 2027]);
     for (const dt of result) {
-      expect(dt.getMonth()).toBe(11); // December
-      expect(dt.getDate()).toBe(25);
+      expect(dt.getUTCMonth()).toBe(11); // December
+      expect(dt.getUTCDate()).toBe(25);
     }
     expect(result[0]!.getTime()).toBe(d("2025-12-25").getTime());
     expect(result[1]!.getTime()).toBe(d("2026-12-25").getTime());

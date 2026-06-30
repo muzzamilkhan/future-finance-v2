@@ -5,6 +5,7 @@ import { trpc } from "@/trpc/client";
 import { Layout } from "@/app/_components/Layout";
 import { Button } from "@/app/_components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/app/_components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/_components/ui/select";
 import { formatCurrency } from "@/lib/design-system";
 import { ParticularForm } from "./ParticularForm";
 import { OverrideManagement } from "./OverrideManagement";
@@ -17,7 +18,7 @@ import { removeRow, isTempId } from "@/lib/optimistic";
 
 type Particular = inferRouterOutputs<AppRouter>["particular"]["list"][number];
 
-// Recurring frequencies, ordered annual → weekly for display.
+// Recurring frequencies, ordered annual to weekly for display.
 const FREQUENCY_RANK: Record<string, number> = {
   ANNUAL: 0, MONTHLY: 1, FORTNIGHTLY: 2, WEEKLY: 3,
 };
@@ -48,6 +49,26 @@ export default function ParticularsPage() {
     },
     onSettled: () => { utils.particular.list.invalidate(); utils.forecast.getData.invalidate(); },
   });
+  const { data: accountList } = trpc.account.list.useQuery();
+  const [pendingMove, setPendingMove] = useState<Particular | null>(null);
+  const [moveDest, setMoveDest] = useState<string>("");
+
+  const reassign = trpc.particular.reassignAccount.useMutation({
+    onMutate: async (vars) => {
+      const key = { accountId: vars.accountId };
+      await utils.particular.list.cancel(key);
+      const prev = utils.particular.list.getData(key);
+      utils.particular.list.setData(key, (old) => removeRow(old, vars.id));
+      return { prev, key };
+    },
+    onError: (_e, _vars, ctx) => { if (ctx) utils.particular.list.setData(ctx.key, ctx.prev); },
+    onSettled: () => {
+      utils.particular.list.invalidate();
+      utils.forecast.getData.invalidate();
+      utils.forecast.getCombined.invalidate();
+    },
+  });
+
   const [editing, setEditing] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -81,6 +102,10 @@ export default function ParticularsPage() {
               {formatCurrency(signed)}
             </span>
             <Button variant="ghost" size="sm" disabled={!canEditItems || isTempId(p.id)} onClick={() => { setEditing(p.id); setFormOpen(true); }}>Edit</Button>
+            {p.type !== "TRANSFER" && (accountList ?? []).some((a) => a.id !== accountId) && (
+              <Button variant="ghost" size="sm" disabled={!canEditItems || isTempId(p.id)}
+                onClick={() => { setMoveDest(""); setPendingMove(p); }}>Move</Button>
+            )}
             <Button variant="ghost" size="sm" disabled={!canEditItems || isTempId(p.id)} onClick={() => del.mutate({ accountId: accountId!, id: p.id })}>Delete</Button>
           </div>
         </div>
@@ -105,7 +130,7 @@ export default function ParticularsPage() {
           <Button size="sm" disabled={!canEditItems} onClick={() => { setEditing(null); setFormOpen(true); }}>Add</Button>
         </div>
         <QuickAddRow disabled={!canEditItems} />
-        {isLoading ? <p className="text-muted-foreground">Loading…</p> : (
+        {isLoading ? <p className="text-muted-foreground">Loading...</p> : (
           <div className="space-y-6">
             {renderSection("Recurring Income", recurringIncome)}
             {renderSection("Recurring Expenses", recurringExpenses)}
@@ -122,7 +147,7 @@ export default function ParticularsPage() {
               <DialogTitle>Delete item?</DialogTitle>
               <DialogDescription>
                 {pendingDelete
-                  ? `“${pendingDelete.name}” will be permanently removed. This can’t be undone.`
+                  ? `"${pendingDelete.name}" will be permanently removed. This cannot be undone.`
                   : null}
               </DialogDescription>
             </DialogHeader>
@@ -133,7 +158,45 @@ export default function ParticularsPage() {
                 disabled={del.isPending}
                 onClick={() => { if (pendingDelete) del.mutate({ accountId: accountId!, id: pendingDelete.id }); }}
               >
-                {del.isPending ? "Deleting…" : "Delete"}
+                {del.isPending ? "Deleting..." : "Delete"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        <Dialog open={!!pendingMove} onOpenChange={(o) => { if (!o && !reassign.isPending) setPendingMove(null); }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Move to another account?</DialogTitle>
+              <DialogDescription>
+                {pendingMove
+                  ? `"${pendingMove.name}" will be moved. All overrides on this item will be cleared.`
+                  : null}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-1">
+              <Select value={moveDest} onValueChange={setMoveDest}>
+                <SelectTrigger><SelectValue placeholder="Select destination account" /></SelectTrigger>
+                <SelectContent>
+                  {(accountList ?? [])
+                    .filter((a) => a.id !== accountId)
+                    .map((a) => (
+                      <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" disabled={reassign.isPending} onClick={() => setPendingMove(null)}>Cancel</Button>
+              <Button
+                disabled={reassign.isPending || !moveDest}
+                onClick={() => {
+                  if (pendingMove && moveDest) {
+                    reassign.mutate({ accountId: accountId!, id: pendingMove.id, toAccountId: moveDest });
+                    setPendingMove(null);
+                  }
+                }}
+              >
+                {reassign.isPending ? "Moving..." : "Move & clear overrides"}
               </Button>
             </DialogFooter>
           </DialogContent>
