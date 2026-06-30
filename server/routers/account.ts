@@ -63,10 +63,15 @@ export const accountRouter = router({
     );
     await ctx.prisma.$transaction(async (tx) => {
       await tx.financeAccount.update({ where: { id: ctx.account.id }, data: { closedAt: new Date() } });
-      if (ctx.membership.isDefault && nextDefaultId) {
+      if (ctx.membership.isDefault) {
         await tx.accountMembership.update({
-          where: { userId_accountId: { userId: ctx.user.id, accountId: nextDefaultId } }, data: { isDefault: true },
+          where: { userId_accountId: { userId: ctx.user.id, accountId: ctx.account.id } }, data: { isDefault: false },
         });
+        if (nextDefaultId) {
+          await tx.accountMembership.update({
+            where: { userId_accountId: { userId: ctx.user.id, accountId: nextDefaultId } }, data: { isDefault: true },
+          });
+        }
       }
     });
     return { ok: true };
