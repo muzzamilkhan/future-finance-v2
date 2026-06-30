@@ -51,27 +51,31 @@ export function SharePanel() {
 
   return (
     <div className="space-y-4">
-      <div className="space-y-2">
-        {PERM_KEYS.map((k) => (
-          <div key={k} className="flex items-center gap-2">
-            <Checkbox id={k} checked={perms[k]} onCheckedChange={() => toggle(k)} />
-            <Label htmlFor={k}>{permLabel(k)}</Label>
-          </div>
-        ))}
-        <Button
-          onClick={() => create.mutate({ accountId: accountId!, ...perms })}
-          disabled={create.isPending}
-        >
-          Create share link
-        </Button>
-        {url && (
-          <input
-            readOnly
-            value={url}
-            className="w-full border rounded px-2 py-1 text-sm"
-            onFocus={(e) => e.target.select()}
-          />
-        )}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          {PERM_KEYS.map((k) => (
+            <div key={k} className="flex items-center gap-2">
+              <Checkbox id={k} checked={perms[k]} onCheckedChange={() => toggle(k)} />
+              <Label htmlFor={k}>{permLabel(k)}</Label>
+            </div>
+          ))}
+        </div>
+        <div className="space-y-2">
+          <Button
+            onClick={() => create.mutate({ accountId: accountId!, ...perms })}
+            disabled={create.isPending}
+          >
+            Create share link
+          </Button>
+          {url && (
+            <input
+              readOnly
+              value={url}
+              className="w-full border rounded px-2 py-1 text-sm break-all"
+              onFocus={(e) => e.target.select()}
+            />
+          )}
+        </div>
       </div>
       <div>
         <h3 className="font-medium text-sm mb-1">Members</h3>
