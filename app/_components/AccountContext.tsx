@@ -4,6 +4,7 @@ import { trpc } from "@/trpc/client";
 
 export type AccountListItem = {
   id: string; name: string; currentBalance: number; balanceUpdatedAt: Date;
+  type: "DEBIT" | "CREDIT"; creditLimit: number | null;
   role: "OWNER" | "MEMBER"; isDefault: boolean;
   canEditItems: boolean; canEditOverrides: boolean; canEditHolidays: boolean; canUpdateBalance: boolean;
 };
