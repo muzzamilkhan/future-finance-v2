@@ -22,7 +22,7 @@ describe("optimistic list transforms", () => {
   });
 
   it("updateRow on undefined returns []", () => {
-    expect(updateRow(undefined, "b", { name: "x" })).toEqual([]);
+    expect(updateRow<Row>(undefined, "b", { name: "x" })).toEqual([]);
   });
 
   it("removeRow filters the matching id", () => {
