@@ -46,7 +46,9 @@ export const particularRouter = router({
 
   delete: accountProcedure.input(z.object({ id: z.string() })).mutation(async ({ ctx, input }) => {
     assertCan(ctx.membership, "editItems");
-    return ctx.prisma.particular.deleteMany({ where: { id: input.id, accountId: ctx.account.id } });
+    const result = await ctx.prisma.particular.deleteMany({ where: { id: input.id, accountId: ctx.account.id } });
+    await syncAccountCategories(ctx.prisma, ctx.account.id);
+    return result;
   }),
 
   overrideInstance: accountProcedure.input(overrideInstanceInput).mutation(async ({ ctx, input }) => {
