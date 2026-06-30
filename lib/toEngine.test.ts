@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { toEngineInputs } from "./toEngine";
+import { toEngineInputs, toCombinedEngineInputs } from "./toEngine";
 
 describe("toEngineInputs", () => {
   it("maps forecast.getData rows to engine inputs with positive amounts", () => {
@@ -15,5 +15,27 @@ describe("toEngineInputs", () => {
     expect(out.anchorBalance).toBe(1000);
     expect(out.particulars[0]!.amount).toBe(1500);
     expect(out.holidays[0]!.isRecurring).toBe(true);
+  });
+});
+
+const combinedPayload = {
+  accounts: [
+    { id: "debit", name: "My Account", type: "DEBIT" as const, currentBalance: 1000, balanceUpdatedAt: new Date("2026-01-01"), creditLimit: null },
+    { id: "credit", name: "Visa", type: "CREDIT" as const, currentBalance: -200, balanceUpdatedAt: new Date("2026-01-01"), creditLimit: 1000 },
+  ],
+  particulars: [
+    { id: "t", name: "Card payment", type: "TRANSFER" as const, accountId: "debit", toAccountId: "credit", amount: "100",
+      frequency: "ONCE_OFF" as const, startDate: new Date("2026-01-10"), endDate: null,
+      isCritical: true, isFixed: true, businessDayAdjustment: "NONE" as const, overrides: [] },
+  ],
+  holidays: [],
+};
+
+describe("toCombinedEngineInputs", () => {
+  it("maps accounts and transfer routing", () => {
+    const out = toCombinedEngineInputs(combinedPayload);
+    expect(out.accounts).toHaveLength(2);
+    expect(out.accounts[1]).toMatchObject({ id: "credit", type: "CREDIT", anchorBalance: -200, creditLimit: 1000 });
+    expect(out.particulars[0]).toMatchObject({ accountId: "debit", toAccountId: "credit", type: "TRANSFER", amount: 100 });
   });
 });
