@@ -7,13 +7,14 @@ import { describe, it, expect, vi } from "vitest";
 vi.mock("../db", () => ({ prisma: {} }));
 vi.mock("../auth", () => ({ auth: vi.fn().mockResolvedValue(null) }));
 
-import { syncUserCategories, computeUserCategories } from "../categorySync";
+import { syncAccountCategories, computeUserCategories } from "../categorySync";
 
 function makeFakePrisma(particulars: { category: string | null }[]) {
   return {
     financeAccount: {
       findUnique: vi.fn(async () => ({ id: "acc1", ownerId: "u1" })),
       create: vi.fn(),
+      update: vi.fn(async () => ({})),
     },
     particular: {
       create: vi.fn(async (args: { data: Record<string, unknown> }) => ({ id: "p1", ...args.data })),
@@ -21,35 +22,32 @@ function makeFakePrisma(particulars: { category: string | null }[]) {
       findFirst: vi.fn(async () => ({ id: "p1", accountId: "acc1", isFixed: false, isCritical: false })),
       findMany: vi.fn(async () => particulars),
     },
-    user: {
-      update: vi.fn(async () => ({})),
-    },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any;
 }
 
 describe("category lifecycle (create -> sync -> clear -> sync)", () => {
-  it("syncs a newly created expense's category into User.categories", async () => {
+  it("syncs a newly created expense's category into FinanceAccount.categories", async () => {
     const fakePrisma = makeFakePrisma([{ category: "Rent" }]);
 
-    await syncUserCategories(fakePrisma, "u1", "acc1");
+    await syncAccountCategories(fakePrisma, "acc1");
 
-    expect(fakePrisma.user.update).toHaveBeenCalledWith({
-      where: { id: "u1" },
+    expect(fakePrisma.financeAccount.update).toHaveBeenCalledWith({
+      where: { id: "acc1" },
       data: { categories: "Rent" },
     });
   });
 
-  it("removes the orphaned category from User.categories once cleared to null", async () => {
+  it("removes the orphaned category from FinanceAccount.categories once cleared to null", async () => {
     // Simulates the post-update state: the particular's category column is
     // now NULL (the fix forces null instead of leaving Prisma's "undefined =
     // no-op" semantics in place), so the next sync sees no category for it.
     const fakePrisma = makeFakePrisma([{ category: null }]);
 
-    await syncUserCategories(fakePrisma, "u1", "acc1");
+    await syncAccountCategories(fakePrisma, "acc1");
 
-    expect(fakePrisma.user.update).toHaveBeenCalledWith({
-      where: { id: "u1" },
+    expect(fakePrisma.financeAccount.update).toHaveBeenCalledWith({
+      where: { id: "acc1" },
       data: { categories: "" },
     });
   });
