@@ -102,7 +102,7 @@ export default function ParticularsPage() {
               {formatCurrency(signed)}
             </span>
             <Button variant="ghost" size="sm" disabled={!canEditItems || isTempId(p.id)} onClick={() => { setEditing(p.id); setFormOpen(true); }}>Edit</Button>
-            {p.type !== "TRANSFER" && (
+            {p.type !== "TRANSFER" && (accountList ?? []).some((a) => a.id !== accountId) && (
               <Button variant="ghost" size="sm" disabled={!canEditItems || isTempId(p.id)}
                 onClick={() => { setMoveDest(""); setPendingMove(p); }}>Move</Button>
             )}
