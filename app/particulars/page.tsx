@@ -13,6 +13,7 @@ import { CategoryPill } from "./CategoryPill";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "@/server/routers/_app";
 import { useActiveAccount } from "@/app/_components/AccountContext";
+import { removeRow, isTempId } from "@/lib/optimistic";
 
 type Particular = inferRouterOutputs<AppRouter>["particular"]["list"][number];
 
@@ -35,7 +36,17 @@ export default function ParticularsPage() {
   );
   const [pendingDelete, setPendingDelete] = useState<Particular | null>(null);
   const del = trpc.particular.delete.useMutation({
-    onSuccess: () => { utils.particular.list.invalidate(); utils.forecast.getData.invalidate(); setPendingDelete(null); },
+    onMutate: async (vars) => {
+      const key = { accountId: vars.accountId };
+      await utils.particular.list.cancel(key);
+      const prev = utils.particular.list.getData(key);
+      utils.particular.list.setData(key, (old) => removeRow(old, vars.id));
+      return { prev, key };
+    },
+    onError: (_e, _vars, ctx) => {
+      if (ctx) utils.particular.list.setData(ctx.key, ctx.prev);
+    },
+    onSettled: () => { utils.particular.list.invalidate(); utils.forecast.getData.invalidate(); },
   });
   const [editing, setEditing] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -53,7 +64,7 @@ export default function ParticularsPage() {
   const renderRow = (p: Particular) => {
     const signed = p.type === "EXPENSE" ? -Math.abs(Number(p.amount)) : Math.abs(Number(p.amount));
     return (
-      <div key={p.id} className="rounded-md border p-3">
+      <div key={p.id} className={`rounded-md border p-3${isTempId(p.id) ? " opacity-60 animate-pulse" : ""}`}>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center justify-between gap-2 sm:justify-start">
             <button className="min-w-0 text-left" onClick={() => setExpanded(expanded === p.id ? null : p.id)}>
@@ -69,8 +80,8 @@ export default function ParticularsPage() {
             <span className={`hidden sm:inline ${signed < 0 ? "text-finance-expense" : "text-finance-income"}`}>
               {formatCurrency(signed)}
             </span>
-            <Button variant="ghost" size="sm" disabled={!canEditItems} onClick={() => { setEditing(p.id); setFormOpen(true); }}>Edit</Button>
-            <Button variant="ghost" size="sm" disabled={!canEditItems} onClick={() => setPendingDelete(p)}>Delete</Button>
+            <Button variant="ghost" size="sm" disabled={!canEditItems || isTempId(p.id)} onClick={() => { setEditing(p.id); setFormOpen(true); }}>Edit</Button>
+            <Button variant="ghost" size="sm" disabled={!canEditItems || isTempId(p.id)} onClick={() => del.mutate({ accountId: accountId!, id: p.id })}>Delete</Button>
           </div>
         </div>
         {expanded === p.id && <div className="mt-2"><OverrideManagement particularId={p.id} /></div>}

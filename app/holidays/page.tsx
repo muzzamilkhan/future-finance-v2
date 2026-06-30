@@ -6,9 +6,9 @@ import { Layout } from "@/app/_components/Layout";
 import { Button } from "@/app/_components/ui/button";
 import { Input } from "@/app/_components/ui/input";
 import { Checkbox } from "@/app/_components/ui/checkbox";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/app/_components/ui/dialog";
 import { format } from "date-fns";
 import { useActiveAccount } from "@/app/_components/AccountContext";
+import { addRow, removeRow, newTempId, isTempId } from "@/lib/optimistic";
 
 type HolidayItem = { id: string; name: string; date: string | Date; isRecurring: boolean; source: string };
 
@@ -16,7 +16,7 @@ function HolidaySection({ title, holidays, canEdit, onDelete }: {
   title: string;
   holidays: HolidayItem[];
   canEdit: boolean;
-  onDelete: (h: HolidayItem) => void;
+  onDelete: (id: string) => void;
 }) {
   return (
     <div className="space-y-2">
@@ -26,11 +26,11 @@ function HolidaySection({ title, holidays, canEdit, onDelete }: {
       ) : (
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {holidays.map((h) => (
-            <div key={h.id} className="flex items-center justify-between rounded-md border p-3">
+            <div key={h.id} className={`flex items-center justify-between rounded-md border p-3${isTempId(h.id) ? " opacity-60 animate-pulse" : ""}`}>
               <span>
                 {h.name} — {format(new Date(h.date), "MMM d, yyyy")}{h.isRecurring ? " (yearly)" : ""}
               </span>
-              <Button variant="ghost" size="sm" disabled={!canEdit} onClick={() => onDelete(h)}>Delete</Button>
+              <Button variant="ghost" size="sm" disabled={!canEdit} onClick={() => onDelete(h.id)}>Delete</Button>
             </div>
           ))}
         </div>
@@ -48,11 +48,39 @@ export default function HolidaysPage() {
     { enabled: !!accountId },
   );
   const create = trpc.holiday.create.useMutation({
-    onSuccess: () => { utils.holiday.list.invalidate(); utils.forecast.getData.invalidate(); },
+    onMutate: async (vars) => {
+      const key = { accountId: vars.accountId };
+      await utils.holiday.list.cancel(key);
+      const prev = utils.holiday.list.getData(key);
+      utils.holiday.list.setData(key, (old) =>
+        addRow(old, {
+          id: newTempId(),
+          accountId: vars.accountId,
+          name: vars.name,
+          date: vars.date as Date,
+          isRecurring: vars.isRecurring ?? false,
+          source: "CUSTOM",
+        }),
+      );
+      return { prev, key };
+    },
+    onError: (_e, _vars, ctx) => {
+      if (ctx) utils.holiday.list.setData(ctx.key, ctx.prev);
+    },
+    onSettled: () => { utils.holiday.list.invalidate(); utils.forecast.getData.invalidate(); },
   });
-  const [pendingDelete, setPendingDelete] = useState<HolidayItem | null>(null);
   const del = trpc.holiday.delete.useMutation({
-    onSuccess: () => { utils.holiday.list.invalidate(); utils.forecast.getData.invalidate(); setPendingDelete(null); },
+    onMutate: async (vars) => {
+      const key = { accountId: vars.accountId };
+      await utils.holiday.list.cancel(key);
+      const prev = utils.holiday.list.getData(key);
+      utils.holiday.list.setData(key, (old) => removeRow(old, vars.id));
+      return { prev, key };
+    },
+    onError: (_e, _vars, ctx) => {
+      if (ctx) utils.holiday.list.setData(ctx.key, ctx.prev);
+    },
+    onSettled: () => { utils.holiday.list.invalidate(); utils.forecast.getData.invalidate(); },
   });
   const [name, setName] = useState(""); const [date, setDate] = useState(""); const [recurring, setRecurring] = useState(false);
 
@@ -128,33 +156,11 @@ export default function HolidaysPage() {
         <HolidaySection title="Imported Holidays"
           holidays={(holidays ?? []).filter((h) => h.source === "IMPORTED")}
           canEdit={canEditHolidays}
-          onDelete={(h) => setPendingDelete(h)} />
+          onDelete={(id) => del.mutate({ accountId: accountId!, id })} />
         <HolidaySection title="Custom Holidays"
           holidays={(holidays ?? []).filter((h) => h.source !== "IMPORTED")}
           canEdit={canEditHolidays}
-          onDelete={(h) => setPendingDelete(h)} />
-        <Dialog open={!!pendingDelete} onOpenChange={(o) => { if (!o && !del.isPending) setPendingDelete(null); }}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Delete holiday?</DialogTitle>
-              <DialogDescription>
-                {pendingDelete
-                  ? `“${pendingDelete.name}” will be permanently removed. This can’t be undone.`
-                  : null}
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button variant="outline" disabled={del.isPending} onClick={() => setPendingDelete(null)}>Cancel</Button>
-              <Button
-                variant="destructive"
-                disabled={del.isPending}
-                onClick={() => { if (pendingDelete) del.mutate({ accountId: accountId!, id: pendingDelete.id }); }}
-              >
-                {del.isPending ? "Deleting…" : "Delete"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+          onDelete={(id) => del.mutate({ accountId: accountId!, id })} />
       </div>
     </Layout>
   );

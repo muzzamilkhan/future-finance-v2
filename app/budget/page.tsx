@@ -12,6 +12,7 @@ import { BudgetSummaryStats } from "./BudgetSummaryStats";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "@/server/routers/_app";
 import { useActiveAccount } from "@/app/_components/AccountContext";
+import { updateRow } from "@/lib/optimistic";
 
 type Particular = inferRouterOutputs<AppRouter>["particular"]["list"][number];
 
@@ -24,7 +25,19 @@ export default function BudgetPage() {
     { enabled: !!accountId },
   );
   const update = trpc.particular.update.useMutation({
-    onSuccess: () => {
+    onMutate: async (vars) => {
+      const key = { accountId: vars.accountId };
+      await utils.particular.list.cancel(key);
+      const prev = utils.particular.list.getData(key);
+      utils.particular.list.setData(key, (old) =>
+        updateRow(old, vars.id, { category: vars.category ?? null } as never),
+      );
+      return { prev, key };
+    },
+    onError: (_e, _vars, ctx) => {
+      if (ctx) utils.particular.list.setData(ctx.key, ctx.prev);
+    },
+    onSettled: () => {
       utils.particular.list.invalidate();
       utils.category.list.invalidate();
       utils.forecast.getData.invalidate();

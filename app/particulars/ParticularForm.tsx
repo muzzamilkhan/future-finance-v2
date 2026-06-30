@@ -19,6 +19,7 @@ import {
 import { Checkbox } from "@/app/_components/ui/checkbox";
 import { Label } from "@/app/_components/ui/label";
 import { CategoryCombobox } from "./CategoryCombobox";
+import { addRow, updateRow, newTempId } from "@/lib/optimistic";
 
 // `particularInput` is a refined (ZodEffects) schema, so its `input` type (what
 // react-hook-form/zodResolver and tRPC's `.mutate()` actually expect — pre-coercion
@@ -55,15 +56,53 @@ export function ParticularForm(
     values: existing ? toParticularInput(existing) : undefined,
   });
 
-  const onDone = () => { utils.particular.list.invalidate(); utils.forecast.getData.invalidate(); onClose(); };
-  const onMutationError = (error: { message: string }) =>
+  const key = { accountId: accountId! };
+  const onMutationError = (error: { message: string }, _vars: unknown, ctx?: { prev: unknown }) => {
+    if (ctx) utils.particular.list.setData(key, ctx.prev as never);
     toast.error(particularId ? "Couldn't save changes" : "Couldn't add item", { description: error.message });
-  const create = trpc.particular.create.useMutation({ onSuccess: onDone, onError: onMutationError });
-  const update = trpc.particular.update.useMutation({ onSuccess: onDone, onError: onMutationError });
+  };
+  const onSettled = () => { utils.particular.list.invalidate(); utils.forecast.getData.invalidate(); };
+
+  const create = trpc.particular.create.useMutation({
+    onMutate: async (vars) => {
+      await utils.particular.list.cancel(key);
+      const prev = utils.particular.list.getData(key);
+      utils.particular.list.setData(key, (old) =>
+        addRow(old, {
+          id: newTempId(),
+          name: vars.name, type: vars.type, amount: vars.amount, frequency: vars.frequency,
+          startDate: vars.startDate as Date, endDate: (vars.endDate as Date | undefined) ?? null,
+          isCritical: vars.isCritical, isFixed: vars.isFixed,
+          businessDayAdjustment: vars.businessDayAdjustment, category: vars.category ?? null,
+        } as never),
+      );
+      return { prev };
+    },
+    onError: onMutationError,
+    onSettled,
+  });
+  const update = trpc.particular.update.useMutation({
+    onMutate: async (vars) => {
+      await utils.particular.list.cancel(key);
+      const prev = utils.particular.list.getData(key);
+      utils.particular.list.setData(key, (old) =>
+        updateRow(old, vars.id, {
+          name: vars.name, type: vars.type, amount: vars.amount, frequency: vars.frequency,
+          startDate: vars.startDate as Date, endDate: (vars.endDate as Date | undefined) ?? null,
+          isCritical: vars.isCritical, isFixed: vars.isFixed,
+          businessDayAdjustment: vars.businessDayAdjustment, category: vars.category ?? null,
+        } as never),
+      );
+      return { prev };
+    },
+    onError: onMutationError,
+    onSettled,
+  });
 
   const submit = form.handleSubmit((values) => {
     if (particularId) update.mutate({ accountId: accountId!, ...values, id: particularId });
     else create.mutate({ accountId: accountId!, ...values });
+    onClose();
   });
 
   const errors = form.formState.errors;

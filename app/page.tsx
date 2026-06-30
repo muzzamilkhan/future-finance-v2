@@ -17,6 +17,7 @@ import { BalanceSparkline } from "@/app/_components/dashboard/BalanceSparkline";
 import { OverrideModal } from "@/app/_components/dashboard/OverrideModal";
 import { CollapsibleTopSection } from "@/app/_components/dashboard/CollapsibleTopSection";
 import { useActiveAccount } from "@/app/_components/AccountContext";
+import { updateRow } from "@/lib/optimistic";
 
 export default function DashboardPage() {
   const today = startOfDay(new Date());
@@ -40,7 +41,16 @@ export default function DashboardPage() {
     { enabled: !!accountId },
   );
   const updateBalance = trpc.account.updateBalance.useMutation({
-    onSuccess: () => { utils.account.list.invalidate(); utils.forecast.getData.invalidate(); },
+    onMutate: async (vars) => {
+      await utils.account.list.cancel();
+      const prev = utils.account.list.getData();
+      utils.account.list.setData(undefined, (old) =>
+        updateRow(old, vars.accountId, { currentBalance: vars.balance } as never),
+      );
+      return { prev };
+    },
+    onError: (_e, _vars, ctx) => { if (ctx) utils.account.list.setData(undefined, ctx.prev); },
+    onSettled: () => { utils.account.list.invalidate(); utils.forecast.getData.invalidate(); },
   });
 
   const scrollToDay = (date: Date) => {
