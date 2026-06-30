@@ -184,6 +184,94 @@ it("available credit may go negative (soft limit) and is flagged exhausted", () 
   expect(c.isExhausted).toBe(true);
 });
 
+// ── C1: per-account replay from each account's own anchor ──────────────────
+
+it("seeds a later-anchored credit account at its own anchor, not replayStart", () => {
+  // Debit anchored Jan 1 @ 1000; credit anchored Jun 1 @ -200 (already reflects
+  // Jan–May spend). Recurring $100/mo credit expense since Jan 1 PLUS a Jun 1
+  // instance — the credit account must open at its anchor (-200), with NONE of the
+  // Jan–May instances re-applied, then the Jun 1 instance closes it to -300.
+  const debitJan: EngineAccount = {
+    id: "debit", type: "DEBIT", anchorBalance: 1000, anchorDate: day(0, 1), creditLimit: null,
+  };
+  const creditJun: EngineAccount = {
+    id: "credit", type: "CREDIT", anchorBalance: -200, anchorDate: day(5, 1), creditLimit: 1000,
+  };
+  // Pre-anchor recurring history (Jan, Feb, …) that must NOT be re-applied, plus the
+  // single in-window instance on the activation day. Modeled as explicit once-offs so
+  // the assertion is independent of the separate monthly-recurrence date handling.
+  const preAnchor = [day(0, 1), day(1, 1), day(2, 1), day(3, 1), day(4, 1)].map((dt, i) =>
+    p({ id: `pre${i}`, type: "EXPENSE", accountId: "credit", amount: 100, startDate: dt }),
+  );
+  const junInstance = p({ id: "jun", type: "EXPENSE", accountId: "credit", amount: 100, startDate: day(5, 1) });
+
+  const r = computeForecast({
+    accounts: [debitJan, creditJun],
+    viewStart: day(5, 1), viewEnd: day(5, 30),
+    today: day(5, 1), skipToday: false,
+    particulars: [...preAnchor, junInstance], holidays: [],
+  });
+
+  const jun1 = r.days[0]!;
+  expect(jun1.date.getUTCDate()).toBe(1);
+  const c = jun1.accounts.find((a) => a.accountId === "credit")!;
+  // Opening on activation day == anchorBalance combination; the Jun 1 instance closes it.
+  expect(jun1.openingBalance).toBe(1000 + (1000 + -200)); // debit 1000 + availCredit 800 = 1800
+  expect(c.balance).toBe(-300);          // -200 anchor + the single June instance (-100)
+  expect(c.availableCredit).toBe(700);   // 1000 + (-300)
+  // No Jan–May instances re-applied on top of the anchor.
+  expect(c.balance).not.toBe(-800);
+});
+
+it("combined line at the later anchor = debit + (creditLimit + creditAnchor), no double-apply", () => {
+  const debitJan: EngineAccount = {
+    id: "debit", type: "DEBIT", anchorBalance: 1000, anchorDate: day(0, 1), creditLimit: null,
+  };
+  const creditJun: EngineAccount = {
+    id: "credit", type: "CREDIT", anchorBalance: -200, anchorDate: day(5, 1), creditLimit: 1000,
+  };
+  // Recurring pre-anchor item on the credit account; with no instance ON Jun 1
+  // the activation-day opening AND closing equal the pure anchor combination.
+  const monthly = p({
+    id: "cc", type: "EXPENSE", accountId: "credit", amount: 100,
+    frequency: "MONTHLY", startDate: day(0, 15), // 15th of each month, not the 1st
+  });
+  const r = computeForecast({
+    accounts: [debitJan, creditJun],
+    viewStart: day(5, 1), viewEnd: day(5, 10),
+    today: day(5, 1), skipToday: false,
+    particulars: [monthly], holidays: [],
+  });
+  const jun1 = r.days[0]!;
+  // debitBalance + (creditLimit + creditAnchorBalance) = 1000 + (1000 + -200) = 1800
+  expect(jun1.combined).toBe(1800);
+  expect(jun1.openingBalance).toBe(1800);
+});
+
+it("excludes an inactive account from the combined line before its anchor", () => {
+  // Debit anchored Jan 1, credit anchored Jun 1; view a window that starts before
+  // the credit account exists (replayStart = Jan 1, displayed from May 30).
+  const debitJan: EngineAccount = {
+    id: "debit", type: "DEBIT", anchorBalance: 1000, anchorDate: day(0, 1), creditLimit: null,
+  };
+  const creditJun: EngineAccount = {
+    id: "credit", type: "CREDIT", anchorBalance: -200, anchorDate: day(5, 1), creditLimit: 1000,
+  };
+  const r = computeForecast({
+    accounts: [debitJan, creditJun],
+    viewStart: day(4, 30), viewEnd: day(5, 2), // May 30 → Jun 2
+    today: day(4, 30), skipToday: false,
+    particulars: [], holidays: [],
+  });
+  const may30 = r.days.find((x) => x.date.getUTCMonth() === 4 && x.date.getUTCDate() === 30)!;
+  // Credit not yet active: combined is debit-only.
+  expect(may30.combined).toBe(1000);
+  expect(may30.accounts.find((a) => a.accountId === "credit")).toBeUndefined();
+  const jun1 = r.days.find((x) => x.date.getUTCMonth() === 5 && x.date.getUTCDate() === 1)!;
+  expect(jun1.combined).toBe(1000 + (1000 + -200)); // 1800 once credit activates
+  expect(jun1.accounts.find((a) => a.accountId === "credit")).toBeDefined();
+});
+
 it("transfer event carries from/to account ids", () => {
   const r = computeForecast(input(
     [p({ id: "t", type: "TRANSFER", accountId: "debit", toAccountId: "credit", amount: 150 })],

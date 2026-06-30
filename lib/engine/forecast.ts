@@ -51,10 +51,25 @@ export function computeForecast(input: ForecastInput): ForecastResult {
   const end = utcDay(viewEnd);
   const todayKey = utcDay(today).getTime();
 
-  // Per-account running balance, seeded at anchor.
+  // Per-account running balance. Each account is seeded to its anchorBalance only
+  // once the cursor reaches its own anchor day; before that the account is inactive
+  // and contributes nothing.
   const running = new Map<string, number>();
-  for (const a of accounts) running.set(a.id, a.anchorBalance);
   const acctById = new Map(accounts.map((a) => [a.id, a]));
+  // UTC-day timestamp at which each account activates.
+  const anchorKeyById = new Map(accounts.map((a) => [a.id, utcDay(a.anchorDate).getTime()]));
+
+  /** True once the cursor (a UTC-midnight ms key) has reached the account's anchor day. */
+  const isActive = (accountId: string, key: number): boolean => {
+    const ak = anchorKeyById.get(accountId);
+    return ak !== undefined && key >= ak;
+  };
+
+  /** Apply a delta to an account's running balance, only if it is active on this day. */
+  const applyLeg = (accountId: string, key: number, delta: number): void => {
+    if (!isActive(accountId, key)) return;
+    running.set(accountId, (running.get(accountId) ?? 0) + delta);
+  };
 
   // Group raw events by day.
   const byDay = new Map<number, RawEvent[]>();
@@ -74,13 +89,17 @@ export function computeForecast(input: ForecastInput): ForecastResult {
     }
   }
 
-  const snapshot = (): AccountDaily[] =>
-    accounts.map((a) => {
-      const bal = running.get(a.id)!;
-      const availableCredit = a.type === "CREDIT" ? (a.creditLimit ?? 0) + bal : null;
-      const isExhausted = a.type === "CREDIT" ? (availableCredit as number) < 0 : bal < 0;
-      return { accountId: a.id, type: a.type, balance: bal, availableCredit, isExhausted };
-    });
+  // Snapshot only the accounts active on the given day key; inactive accounts are
+  // excluded entirely (they contribute nothing to the combined line).
+  const snapshot = (key: number): AccountDaily[] =>
+    accounts
+      .filter((a) => isActive(a.id, key))
+      .map((a) => {
+        const bal = running.get(a.id)!;
+        const availableCredit = a.type === "CREDIT" ? (a.creditLimit ?? 0) + bal : null;
+        const isExhausted = a.type === "CREDIT" ? (availableCredit as number) < 0 : bal < 0;
+        return { accountId: a.id, type: a.type, balance: bal, availableCredit, isExhausted };
+      });
 
   const combinedOf = (snap: AccountDaily[]): number =>
     snap.reduce((sum, s) => sum + (s.type === "CREDIT" ? (s.availableCredit ?? 0) : s.balance), 0);
@@ -90,7 +109,14 @@ export function computeForecast(input: ForecastInput): ForecastResult {
 
   while (cursor <= end) {
     const key = cursor.getTime();
-    const openingSnap = snapshot();
+
+    // Seed each account to its anchorBalance on the exact day it activates, BEFORE
+    // taking the opening snapshot, so the activation-day opening reflects the anchor.
+    for (const a of accounts) {
+      if (anchorKeyById.get(a.id) === key) running.set(a.id, a.anchorBalance);
+    }
+
+    const openingSnap = snapshot(key);
     const opening = combinedOf(openingSnap);
     const events: DailyEvent[] = [];
 
@@ -99,10 +125,11 @@ export function computeForecast(input: ForecastInput): ForecastResult {
       if (skipToday && key === todayKey) continue;
 
       // From-account leg (negative for expense & transfer; positive for income).
-      running.set(raw.accountId, (running.get(raw.accountId) ?? 0) + raw.amount);
-      // Transfer destination leg: + the same magnitude.
+      // Each leg applies only if ITS account is active on this day.
+      applyLeg(raw.accountId, key, raw.amount);
+      // Transfer destination leg: + the same magnitude, subject to its own activation.
       if (raw.toAccountId) {
-        running.set(raw.toAccountId, (running.get(raw.toAccountId) ?? 0) - raw.amount);
+        applyLeg(raw.toAccountId, key, -raw.amount);
       }
 
       const kind: DailyEvent["kind"] = raw.toAccountId ? "expense" : raw.amount >= 0 ? "income" : "expense";
@@ -122,7 +149,7 @@ export function computeForecast(input: ForecastInput): ForecastResult {
       });
     }
 
-    const closingSnap = snapshot();
+    const closingSnap = snapshot(key);
     const combined = combinedOf(closingSnap);
 
     if (cursor >= displayStart) {
