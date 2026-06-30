@@ -55,7 +55,6 @@ export function computeForecast(input: ForecastInput): ForecastResult {
   // once the cursor reaches its own anchor day; before that the account is inactive
   // and contributes nothing.
   const running = new Map<string, number>();
-  const acctById = new Map(accounts.map((a) => [a.id, a]));
   // UTC-day timestamp at which each account activates.
   const anchorKeyById = new Map(accounts.map((a) => [a.id, utcDay(a.anchorDate).getTime()]));
 
