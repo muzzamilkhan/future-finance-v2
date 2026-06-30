@@ -1,4 +1,5 @@
 import { initTRPC, TRPCError } from "@trpc/server";
+import { Prisma } from "@prisma/client";
 import superjson from "superjson";
 import { z } from "zod";
 import { prisma } from "./db";
@@ -32,41 +33,56 @@ export async function resolveMembership(userId: string, accountId: string) {
 }
 
 export async function ensureBootstrapAccount(userId: string) {
-  const count = await prisma.accountMembership.count({ where: { userId } });
-  if (count === 0) {
-    // Race-safe bootstrap: two simultaneous first-logins from the same new user could
-    // both see count===0 and each try to create an account + membership. We catch the
-    // unique-constraint violation on (userId, accountId) from the membership create
-    // (Prisma error code P2002), delete the orphan account we just created, and fall
-    // through to the findFirst below to return the winner's membership.
-    const account = await prisma.financeAccount.create({ data: { name: "My Account" } });
-    try {
-      const membership = await prisma.accountMembership.create({
-        data: {
-          userId, accountId: account.id, role: "OWNER", isDefault: true,
-          canEditItems: true, canEditOverrides: true, canEditHolidays: true, canUpdateBalance: true,
-        },
-      });
-      return { account, membership };
-    } catch (err: unknown) {
-      // P2002 = unique constraint violation — another concurrent bootstrap won the race.
-      // Clean up the orphan account we created, then fall through to return existing.
-      const code = (err as { code?: string })?.code;
-      if (code === "P2002") {
-        await prisma.financeAccount.delete({ where: { id: account.id } }).catch(() => {/* best-effort */});
-      } else {
-        throw err;
-      }
+  // Look for an existing open-account membership first. This covers the normal path
+  // (user already has at least one open account) without any extra count query.
+  const existing = await prisma.accountMembership.findFirst({
+    where: { userId, account: { closedAt: null } },
+    orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+    include: { account: true },
+  });
+  if (existing) {
+    const { account, ...rest } = existing;
+    return { account, membership: rest };
+  }
+
+  // No open accounts — either brand-new user OR user who closed all their accounts.
+  // Bootstrap: create a fresh account + OWNER membership.
+  //
+  // Race-safety note: two concurrent requests from the same new user could both see
+  // no open accounts and each try to create. We catch P2002 (unique constraint on
+  // [userId, accountId] from the membership create). Note that two concurrent
+  // bootstraps create DIFFERENT accounts, so the unique constraint does NOT fully
+  // serialize first-login — it primarily guards the membership-level collision.
+  // The practical risk is a rare duplicate empty account on simultaneous first-login,
+  // which is acceptable and self-correcting (user can close the extra).
+  const account = await prisma.financeAccount.create({ data: { name: "My Account" } });
+  try {
+    const membership = await prisma.accountMembership.create({
+      data: {
+        userId, accountId: account.id, role: "OWNER", isDefault: true,
+        canEditItems: true, canEditOverrides: true, canEditHolidays: true, canUpdateBalance: true,
+      },
+    });
+    return { account, membership };
+  } catch (err: unknown) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      // Concurrent bootstrap won the race: clean up our orphan account, fall through
+      // to return the winner's membership.
+      await prisma.financeAccount.delete({ where: { id: account.id } }).catch(() => {/* best-effort */});
+    } else {
+      throw err;
     }
   }
+
+  // Return the winning membership after losing a race.
   const m = await prisma.accountMembership.findFirst({
     where: { userId, account: { closedAt: null } },
     orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
     include: { account: true },
   });
   if (!m) throw new TRPCError({ code: "NOT_FOUND", message: "No open accounts" });
-  const { account, ...rest } = m;
-  return { account, membership: rest };
+  const { account: winnerAccount, ...rest } = m;
+  return { account: winnerAccount, membership: rest };
 }
 
 export const accountProcedure = protectedProcedure
