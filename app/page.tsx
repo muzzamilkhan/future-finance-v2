@@ -5,7 +5,7 @@ import { addMonths, format, isSameDay, startOfDay } from "date-fns";
 import { keepPreviousData } from "@tanstack/react-query";
 import { trpc } from "@/trpc/client";
 import { computeForecast } from "@/lib/engine";
-import { toEngineInputs } from "@/lib/toEngine";
+import { toCombinedEngineInputs } from "@/lib/toEngine";
 import { Layout } from "@/app/_components/Layout";
 import { Button } from "@/app/_components/ui/button";
 import { formatCurrency } from "@/lib/design-system";
@@ -32,9 +32,9 @@ export default function DashboardPage() {
   const canUpdateBalance = !activeMembership || activeMembership.role === "OWNER" || activeMembership.canUpdateBalance;
   const canEditOverrides = !activeMembership || activeMembership.role === "OWNER" || activeMembership.canEditOverrides;
   const utils = trpc.useUtils();
-  const { data, isLoading } = trpc.forecast.getData.useQuery(
-    { accountId: accountId!, viewStart, viewEnd },
-    { placeholderData: keepPreviousData, enabled: !!accountId },
+  const { data, isLoading } = trpc.forecast.getCombined.useQuery(
+    { viewStart, viewEnd },
+    { placeholderData: keepPreviousData },
   );
   const { data: particulars } = trpc.particular.list.useQuery(
     { accountId: accountId! },
@@ -50,7 +50,7 @@ export default function DashboardPage() {
       return { prev };
     },
     onError: (_e, _vars, ctx) => { if (ctx) utils.account.list.setData(undefined, ctx.prev); },
-    onSettled: () => { utils.account.list.invalidate(); utils.forecast.getData.invalidate(); },
+    onSettled: () => { utils.account.list.invalidate(); utils.forecast.getCombined.invalidate(); },
   });
 
   const scrollToDay = (date: Date) => {
@@ -61,10 +61,15 @@ export default function DashboardPage() {
 
   const result = useMemo(() => {
     if (!data) return null;
-    const inputs = toEngineInputs(data as never);
+    const inputs = toCombinedEngineInputs(data as never);
     return computeForecast({ ...inputs, viewStart, viewEnd, today, skipToday });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, monthsAhead, skipToday]);
+
+  const accountNames = useMemo(
+    () => new Map((data?.accounts ?? []).map((a) => [a.id, a.name] as const)),
+    [data],
+  );
 
   if (isLoading || !result) return <Layout><p className="text-muted-foreground">Loading…</p></Layout>;
 
@@ -135,7 +140,7 @@ export default function DashboardPage() {
               (result.firstNegative && isSameDay(day.date, result.firstNegative.date)),
             )
             .map((day) => (
-              <DailyCard key={day.date.toISOString()} day={day} onEventClick={openOverride} interactive={canEditOverrides} />
+              <DailyCard key={day.date.toISOString()} day={day} onEventClick={openOverride} interactive={canEditOverrides} accountNames={accountNames} />
             ))}
         </div>
 

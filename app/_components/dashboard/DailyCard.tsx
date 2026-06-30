@@ -4,7 +4,7 @@ import { formatCurrency } from "@/lib/design-system";
 import { format } from "date-fns";
 import { sortDailyEvents } from "./sortEvents";
 
-export function DailyCard({ day, onEventClick, interactive = true }: { day: DailyBalance; onEventClick?: (particularId: string, originalDate?: Date, currentAmount?: number, currentDate?: Date, overrideId?: string) => void; interactive?: boolean }) {
+export function DailyCard({ day, onEventClick, interactive = true }: { day: DailyBalance; onEventClick?: (particularId: string, originalDate?: Date, currentAmount?: number, currentDate?: Date, overrideId?: string) => void; interactive?: boolean; accountNames?: Map<string, string> }) {
   return (
     <Card id={`day-${format(day.date, "yyyy-MM-dd")}`} className={day.isNegative ? "border-finance-expense" : undefined}>
       <CardContent className="p-3">
