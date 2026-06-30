@@ -28,7 +28,7 @@ const defaults = (): QuickAddValues => ({
   businessDayAdjustment: "NONE",
 });
 
-export function QuickAddRow() {
+export function QuickAddRow({ disabled }: { disabled?: boolean }) {
   const { accountId } = useActiveAccount();
   const utils = trpc.useUtils();
   const form = useForm<QuickAddValues>({
@@ -107,7 +107,7 @@ export function QuickAddRow() {
         value={dateToInputValue(form.watch("startDate") as Date | undefined)}
         onChange={(e) => form.setValue("startDate", inputValueToDate(e.target.value), { shouldValidate: true })}
       />
-      <Button type="submit">Add</Button>
+      <Button type="submit" disabled={disabled}>Add</Button>
     </form>
   );
 }

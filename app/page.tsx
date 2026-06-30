@@ -27,7 +27,9 @@ export default function DashboardPage() {
   const viewStart = today;
   const viewEnd = addMonths(today, monthsAhead);
 
-  const { accountId } = useActiveAccount();
+  const { accountId, activeMembership } = useActiveAccount();
+  const canUpdateBalance = !activeMembership || activeMembership.role === "OWNER" || activeMembership.canUpdateBalance;
+  const canEditOverrides = !activeMembership || activeMembership.role === "OWNER" || activeMembership.canEditOverrides;
   const utils = trpc.useUtils();
   const { data, isLoading } = trpc.forecast.getData.useQuery(
     { accountId: accountId!, viewStart, viewEnd },
@@ -60,6 +62,7 @@ export default function DashboardPage() {
   const thisMonth = result.months[0];
 
   const openOverride = (particularId: string, originalDate?: Date, currentAmount?: number, currentDate?: Date) => {
+    if (!canEditOverrides) return;
     if (!originalDate || currentAmount === undefined || !currentDate) return;
     const p = particulars?.find((x) => x.id === particularId);
     if (!p) return;
@@ -95,7 +98,7 @@ export default function DashboardPage() {
         >
           <div className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-4">
             <MetricCard title="Current Balance" value={current} type={current >= 0 ? "income" : "expense"}
-              editable onSave={(balance) => updateBalance.mutate({ accountId: accountId!, balance })} />
+              editable={canUpdateBalance} onSave={(balance) => updateBalance.mutate({ accountId: accountId!, balance })} />
             <MetricCard title="Lowest Balance" value={result.lowest?.closingBalance ?? 0}
               type={(result.lowest?.closingBalance ?? 0) >= 0 ? "income" : "expense"}
               subtitle={result.lowest ? format(result.lowest.date, "EEE, MMM d") : undefined}

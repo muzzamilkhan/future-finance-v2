@@ -25,7 +25,8 @@ function byFrequency(a: Particular, b: Particular) {
 }
 
 export default function ParticularsPage() {
-  const { accountId } = useActiveAccount();
+  const { accountId, activeMembership } = useActiveAccount();
+  const canEditItems = !activeMembership || activeMembership.role === "OWNER" || activeMembership.canEditItems;
   const utils = trpc.useUtils();
   const { data: particulars, isLoading } = trpc.particular.list.useQuery(
     { accountId: accountId! },
@@ -63,8 +64,8 @@ export default function ParticularsPage() {
             <span className={signed < 0 ? "text-finance-expense" : "text-finance-income"}>
               {formatCurrency(signed)}
             </span>
-            <Button variant="ghost" size="sm" onClick={() => { setEditing(p.id); setFormOpen(true); }}>Edit</Button>
-            <Button variant="ghost" size="sm" onClick={() => del.mutate({ accountId: accountId!, id: p.id })}>Delete</Button>
+            <Button variant="ghost" size="sm" disabled={!canEditItems} onClick={() => { setEditing(p.id); setFormOpen(true); }}>Edit</Button>
+            <Button variant="ghost" size="sm" disabled={!canEditItems} onClick={() => del.mutate({ accountId: accountId!, id: p.id })}>Delete</Button>
           </div>
         </div>
         {expanded === p.id && <div className="mt-2"><OverrideManagement particularId={p.id} /></div>}
@@ -85,9 +86,9 @@ export default function ParticularsPage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Income &amp; Expenses</h1>
-          <Button size="sm" onClick={() => { setEditing(null); setFormOpen(true); }}>Add</Button>
+          <Button size="sm" disabled={!canEditItems} onClick={() => { setEditing(null); setFormOpen(true); }}>Add</Button>
         </div>
-        <QuickAddRow />
+        <QuickAddRow disabled={!canEditItems} />
         {isLoading ? <p className="text-muted-foreground">Loading…</p> : (
           <div className="space-y-6">
             {renderSection("Recurring Income", recurringIncome)}

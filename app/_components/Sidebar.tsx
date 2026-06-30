@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, ListOrdered, CalendarDays, PieChart } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
+import { AccountPicker } from "./AccountPicker";
 import { cn } from "@/lib/utils";
 
 const items = [
@@ -21,6 +22,7 @@ export function Sidebar() {
         <span className="font-bold">Future Finance</span>
         <ThemeToggle />
       </div>
+      <div className="px-3 pb-2"><AccountPicker /></div>
       <nav className="flex flex-col gap-1 p-2">
         {items.map(({ to, label, icon: Icon }) => (
           <Link key={to} href={to}

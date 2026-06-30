@@ -10,7 +10,8 @@ import { format } from "date-fns";
 import { useActiveAccount } from "@/app/_components/AccountContext";
 
 export default function HolidaysPage() {
-  const { accountId } = useActiveAccount();
+  const { accountId, activeMembership } = useActiveAccount();
+  const canEditHolidays = !activeMembership || activeMembership.role === "OWNER" || activeMembership.canEditHolidays;
   const utils = trpc.useUtils();
   const { data: holidays } = trpc.holiday.list.useQuery(
     { accountId: accountId! },
@@ -35,13 +36,13 @@ export default function HolidaysPage() {
           <label className="flex items-center gap-1 text-sm">
             <Checkbox checked={recurring} onCheckedChange={(c) => setRecurring(!!c)} /> Recurring
           </label>
-          <Button type="submit" size="sm">Add</Button>
+          <Button type="submit" size="sm" disabled={!canEditHolidays}>Add</Button>
         </form>
         <div className="space-y-2">
           {(holidays ?? []).map((h) => (
             <div key={h.id} className="flex justify-between rounded-md border p-3">
               <span>{h.name} — {format(new Date(h.date), "MMM d, yyyy")}{h.isRecurring ? " (yearly)" : ""}</span>
-              <Button variant="ghost" size="sm" onClick={() => del.mutate({ accountId: accountId!, id: h.id })}>Delete</Button>
+              <Button variant="ghost" size="sm" disabled={!canEditHolidays} onClick={() => del.mutate({ accountId: accountId!, id: h.id })}>Delete</Button>
             </div>
           ))}
         </div>
