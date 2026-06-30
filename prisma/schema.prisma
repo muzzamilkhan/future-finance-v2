@@ -14,8 +14,7 @@ model User {
   image         String?
   accounts      Account[]
   sessions      Session[]
-  financeAccount FinanceAccount?
-  categories    String          @default("")
+  memberships   AccountMembership[]
 }
 
 model Account {
@@ -55,12 +54,36 @@ model FinanceAccount {
   name             String   @default("My Account")
   currentBalance   Decimal  @default(0) @db.Decimal(15, 2)
   balanceUpdatedAt DateTime @default(now())
-  ownerId          String   @unique
-  owner            User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  categories       String   @default("")
+  closedAt         DateTime?
   particulars      Particular[]
   holidays         Holiday[]
+  memberships      AccountMembership[]
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+}
+
+model AccountMembership {
+  id               String   @id @default(cuid())
+  userId           String
+  accountId        String
+  role             MembershipRole @default(MEMBER)
+  isDefault        Boolean  @default(false)
+  canEditItems     Boolean  @default(false)
+  canEditOverrides Boolean  @default(false)
+  canEditHolidays  Boolean  @default(false)
+  canUpdateBalance Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account          FinanceAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  @@unique([userId, accountId])
+  @@index([accountId])
+}
+
+enum MembershipRole {
+  OWNER
+  MEMBER
 }
 
 model Particular {
