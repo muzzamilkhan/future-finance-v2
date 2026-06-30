@@ -8,6 +8,7 @@ import { particularInput } from "@/lib/schemas";
 import { dateToInputValue, inputValueToDate } from "@/lib/dateInput";
 import { trpc } from "@/trpc/client";
 import { useActiveAccount } from "@/app/_components/AccountContext";
+import { addRow, newTempId } from "@/lib/optimistic";
 import { Button } from "@/app/_components/ui/button";
 import { Input } from "@/app/_components/ui/input";
 import {
@@ -37,13 +38,34 @@ export function QuickAddRow({ disabled }: { disabled?: boolean }) {
   });
 
   const create = trpc.particular.create.useMutation({
-    onSuccess: (_data, variables) => {
+    onMutate: async (vars) => {
+      const key = { accountId: vars.accountId };
+      await utils.particular.list.cancel(key);
+      const prev = utils.particular.list.getData(key);
+      utils.particular.list.setData(key, (old) =>
+        addRow(old, {
+          id: newTempId(),
+          name: vars.name,
+          type: vars.type,
+          amount: vars.amount,
+          frequency: vars.frequency,
+          startDate: vars.startDate as Date,
+          endDate: (vars.endDate as Date | undefined) ?? null,
+          isCritical: vars.isCritical,
+          isFixed: vars.isFixed,
+          businessDayAdjustment: vars.businessDayAdjustment,
+          category: vars.category ?? null,
+        } as never),
+      );
+      return { prev, key };
+    },
+    onError: (error, variables, ctx) => {
+      if (ctx) utils.particular.list.setData(ctx.key, ctx.prev);
+      toast.error(`Couldn't add “${variables.name}”`, { description: error.message });
+    },
+    onSettled: () => {
       utils.particular.list.invalidate();
       utils.forecast.getData.invalidate();
-      toast.success(`Added “${variables.name}”`);
-    },
-    onError: (error, variables) => {
-      toast.error(`Couldn't add “${variables.name}”`, { description: error.message });
     },
   });
 
