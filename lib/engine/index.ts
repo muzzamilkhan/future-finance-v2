@@ -3,3 +3,4 @@ export * from "./types";
 export * from "./dates";
 export * from "./instances";
 export * from "./forecast";
+export * from "./debt";

@@ -25,11 +25,33 @@ export type SimulateResult = {
 
 const DEFAULT_MAX_MONTHS = 600;
 
+export function orderDebts(debts: DebtInput[], strategy: Strategy, customOrder?: string[]): DebtInput[] {
+  const indexed = debts.map((d, i) => ({ d, i }));
+  if (strategy === "CUSTOM") {
+    const rank = new Map((customOrder ?? []).map((id, i) => [id, i] as const));
+    return indexed
+      .sort((a, b) => {
+        const ra = rank.has(a.d.id) ? rank.get(a.d.id)! : Number.POSITIVE_INFINITY;
+        const rb = rank.has(b.d.id) ? rank.get(b.d.id)! : Number.POSITIVE_INFINITY;
+        return ra - rb || a.i - b.i || a.d.id.localeCompare(b.d.id);
+      })
+      .map((x) => x.d);
+  }
+  const key = strategy === "SNOWBALL"
+    ? (d: DebtInput) => d.balance
+    : (d: DebtInput) => -d.apr; // AVALANCHE: descending apr
+  return indexed
+    .sort((a, b) => key(a.d) - key(b.d) || a.i - b.i || a.d.id.localeCompare(b.d.id))
+    .map((x) => x.d);
+}
+
 type Live = { input: DebtInput; balance: number; interestPaid: number; payoffMonth: number | null };
 
-// Temporary ordering source (ascending balance). Task 5 replaces this with orderDebts(strategy).
-function orderLive(live: Live[]): Live[] {
-  return [...live].filter((l) => l.balance > 0).sort((a, b) => a.balance - b.balance);
+function orderLive(live: Live[], strategy: Strategy, customOrder?: string[]): Live[] {
+  const byId = new Map(live.map((l) => [l.input.id, l] as const));
+  return orderDebts(live.map((l) => l.input), strategy, customOrder)
+    .map((d) => byId.get(d.id)!)
+    .filter((l) => l.balance > 0);
 }
 
 export function simulateDebtPayoff(input: SimulateInput): SimulateResult {
@@ -77,7 +99,7 @@ export function simulateDebtPayoff(input: SimulateInput): SimulateResult {
     }
 
     // 2) Apply surplus to strategy-ordered debts, cascading overflow.
-    for (const l of orderLive(live)) {
+    for (const l of orderLive(live, input.strategy, input.customOrder)) {
       if (surplus <= 0) break;
       if (l.balance <= 0) continue;
       const applied = Math.min(surplus, l.balance);

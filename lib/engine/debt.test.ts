@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { simulateDebtPayoff } from "./debt";
+import { simulateDebtPayoff, orderDebts } from "./debt";
 
 const round = (n: number) => Math.round(n * 100) / 100;
 
@@ -123,5 +123,60 @@ describe("simulateDebtPayoff — surplus, rollover, cascade", () => {
       extraPayment: 200,
     });
     expect(round(r.totalPaid)).toBe(round(2000 + r.totalInterest));
+  });
+});
+
+describe("orderDebts", () => {
+  const debts = [
+    { id: "big-low", name: "Mortgage", balance: 20000, apr: 0.05, minPayment: 300 },
+    { id: "small-high", name: "Card", balance: 800, apr: 0.24, minPayment: 40 },
+    { id: "mid", name: "Loan", balance: 5000, apr: 0.12, minPayment: 150 },
+  ];
+
+  it("SNOWBALL orders by ascending balance", () => {
+    expect(orderDebts(debts, "SNOWBALL").map((d) => d.id)).toEqual(["small-high", "mid", "big-low"]);
+  });
+  it("AVALANCHE orders by descending apr", () => {
+    expect(orderDebts(debts, "AVALANCHE").map((d) => d.id)).toEqual(["small-high", "mid", "big-low"]);
+  });
+  it("CUSTOM follows customOrder, unlisted ids to the end", () => {
+    expect(orderDebts(debts, "CUSTOM", ["mid", "big-low"]).map((d) => d.id)).toEqual(["mid", "big-low", "small-high"]);
+  });
+
+  it("breaks balance ties by input order (stable)", () => {
+    const tied = [
+      { id: "x", name: "X", balance: 1000, apr: 0.1, minPayment: 50 },
+      { id: "y", name: "Y", balance: 1000, apr: 0.2, minPayment: 50 },
+    ];
+    expect(orderDebts(tied, "SNOWBALL").map((d) => d.id)).toEqual(["x", "y"]);
+  });
+  it("breaks apr ties by input order (stable)", () => {
+    const tied = [
+      { id: "x", name: "X", balance: 1000, apr: 0.1, minPayment: 50 },
+      { id: "y", name: "Y", balance: 500, apr: 0.1, minPayment: 50 },
+    ];
+    expect(orderDebts(tied, "AVALANCHE").map((d) => d.id)).toEqual(["x", "y"]);
+  });
+});
+
+describe("simulateDebtPayoff — strategy affects payoff order", () => {
+  // NOTE: balance 500 (brief) caused both to clear the same month (10) under AVALANCHE due to cascade
+  // overflow; raised to 1000 so the strategies produce strictly different payoff months.
+  const debts = [
+    { id: "small", name: "Small", balance: 1000, apr: 0.05, minPayment: 50 },
+    { id: "pricey", name: "Pricey", balance: 2000, apr: 0.3, minPayment: 50 },
+  ];
+
+  it("snowball clears the smallest-balance debt first", () => {
+    const r = simulateDebtPayoff({ debts, strategy: "SNOWBALL", extraPayment: 200 });
+    const small = r.perDebt.find((p) => p.id === "small")!;
+    const pricey = r.perDebt.find((p) => p.id === "pricey")!;
+    expect(small.payoffMonth!).toBeLessThan(pricey.payoffMonth!);
+  });
+  it("avalanche clears the highest-apr debt first", () => {
+    const r = simulateDebtPayoff({ debts, strategy: "AVALANCHE", extraPayment: 200 });
+    const small = r.perDebt.find((p) => p.id === "small")!;
+    const pricey = r.perDebt.find((p) => p.id === "pricey")!;
+    expect(pricey.payoffMonth!).toBeLessThan(small.payoffMonth!);
   });
 });
