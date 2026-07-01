@@ -41,10 +41,13 @@ export function CollapsibleTopSection({
 
   return (
     <>
-      {/* Sticky compact bar — mobile only, only when collapsed. Tap scrolls to top. */}
+      {/* Compact bar — mobile only, only when collapsed. Tap scrolls to top.
+          Fixed (out of flow) so showing/hiding it never reflows the list below;
+          an in-flow bar would move the sentinel and cause a scroll-position
+          feedback loop (rapid flicker at the collapse threshold). */}
       <div
         ref={barRef}
-        className={`sticky top-0 z-20 -mx-4 flex items-center gap-2 border-b bg-background px-4 py-2 md:hidden ${
+        className={`fixed inset-x-0 top-0 z-20 flex items-center gap-2 border-b bg-background px-4 py-2 md:hidden ${
           collapsed ? "flex" : "hidden"
         }`}
         onClick={scrollToTop}
