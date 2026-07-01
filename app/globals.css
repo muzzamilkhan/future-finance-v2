@@ -156,4 +156,13 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Suppress the browser focus outline recharts puts on interactive
+     SVG elements (line paths, pie sectors) when clicked/selected. */
+  .recharts-wrapper :focus,
+  .recharts-wrapper :focus-visible,
+  .recharts-surface,
+  .recharts-sector,
+  .recharts-layer {
+    outline: none;
+  }
 }
