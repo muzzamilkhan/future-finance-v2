@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -19,6 +20,7 @@ import {
 import { Checkbox } from "@/app/_components/ui/checkbox";
 import { Label } from "@/app/_components/ui/label";
 import { CategoryCombobox } from "./CategoryCombobox";
+import { FormTabs, FormRow } from "./FormTabs";
 import { addRow, updateRow, newTempId } from "@/lib/optimistic";
 
 // `particularInput` is a refined (ZodEffects) schema, so its `input` type (what
@@ -32,6 +34,7 @@ export function ParticularForm(
   { isOpen, particularId, onClose }: { isOpen: boolean; particularId: string | null; onClose: () => void },
 ) {
   const { accountId, accounts } = useActiveAccount();
+  const [step, setStep] = useState(0);
   const utils = trpc.useUtils();
   const { data: existing } = trpc.particular.listAll.useQuery(undefined, {
     select: (rows) => rows.find((r) => r.id === particularId && r.direction === "OUT") ?? null,
@@ -107,116 +110,145 @@ export function ParticularForm(
     } else {
       create.mutate({ ...values, accountId: (values.accountId as string | undefined) || accountId! });
     }
-    onClose();
+    close();
   });
+
+  const close = () => { setStep(0); onClose(); };
 
   const errors = form.formState.errors;
   const FieldError = ({ name }: { name: keyof ParticularFormValues }) =>
     errors[name] ? <p className="text-xs text-destructive">{errors[name]?.message}</p> : null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={(o) => !o && onClose()}>
+    <Dialog open={isOpen} onOpenChange={(o) => !o && close()}>
       <DialogContent>
         <DialogHeader><DialogTitle>{particularId ? "Edit" : "Add"} item</DialogTitle></DialogHeader>
+        <FormTabs tabs={["Details", "Options"]} active={step} onSelect={setStep} />
         <form className="space-y-3" onSubmit={submit}>
-          <div className="space-y-1">
-            <Label>Name</Label>
-            <Input {...form.register("name")} />
-            <FieldError name="name" />
+          <div className={step === 0 ? "space-y-3" : "hidden"}>
+            <FormRow>
+              <div className="space-y-1">
+                <Label>Account</Label>
+                {particularId ? (
+                  <Input value={accounts.find((a) => a.id === existing?.accountId)?.name ?? ""} disabled readOnly />
+                ) : (
+                  <Select
+                    value={(form.watch("accountId") as string | undefined) ?? accountId ?? ""}
+                    onValueChange={(v) => form.setValue("accountId", v)}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Select account" /></SelectTrigger>
+                    <SelectContent>
+                      {accounts.filter((a) => a.role === "OWNER" || a.canEditItems).map((a) => (
+                        <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+              <div className="space-y-1">
+                <Label>Type</Label>
+                <Select value={form.watch("type")} onValueChange={(v) => form.setValue("type", v as "INCOME" | "EXPENSE")}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="INCOME">Income</SelectItem>
+                    <SelectItem value="EXPENSE">Expense</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </FormRow>
+            <FormRow>
+              <div className="space-y-1">
+                <Label>Name</Label>
+                <Input {...form.register("name")} />
+                <FieldError name="name" />
+              </div>
+              <div className="space-y-1">
+                <Label>Amount</Label>
+                <Input type="number" step="0.01" {...form.register("amount", { valueAsNumber: true })} />
+                <FieldError name="amount" />
+              </div>
+            </FormRow>
+            <FormRow>
+              <div className="space-y-1">
+                <Label>Frequency</Label>
+                <Select value={form.watch("frequency")} onValueChange={(v) => form.setValue("frequency", v as ParticularInput["frequency"])}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ONCE_OFF">Once-off</SelectItem>
+                    <SelectItem value="WEEKLY">Weekly</SelectItem>
+                    <SelectItem value="FORTNIGHTLY">Fortnightly</SelectItem>
+                    <SelectItem value="MONTHLY">Monthly</SelectItem>
+                    <SelectItem value="ANNUAL">Annual</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Start date</Label>
+                <Input
+                  type="date"
+                  value={dateToInputValue(form.watch("startDate") as Date | undefined)}
+                  onChange={(e) => form.setValue("startDate", inputValueToDate(e.target.value), { shouldValidate: true })}
+                />
+                <FieldError name="startDate" />
+              </div>
+            </FormRow>
           </div>
-          <div className="space-y-1">
-            <Label>Type</Label>
-            <Select value={form.watch("type")} onValueChange={(v) => form.setValue("type", v as "INCOME" | "EXPENSE")}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="INCOME">Income</SelectItem>
-                <SelectItem value="EXPENSE">Expense</SelectItem>
-              </SelectContent>
-            </Select>
+
+          <div className={step === 1 ? "space-y-3" : "hidden"}>
+            <FormRow>
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox checked={form.watch("isCritical")} onCheckedChange={(c) => form.setValue("isCritical", !!c)} />
+                Critical
+              </label>
+              <div className="space-y-1">
+                <Label>Business-day adjustment</Label>
+                <Select value={form.watch("businessDayAdjustment")} onValueChange={(v) => form.setValue("businessDayAdjustment", v as ParticularInput["businessDayAdjustment"])}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="NONE">None</SelectItem>
+                    <SelectItem value="NEXT_BUSINESS_DAY">Next business day</SelectItem>
+                    <SelectItem value="PREVIOUS_BUSINESS_DAY">Previous business day</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </FormRow>
+            <FormRow>
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox checked={form.watch("isFixed")} onCheckedChange={(c) => form.setValue("isFixed", !!c)} />
+                Fixed
+              </label>
+              <div />
+            </FormRow>
+            <FormRow>
+              <div className="space-y-1">
+                <Label>End date (optional)</Label>
+                <Input
+                  type="date"
+                  value={dateToInputValue(form.watch("endDate") as Date | undefined)}
+                  onChange={(e) => form.setValue("endDate", inputValueToDate(e.target.value), { shouldValidate: true })}
+                />
+                <FieldError name="endDate" />
+              </div>
+              <div className="space-y-1">
+                <Label>Category</Label>
+                <CategoryCombobox
+                  value={(form.watch("category") as string | undefined) ?? ""}
+                  onChange={(v) => form.setValue("category", v)}
+                />
+              </div>
+            </FormRow>
           </div>
-          {!particularId && (
-            <div className="space-y-1">
-              <Label>Account</Label>
-              <Select
-                value={(form.watch("accountId") as string | undefined) ?? accountId ?? ""}
-                onValueChange={(v) => form.setValue("accountId", v)}
-              >
-                <SelectTrigger><SelectValue placeholder="Select account" /></SelectTrigger>
-                <SelectContent>
-                  {accounts.filter((a) => a.role === "OWNER" || a.canEditItems).map((a) => (
-                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-          <div className="space-y-1">
-            <Label>Amount</Label>
-            <Input type="number" step="0.01" {...form.register("amount", { valueAsNumber: true })} />
-            <FieldError name="amount" />
-          </div>
-          {form.watch("type") === "EXPENSE" && (
-            <div className="space-y-1">
-              <Label>Category</Label>
-              <CategoryCombobox
-                value={(form.watch("category") as string | undefined) ?? ""}
-                onChange={(v) => form.setValue("category", v)}
-              />
-            </div>
-          )}
-          <div className="space-y-1">
-            <Label>Frequency</Label>
-            <Select value={form.watch("frequency")} onValueChange={(v) => form.setValue("frequency", v as ParticularInput["frequency"])}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ONCE_OFF">Once-off</SelectItem>
-                <SelectItem value="WEEKLY">Weekly</SelectItem>
-                <SelectItem value="FORTNIGHTLY">Fortnightly</SelectItem>
-                <SelectItem value="MONTHLY">Monthly</SelectItem>
-                <SelectItem value="ANNUAL">Annual</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label>Start date</Label>
-            <Input
-              type="date"
-              value={dateToInputValue(form.watch("startDate") as Date | undefined)}
-              onChange={(e) => form.setValue("startDate", inputValueToDate(e.target.value), { shouldValidate: true })}
-            />
-            <FieldError name="startDate" />
-          </div>
-          <div className="space-y-1">
-            <Label>End date (optional)</Label>
-            <Input
-              type="date"
-              value={dateToInputValue(form.watch("endDate") as Date | undefined)}
-              onChange={(e) => form.setValue("endDate", inputValueToDate(e.target.value), { shouldValidate: true })}
-            />
-            <FieldError name="endDate" />
-          </div>
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox checked={form.watch("isCritical")} onCheckedChange={(c) => form.setValue("isCritical", !!c)} />
-            Critical (cannot be skipped or moved)
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox checked={form.watch("isFixed")} onCheckedChange={(c) => form.setValue("isFixed", !!c)} />
-            Fixed (amount cannot be overridden)
-          </label>
-          <div className="space-y-1">
-            <Label>Business-day adjustment</Label>
-            <Select value={form.watch("businessDayAdjustment")} onValueChange={(v) => form.setValue("businessDayAdjustment", v as ParticularInput["businessDayAdjustment"])}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="NONE">None</SelectItem>
-                <SelectItem value="NEXT_BUSINESS_DAY">Next business day</SelectItem>
-                <SelectItem value="PREVIOUS_BUSINESS_DAY">Previous business day</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="submit">Save</Button>
+
+          <div className="flex justify-between gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={close}>Cancel</Button>
+            {step === 0 ? (
+              <Button type="button" onClick={() => setStep(1)}>Next</Button>
+            ) : (
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" onClick={() => setStep(0)}>Back</Button>
+                <Button type="submit">Save</Button>
+              </div>
+            )}
           </div>
         </form>
       </DialogContent>
