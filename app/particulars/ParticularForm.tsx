@@ -31,16 +31,12 @@ type ParticularFormValues = z.input<typeof particularInput>;
 export function ParticularForm(
   { isOpen, particularId, onClose }: { isOpen: boolean; particularId: string | null; onClose: () => void },
 ) {
-  const { accountId } = useActiveAccount();
+  const { accountId, accounts } = useActiveAccount();
   const utils = trpc.useUtils();
-  const { data: existing } = trpc.particular.list.useQuery(
-    { accountId: accountId! },
-    {
-      select: (rows) => rows.find((r) => r.id === particularId) ?? null,
-      enabled: !!particularId && !!accountId,
-    },
-  );
-  const { data: accounts } = trpc.account.list.useQuery();
+  const { data: existing } = trpc.particular.listAll.useQuery(undefined, {
+    select: (rows) => rows.find((r) => r.id === particularId && r.direction === "OUT") ?? null,
+    enabled: !!particularId,
+  });
   const form = useForm<ParticularFormValues>({
     resolver: zodResolver(particularInput),
     defaultValues: {
@@ -53,29 +49,31 @@ export function ParticularForm(
       isFixed: existing?.isFixed ?? true,
       businessDayAdjustment: (existing?.businessDayAdjustment as ParticularInput["businessDayAdjustment"]) ?? "NONE",
       category: existing?.category ?? "",
+      accountId: accountId ?? undefined,
     },
     values: existing ? toParticularInput(existing) : undefined,
   });
 
-  const key = { accountId: accountId! };
   const onMutationError = (error: { message: string }, _vars: unknown, ctx?: { prev: unknown }) => {
-    if (ctx) utils.particular.list.setData(key, ctx.prev as never);
+    if (ctx) utils.particular.listAll.setData(undefined, ctx.prev as never);
     toast.error(particularId ? "Couldn't save changes" : "Couldn't add item", { description: error.message });
   };
-  const onSettled = () => { utils.particular.list.invalidate(); utils.forecast.getData.invalidate(); };
+  const onSettled = () => { utils.particular.listAll.invalidate(); utils.forecast.getData.invalidate(); };
 
   const create = trpc.particular.create.useMutation({
     onMutate: async (vars) => {
-      await utils.particular.list.cancel(key);
-      const prev = utils.particular.list.getData(key);
-      utils.particular.list.setData(key, (old) =>
+      await utils.particular.listAll.cancel();
+      const prev = utils.particular.listAll.getData();
+      const acct = accounts.find((a) => a.id === vars.accountId);
+      utils.particular.listAll.setData(undefined, (old) =>
         addRow(old, {
           id: newTempId(),
           name: vars.name, type: vars.type, amount: vars.amount, frequency: vars.frequency,
           startDate: vars.startDate as Date, endDate: (vars.endDate as Date | undefined) ?? null,
           isCritical: vars.isCritical, isFixed: vars.isFixed,
           businessDayAdjustment: vars.businessDayAdjustment, category: vars.category ?? null,
-          toAccountId: (vars.toAccountId as string | undefined) ?? null,
+          accountId: vars.accountId!, toAccountId: (vars.toAccountId as string | undefined) ?? null,
+          accountName: acct?.name ?? "", direction: "OUT", canEditItems: true, overrides: [],
         } as never),
       );
       return { prev };
@@ -85,9 +83,9 @@ export function ParticularForm(
   });
   const update = trpc.particular.update.useMutation({
     onMutate: async (vars) => {
-      await utils.particular.list.cancel(key);
-      const prev = utils.particular.list.getData(key);
-      utils.particular.list.setData(key, (old) =>
+      await utils.particular.listAll.cancel();
+      const prev = utils.particular.listAll.getData();
+      utils.particular.listAll.setData(undefined, (old) =>
         updateRow(old, vars.id, {
           name: vars.name, type: vars.type, amount: vars.amount, frequency: vars.frequency,
           startDate: vars.startDate as Date, endDate: (vars.endDate as Date | undefined) ?? null,
@@ -103,8 +101,12 @@ export function ParticularForm(
   });
 
   const submit = form.handleSubmit((values) => {
-    if (particularId) update.mutate({ ...values, accountId: accountId!, id: particularId });
-    else create.mutate({ ...values, accountId: accountId! });
+    if (particularId) {
+      // Account is not editable on update; keep the item on its existing account.
+      update.mutate({ ...values, accountId: existing?.accountId ?? accountId!, id: particularId });
+    } else {
+      create.mutate({ ...values, accountId: (values.accountId as string | undefined) || accountId! });
+    }
     onClose();
   });
 
@@ -133,6 +135,22 @@ export function ParticularForm(
               </SelectContent>
             </Select>
           </div>
+          {!particularId && form.watch("type") !== "TRANSFER" && (
+            <div className="space-y-1">
+              <Label>Account</Label>
+              <Select
+                value={(form.watch("accountId") as string | undefined) ?? accountId ?? ""}
+                onValueChange={(v) => form.setValue("accountId", v)}
+              >
+                <SelectTrigger><SelectValue placeholder="Select account" /></SelectTrigger>
+                <SelectContent>
+                  {accounts.filter((a) => a.role === "OWNER" || a.canEditItems).map((a) => (
+                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           {form.watch("type") === "TRANSFER" && (
             <>
               <div className="space-y-1">
@@ -143,7 +161,7 @@ export function ParticularForm(
                 >
                   <SelectTrigger><SelectValue placeholder="Select account" /></SelectTrigger>
                   <SelectContent>
-                    {(accounts ?? []).map((a) => (
+                    {accounts.filter((a) => a.role === "OWNER" || a.canEditItems).map((a) => (
                       <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
                     ))}
                   </SelectContent>
@@ -157,7 +175,7 @@ export function ParticularForm(
                 >
                   <SelectTrigger><SelectValue placeholder="Select destination" /></SelectTrigger>
                   <SelectContent>
-                    {(accounts ?? [])
+                    {accounts
                       .filter((a) => a.id !== ((form.watch("accountId") as string | undefined) ?? accountId))
                       .map((a) => (
                         <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
