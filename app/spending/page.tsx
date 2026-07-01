@@ -8,7 +8,7 @@ import { formatCurrency } from "@/lib/design-system";
 import { CategoryCombobox } from "@/app/particulars/CategoryCombobox";
 import { buildSpending, type SpendingParticular } from "@/lib/spending/spending";
 import { SpendingChart } from "./SpendingChart";
-import { SpendingSummaryStats } from "./SpendingSummaryStats";
+import { SpendingSummaryStats } from "./SpendingSummaryStatsv2";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "@/server/routers/_app";
 import { useActiveAccount } from "@/app/_components/AccountContext";
