@@ -27,6 +27,7 @@ export function DailyCard({ day, onEventClick, interactive = true, accountNames,
                 <span className="flex flex-wrap items-center gap-1">
                   {e.toAccountId ? (
                     <>
+                      <span>Transfer</span>
                       <AccountBadge accountId={e.fromAccountId} accountNames={accountNames} orderedIds={accountIds} />
                       <ArrowRight className="size-3.5 shrink-0 text-muted-foreground" aria-label="to" />
                       <AccountBadge accountId={e.toAccountId} accountNames={accountNames} orderedIds={accountIds} />
@@ -40,8 +41,8 @@ export function DailyCard({ day, onEventClick, interactive = true, accountNames,
                   {e.isOverridden && <span className="ml-1 text-xs text-finance-warning">(edited)</span>}
                   {e.isMovedDueToHoliday && <span className="ml-1 text-xs text-muted-foreground">(moved)</span>}
                 </span>
-                <span className={`shrink-0 ${e.amount < 0 ? "text-finance-expense" : "text-finance-income"}`}>
-                  {formatCurrency(e.amount)}
+                <span className={`shrink-0 ${e.toAccountId ? "text-blue-600 dark:text-blue-400" : e.amount < 0 ? "text-finance-expense" : "text-finance-income"}`}>
+                  {formatCurrency(e.toAccountId ? Math.abs(e.amount) : e.amount)}
                 </span>
               </li>
               );

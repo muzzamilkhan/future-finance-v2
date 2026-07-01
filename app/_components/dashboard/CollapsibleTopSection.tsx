@@ -56,8 +56,8 @@ export function CollapsibleTopSection({
         <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" />
       </div>
 
-      {/* Full top section — collapses on mobile, always shown on desktop */}
-      <div className={collapsed ? "hidden md:block" : "block"}>{children}</div>
+      {/* Full top section — always shown; the floating bar overlays on scroll */}
+      <div className="block">{children}</div>
 
       {/* Sentinel just below the top section */}
       <div ref={sentinelRef} aria-hidden className="h-0" />
