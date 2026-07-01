@@ -27,6 +27,11 @@ const DEFAULT_MAX_MONTHS = 600;
 
 type Live = { input: DebtInput; balance: number; interestPaid: number; payoffMonth: number | null };
 
+// Temporary ordering source (ascending balance). Task 5 replaces this with orderDebts(strategy).
+function orderLive(live: Live[]): Live[] {
+  return [...live].filter((l) => l.balance > 0).sort((a, b) => a.balance - b.balance);
+}
+
 export function simulateDebtPayoff(input: SimulateInput): SimulateResult {
   const maxMonths = input.maxMonths ?? DEFAULT_MAX_MONTHS;
   const live: Live[] = input.debts.map((d) => ({
@@ -42,14 +47,21 @@ export function simulateDebtPayoff(input: SimulateInput): SimulateResult {
   let month = 0;
 
   while (live.some((l) => l.balance > 0) && month < maxMonths) {
-    const perDebt: PerDebtMonth[] = [];
+    const rows = new Map<string, PerDebtMonth>();
     let monthInterest = 0;
     let monthPaid = 0;
 
+    // Freed-up minimums from already-cleared debts feed the surplus pool.
+    let surplus = input.extraPayment;
+    for (const l of live) {
+      if (l.balance <= 0) surplus += l.input.minPayment;
+    }
+
+    // 1) Accrue interest + pay minimums on each unpaid debt.
     for (const l of live) {
       const startBalance = l.balance;
       if (startBalance <= 0) {
-        perDebt.push({ id: l.input.id, startBalance: 0, interest: 0, payment: 0, endBalance: 0 });
+        rows.set(l.input.id, { id: l.input.id, startBalance: 0, interest: 0, payment: 0, endBalance: 0 });
         continue;
       }
       const interest = startBalance * (l.input.apr / 12);
@@ -61,17 +73,33 @@ export function simulateDebtPayoff(input: SimulateInput): SimulateResult {
       l.interestPaid += interest;
       monthInterest += interest;
       monthPaid += payment;
-      if (endBalance <= 0 && l.payoffMonth === null) l.payoffMonth = month + 1;
+      rows.set(l.input.id, { id: l.input.id, startBalance, interest, payment, endBalance });
+    }
 
-      perDebt.push({ id: l.input.id, startBalance, interest, payment, endBalance });
+    // 2) Apply surplus to strategy-ordered debts, cascading overflow.
+    for (const l of orderLive(live)) {
+      if (surplus <= 0) break;
+      if (l.balance <= 0) continue;
+      const applied = Math.min(surplus, l.balance);
+      l.balance -= applied;
+      surplus -= applied;
+      monthPaid += applied;
+      const row = rows.get(l.input.id)!;
+      row.payment += applied;
+      row.endBalance = l.balance;
+    }
+
+    // 3) Mark newly-cleared debts.
+    for (const l of live) {
+      if (l.balance <= 0 && l.payoffMonth === null) l.payoffMonth = month + 1;
     }
 
     totalInterest += monthInterest;
     totalPaid += monthPaid;
     months.push({
       month,
-      perDebt,
-      totalBalance: live.reduce((s, l) => s + l.balance, 0),
+      perDebt: input.debts.map((d) => rows.get(d.id)!),
+      totalBalance: live.reduce((s, l) => s + Math.max(0, l.balance), 0),
       totalInterest: monthInterest,
       totalPaid: monthPaid,
     });

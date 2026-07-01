@@ -51,3 +51,77 @@ describe("simulateDebtPayoff — single debt, minimums only", () => {
     expect(round(r.totalPaid)).toBe(round(1200 + r.totalInterest));
   });
 });
+
+describe("simulateDebtPayoff — surplus, rollover, cascade", () => {
+  const round = (n: number) => Math.round(n * 100) / 100;
+
+  it("applies extraPayment to the target debt on top of its minimum", () => {
+    // 0% APR. minPayment 100 + extra 100 = 200/mo on the single debt.
+    const r = simulateDebtPayoff({
+      debts: [{ id: "a", name: "L", balance: 1000, apr: 0, minPayment: 100 }],
+      strategy: "SNOWBALL",
+      extraPayment: 100,
+    });
+    expect(r.payoffMonth).toBe(5); // 1000 / 200
+  });
+
+  it("cascades surplus overflow to the next debt within the same month", () => {
+    // Debt a: balance 100, min 0. Debt b: balance 1000, min 0. extra 300, 0% apr.
+    // Month 0: a needs 100 -> cleared, 200 overflow cascades to b -> b 800.
+    const r = simulateDebtPayoff({
+      debts: [
+        { id: "a", name: "A", balance: 100, apr: 0, minPayment: 0 },
+        { id: "b", name: "B", balance: 1000, apr: 0, minPayment: 0 },
+      ],
+      strategy: "SNOWBALL",
+      extraPayment: 300,
+    });
+    const m0 = r.months[0]!;
+    const a0 = m0.perDebt.find((p) => p.id === "a")!;
+    const b0 = m0.perDebt.find((p) => p.id === "b")!;
+    expect(round(a0.endBalance)).toBe(0);
+    expect(round(b0.endBalance)).toBe(800);
+  });
+
+  it("rolls a cleared debt's minimum into the surplus pool from the next month", () => {
+    // a: balance 100, min 100 (clears month 0). b: balance 1000, min 100, 0% apr, extra 0.
+    // Month 0: a pays 100 -> cleared; b pays 100 -> 900.
+    // Month 1: a's freed 100 rolls onto b's target -> b pays 100 min + 100 rollover = 200 -> 700.
+    const r = simulateDebtPayoff({
+      debts: [
+        { id: "a", name: "A", balance: 100, apr: 0, minPayment: 100 },
+        { id: "b", name: "B", balance: 1000, apr: 0, minPayment: 100 },
+      ],
+      strategy: "SNOWBALL",
+      extraPayment: 0,
+    });
+    const b1 = r.months[1]!.perDebt.find((p) => p.id === "b")!;
+    expect(round(b1.payment)).toBe(200);
+    expect(round(b1.endBalance)).toBe(700);
+  });
+
+  it("returns payoffMonth null when minimums+extra never cover interest", () => {
+    // 10000 @ 24% APR = 2%/mo = 200 interest. min 100, extra 0 -> balance grows.
+    const r = simulateDebtPayoff({
+      debts: [{ id: "a", name: "Bad", balance: 10000, apr: 0.24, minPayment: 100 }],
+      strategy: "SNOWBALL",
+      extraPayment: 0,
+      maxMonths: 12,
+    });
+    expect(r.payoffMonth).toBeNull();
+    expect(r.perDebt[0]!.payoffMonth).toBeNull();
+    expect(r.months.length).toBe(12);
+  });
+
+  it("holds totalPaid == sum(startBalance) + totalInterest across multiple debts", () => {
+    const r = simulateDebtPayoff({
+      debts: [
+        { id: "a", name: "A", balance: 500, apr: 0.1, minPayment: 80 },
+        { id: "b", name: "B", balance: 1500, apr: 0.18, minPayment: 120 },
+      ],
+      strategy: "SNOWBALL",
+      extraPayment: 200,
+    });
+    expect(round(r.totalPaid)).toBe(round(2000 + r.totalInterest));
+  });
+});
