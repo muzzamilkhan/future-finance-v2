@@ -79,6 +79,10 @@ export default function DashboardPage() {
     () => new Map((data?.accounts ?? []).map((a) => [a.id, a.name] as const)),
     [data],
   );
+  const accountIds = useMemo(
+    () => (data?.accounts ?? []).map((a) => a.id),
+    [data],
+  );
 
   if (isLoading || !result) return <Layout><p className="text-muted-foreground">Loading…</p></Layout>;
 
@@ -156,7 +160,7 @@ export default function DashboardPage() {
               (result.firstNegative && isSameDay(day.date, result.firstNegative.date)),
             )
             .map((day) => (
-              <DailyCard key={day.date.toISOString()} day={day} onEventClick={openOverride} interactive={canEditOverrides} accountNames={accountNames} />
+              <DailyCard key={day.date.toISOString()} day={day} onEventClick={openOverride} interactive={canEditOverrides} accountNames={accountNames} accountIds={accountIds} />
             ))}
         </div>
 
