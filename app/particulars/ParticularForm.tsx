@@ -196,10 +196,6 @@ export function ParticularForm(
 
           <div className={step === 1 ? "space-y-3" : "hidden"}>
             <FormRow>
-              <label className="flex items-center gap-2 text-sm">
-                <Checkbox checked={form.watch("isCritical")} onCheckedChange={(c) => form.setValue("isCritical", !!c)} />
-                Critical
-              </label>
               <div className="space-y-1">
                 <Label>Business-day adjustment</Label>
                 <Select value={form.watch("businessDayAdjustment")} onValueChange={(v) => form.setValue("businessDayAdjustment", v as ParticularInput["businessDayAdjustment"])}>
@@ -211,15 +207,6 @@ export function ParticularForm(
                   </SelectContent>
                 </Select>
               </div>
-            </FormRow>
-            <FormRow>
-              <label className="flex items-center gap-2 text-sm">
-                <Checkbox checked={form.watch("isFixed")} onCheckedChange={(c) => form.setValue("isFixed", !!c)} />
-                Fixed
-              </label>
-              <div />
-            </FormRow>
-            <FormRow>
               <div className="space-y-1">
                 <Label>End date (optional)</Label>
                 <Input
@@ -229,6 +216,18 @@ export function ParticularForm(
                 />
                 <FieldError name="endDate" />
               </div>
+            </FormRow>
+            <FormRow>
+              <label className="flex items-start gap-2 text-sm">
+                <Checkbox className="mt-0.5" checked={form.watch("isCritical")} onCheckedChange={(c) => form.setValue("isCritical", !!c)} />
+                <span>Critical <span className="text-muted-foreground">(cannot be skipped or moved)</span></span>
+              </label>
+              <label className="flex items-start gap-2 text-sm">
+                <Checkbox className="mt-0.5" checked={form.watch("isFixed")} onCheckedChange={(c) => form.setValue("isFixed", !!c)} />
+                <span>Fixed <span className="text-muted-foreground">(amount cannot be overridden)</span></span>
+              </label>
+            </FormRow>
+            <FormRow>
               <div className="space-y-1">
                 <Label>Category</Label>
                 <CategoryCombobox
@@ -236,6 +235,7 @@ export function ParticularForm(
                   onChange={(v) => form.setValue("category", v)}
                 />
               </div>
+              <div />
             </FormRow>
           </div>
 
