@@ -128,6 +128,7 @@ export function TransferForm(
         <DialogHeader><DialogTitle>{particularId ? "Edit" : "Add"} transfer</DialogTitle></DialogHeader>
         <FormTabs tabs={["Details", "Options"]} active={step} onSelect={setStep} />
         <form className="space-y-3" onSubmit={submit}>
+          <div className="min-h-[13.5rem]">
           <div className={step === 0 ? "space-y-3" : "hidden"}>
             <FormRow>
               <div className="space-y-1">
@@ -222,6 +223,7 @@ export function TransferForm(
                 <FieldError name="endDate" />
               </div>
             </FormRow>
+          </div>
           </div>
 
           <div className="flex justify-between gap-2 pt-2">
