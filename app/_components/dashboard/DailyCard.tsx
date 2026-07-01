@@ -33,8 +33,8 @@ export function DailyCard({ day, onEventClick, interactive = true, accountNames,
                     </>
                   ) : (
                     <>
-                      <AccountBadge accountId={e.fromAccountId} accountNames={accountNames} orderedIds={accountIds} />
                       <span>{e.name}</span>
+                      <AccountBadge accountId={e.fromAccountId} accountNames={accountNames} orderedIds={accountIds} className="px-1.5 py-0 text-[10px]" />
                     </>
                   )}
                   {e.isOverridden && <span className="ml-1 text-xs text-finance-warning">(edited)</span>}
