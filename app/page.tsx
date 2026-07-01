@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { addMonths, format, isSameDay, startOfDay } from "date-fns";
+import { addMonths, format, isSameDay } from "date-fns";
 import { keepPreviousData } from "@tanstack/react-query";
 import { trpc } from "@/trpc/client";
 import { computeForecast } from "@/lib/engine";
@@ -21,12 +21,20 @@ import { useActiveAccount } from "@/app/_components/AccountContext";
 import { updateRow } from "@/lib/optimistic";
 
 export default function DashboardPage() {
-  const today = startOfDay(new Date());
+  // UTC midnight of the *local* calendar date. The engine keys every day by its
+  // UTC components (utcDay), so passing local startOfDay in a positive-UTC-offset
+  // timezone would land the window one calendar day early. Anchoring to UTC
+  // midnight of the local date keeps "today" as the first daily card.
+  const now = new Date();
+  const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
   const [monthsAhead, setMonthsAhead] = useState(6);
   const [skipToday, setSkipToday] = useState(false);
   const [override, setOverride] = useState<{ particularId: string; originalDate: Date; isFixed: boolean; isCritical: boolean; currentAmount: number; currentDate: Date; overrideId?: string } | null>(null);
 
-  const viewStart = today;
+  // Skip-today shifts the visible window to tomorrow (and the engine also drops
+  // today's events from the running balance via skipToday). The list then starts
+  // at tomorrow instead of today.
+  const viewStart = skipToday ? new Date(today.getTime() + 86_400_000) : today;
   const viewEnd = addMonths(today, monthsAhead);
 
   const { accountId, accounts, activeMembership } = useActiveAccount();
