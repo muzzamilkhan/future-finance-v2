@@ -134,7 +134,7 @@ export function QuickAddRow({ disabled }: { disabled?: boolean }) {
       <Select value={selectedAccount} onValueChange={setSelectedAccount}>
         <SelectTrigger className="w-40"><SelectValue placeholder="Account" /></SelectTrigger>
         <SelectContent>
-          {accounts.filter((a) => a.canEditItems).map((a) => (
+          {accounts.filter((a) => a.role === "OWNER" || a.canEditItems).map((a) => (
             <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
           ))}
         </SelectContent>
