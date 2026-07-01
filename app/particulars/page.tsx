@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/_components/ui/select";
 import { formatCurrency } from "@/lib/design-system";
 import { ParticularForm } from "./ParticularForm";
+import { TransferForm } from "./TransferForm";
 import { OverrideManagement } from "./OverrideManagement";
 import { QuickAddRow } from "./QuickAddRow";
 import { CategoryPill } from "./CategoryPill";
@@ -71,6 +72,7 @@ export default function ParticularsPage() {
 
   const [editing, setEditing] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
+  const [transferOpen, setTransferOpen] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const all = particulars ?? [];
@@ -116,7 +118,8 @@ export default function ParticularsPage() {
             <span className={`hidden sm:inline ${amountClass}`}>
               {amountText}
             </span>
-            <Button variant="ghost" size="sm" disabled={!p.canEditItems || isTempId(p.id)} onClick={() => { setEditing(p.id); setFormOpen(true); }}>Edit</Button>
+            <Button variant="ghost" size="sm" disabled={!p.canEditItems || isTempId(p.id)}
+              onClick={() => { setEditing(p.id); if (p.type === "TRANSFER") setTransferOpen(true); else setFormOpen(true); }}>Edit</Button>
             {p.type !== "TRANSFER" && (accountList ?? []).some((a) => a.id !== accountId) && (
               <Button variant="ghost" size="sm" disabled={!p.canEditItems || isTempId(p.id)}
                 onClick={() => { setMoveDest(""); setPendingMove(p); }}>Move</Button>
@@ -142,7 +145,10 @@ export default function ParticularsPage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Income &amp; Expenses</h1>
-          <Button size="sm" disabled={!canEditItems} onClick={() => { setEditing(null); setFormOpen(true); }}>Add</Button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" disabled={!canEditItems} onClick={() => { setEditing(null); setFormOpen(true); }}>Add</Button>
+            <Button size="sm" variant="outline" disabled={!canEditItems} onClick={() => { setEditing(null); setTransferOpen(true); }}>Add transfer</Button>
+          </div>
         </div>
         <QuickAddRow disabled={!canEditItems} />
         {isLoading ? <p className="text-muted-foreground">Loading...</p> : (
@@ -156,6 +162,9 @@ export default function ParticularsPage() {
         )}
         {formOpen && (
           <ParticularForm isOpen={formOpen} particularId={editing} onClose={() => setFormOpen(false)} />
+        )}
+        {transferOpen && (
+          <TransferForm isOpen={transferOpen} particularId={editing} onClose={() => setTransferOpen(false)} />
         )}
         <Dialog open={!!pendingDelete} onOpenChange={(o) => { if (!o && !del.isPending) setPendingDelete(null); }}>
           <DialogContent>

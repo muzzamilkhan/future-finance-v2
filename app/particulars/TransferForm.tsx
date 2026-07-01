@@ -16,19 +16,13 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/app/_components/ui/select";
-import { Checkbox } from "@/app/_components/ui/checkbox";
 import { Label } from "@/app/_components/ui/label";
-import { CategoryCombobox } from "./CategoryCombobox";
 import { addRow, updateRow, newTempId } from "@/lib/optimistic";
 
-// `particularInput` is a refined (ZodEffects) schema, so its `input` type (what
-// react-hook-form/zodResolver and tRPC's `.mutate()` actually expect — pre-coercion
-// date fields are `unknown`) differs from `ParticularInput` (`z.infer`, the parsed
-// *output* type with `startDate`/`endDate` as `Date`). Form values must be typed by
-// the input side so the resolver and the mutation payload line up.
-type ParticularFormValues = z.input<typeof particularInput>;
+// See ParticularForm for why form values are typed by the schema's *input* side.
+type TransferFormValues = z.input<typeof particularInput>;
 
-export function ParticularForm(
+export function TransferForm(
   { isOpen, particularId, onClose }: { isOpen: boolean; particularId: string | null; onClose: () => void },
 ) {
   const { accountId, accounts } = useActiveAccount();
@@ -37,26 +31,27 @@ export function ParticularForm(
     select: (rows) => rows.find((r) => r.id === particularId && r.direction === "OUT") ?? null,
     enabled: !!particularId,
   });
-  const form = useForm<ParticularFormValues>({
+  const form = useForm<TransferFormValues>({
     resolver: zodResolver(particularInput),
     defaultValues: {
-      name: existing?.name ?? "",
-      type: (existing?.type as "INCOME" | "EXPENSE" | "TRANSFER") ?? "EXPENSE",
-      amount: existing ? Math.abs(Number(existing.amount)) : 0,
-      frequency: (existing?.frequency as ParticularInput["frequency"]) ?? "MONTHLY",
-      startDate: existing ? new Date(existing.startDate) : todayAsUtcDate(),
-      isCritical: existing?.isCritical ?? true,
-      isFixed: existing?.isFixed ?? true,
-      businessDayAdjustment: (existing?.businessDayAdjustment as ParticularInput["businessDayAdjustment"]) ?? "NONE",
-      category: existing?.category ?? "",
+      name: "",
+      type: "TRANSFER",
+      amount: 0,
+      frequency: "MONTHLY",
+      startDate: todayAsUtcDate(),
+      isCritical: true,
+      isFixed: true,
+      businessDayAdjustment: "NONE",
+      category: "",
       accountId: accountId ?? undefined,
+      toAccountId: undefined,
     },
     values: existing ? toParticularInput(existing) : undefined,
   });
 
   const onMutationError = (error: { message: string }, _vars: unknown, ctx?: { prev: unknown }) => {
     if (ctx) utils.particular.listAll.setData(undefined, ctx.prev as never);
-    toast.error(particularId ? "Couldn't save changes" : "Couldn't add item", { description: error.message });
+    toast.error(particularId ? "Couldn't save changes" : "Couldn't add transfer", { description: error.message });
   };
   const onSettled = () => { utils.particular.listAll.invalidate(); utils.forecast.getData.invalidate(); };
 
@@ -102,8 +97,13 @@ export function ParticularForm(
 
   const submit = form.handleSubmit((values) => {
     if (particularId) {
-      // Account is not editable on update; keep the item on its existing account.
-      update.mutate({ ...values, accountId: existing?.accountId ?? accountId!, id: particularId });
+      // Accounts are not editable on update; keep the transfer's existing from/to.
+      update.mutate({
+        ...values,
+        accountId: existing?.accountId ?? accountId!,
+        toAccountId: existing?.toAccountId ?? (values.toAccountId as string | undefined),
+        id: particularId,
+      });
     } else {
       create.mutate({ ...values, accountId: (values.accountId as string | undefined) || accountId! });
     }
@@ -111,36 +111,23 @@ export function ParticularForm(
   });
 
   const errors = form.formState.errors;
-  const FieldError = ({ name }: { name: keyof ParticularFormValues }) =>
+  const FieldError = ({ name }: { name: keyof TransferFormValues }) =>
     errors[name] ? <p className="text-xs text-destructive">{errors[name]?.message}</p> : null;
+
+  const nameOf = (id: string | undefined) => accounts.find((a) => a.id === id)?.name ?? "";
+  const fromId = (form.watch("accountId") as string | undefined) ?? accountId;
 
   return (
     <Dialog open={isOpen} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
-        <DialogHeader><DialogTitle>{particularId ? "Edit" : "Add"} item</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{particularId ? "Edit" : "Add"} transfer</DialogTitle></DialogHeader>
         <form className="space-y-3" onSubmit={submit}>
           <div className="space-y-1">
-            <Label>Name</Label>
-            <Input {...form.register("name")} />
-            <FieldError name="name" />
-          </div>
-          <div className="space-y-1">
-            <Label>Type</Label>
-            <Select value={form.watch("type")} onValueChange={(v) => form.setValue("type", v as "INCOME" | "EXPENSE")}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="INCOME">Income</SelectItem>
-                <SelectItem value="EXPENSE">Expense</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          {!particularId && (
-            <div className="space-y-1">
-              <Label>Account</Label>
-              <Select
-                value={(form.watch("accountId") as string | undefined) ?? accountId ?? ""}
-                onValueChange={(v) => form.setValue("accountId", v)}
-              >
+            <Label>From account</Label>
+            {particularId ? (
+              <Input value={nameOf(existing?.accountId)} disabled readOnly />
+            ) : (
+              <Select value={fromId ?? ""} onValueChange={(v) => form.setValue("accountId", v)}>
                 <SelectTrigger><SelectValue placeholder="Select account" /></SelectTrigger>
                 <SelectContent>
                   {accounts.filter((a) => a.role === "OWNER" || a.canEditItems).map((a) => (
@@ -148,22 +135,32 @@ export function ParticularForm(
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-          )}
+            )}
+          </div>
+          <div className="space-y-1">
+            <Label>To account</Label>
+            {particularId ? (
+              <Input value={nameOf(existing?.toAccountId ?? undefined)} disabled readOnly />
+            ) : (
+              <Select
+                value={(form.watch("toAccountId") as string | undefined) ?? ""}
+                onValueChange={(v) => form.setValue("toAccountId", v)}
+              >
+                <SelectTrigger><SelectValue placeholder="Select destination" /></SelectTrigger>
+                <SelectContent>
+                  {accounts.filter((a) => a.id !== fromId).map((a) => (
+                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <FieldError name="toAccountId" />
+          </div>
           <div className="space-y-1">
             <Label>Amount</Label>
             <Input type="number" step="0.01" {...form.register("amount", { valueAsNumber: true })} />
             <FieldError name="amount" />
           </div>
-          {form.watch("type") === "EXPENSE" && (
-            <div className="space-y-1">
-              <Label>Category</Label>
-              <CategoryCombobox
-                value={(form.watch("category") as string | undefined) ?? ""}
-                onChange={(v) => form.setValue("category", v)}
-              />
-            </div>
-          )}
           <div className="space-y-1">
             <Label>Frequency</Label>
             <Select value={form.watch("frequency")} onValueChange={(v) => form.setValue("frequency", v as ParticularInput["frequency"])}>
@@ -195,14 +192,6 @@ export function ParticularForm(
             />
             <FieldError name="endDate" />
           </div>
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox checked={form.watch("isCritical")} onCheckedChange={(c) => form.setValue("isCritical", !!c)} />
-            Critical (cannot be skipped or moved)
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox checked={form.watch("isFixed")} onCheckedChange={(c) => form.setValue("isFixed", !!c)} />
-            Fixed (amount cannot be overridden)
-          </label>
           <div className="space-y-1">
             <Label>Business-day adjustment</Label>
             <Select value={form.watch("businessDayAdjustment")} onValueChange={(v) => form.setValue("businessDayAdjustment", v as ParticularInput["businessDayAdjustment"])}>
