@@ -496,7 +496,7 @@ In `server/routers/category.ts`:
 
 ```ts
 import { router, accountProcedure } from "../trpc";
-import { parseCategories } from "@/lib/budget/category";
+import { parseCategories } from "@/lib/spending/category";
 
 export const categoryRouter = router({
   list: accountProcedure.query(({ ctx }) => parseCategories(ctx.account.categories ?? "")),
@@ -795,7 +795,7 @@ git commit -m "feat(server): account router list/create/setDefault/close/leave/u
 **Files:**
 - Create: `app/_components/AccountContext.tsx`
 - Modify: `app/providers.tsx`
-- Modify: `app/page.tsx`, `app/particulars/page.tsx`, `app/holidays/page.tsx`, `app/budget/page.tsx`
+- Modify: `app/page.tsx`, `app/particulars/page.tsx`, `app/holidays/page.tsx`, `app/spending/page.tsx`
 - Test: `app/_components/accountContext.test.ts` (pure selector test)
 
 **Interfaces:**
@@ -902,7 +902,7 @@ import { AccountProvider } from "@/app/_components/AccountContext";
 
 - [ ] **Step 5: Thread accountId into every query/mutation**
 
-In `app/page.tsx`, `app/particulars/page.tsx`, `app/holidays/page.tsx`, `app/budget/page.tsx`: import `useActiveAccount`, read `const { accountId } = useActiveAccount();`, pass `accountId!` into every tRPC input, and gate queries with `{ enabled: !!accountId }`. Examples for page.tsx:
+In `app/page.tsx`, `app/particulars/page.tsx`, `app/holidays/page.tsx`, `app/spending/page.tsx`: import `useActiveAccount`, read `const { accountId } = useActiveAccount();`, pass `accountId!` into every tRPC input, and gate queries with `{ enabled: !!accountId }`. Examples for page.tsx:
 
 ```tsx
 const { accountId } = useActiveAccount();
@@ -916,7 +916,7 @@ const updateBalance = trpc.account.updateBalance.useMutation({ /* onSuccess unch
 // when calling: updateBalance.mutate({ accountId: accountId!, balance });
 ```
 
-Apply the same to particular create/update/delete/override, holiday create/delete/list, category.list, forecast in budget page. For mutations, add `accountId: accountId!` to the `.mutate(...)` payloads.
+Apply the same to particular create/update/delete/override, holiday create/delete/list, category.list, forecast in spending page. For mutations, add `accountId: accountId!` to the `.mutate(...)` payloads.
 
 - [ ] **Step 6: Run tests + typecheck + build**
 
@@ -928,7 +928,7 @@ Expected: PASS.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add app/_components/AccountContext.tsx app/providers.tsx app/page.tsx app/particulars/page.tsx app/holidays/page.tsx app/budget/page.tsx app/_components/accountContext.test.ts
+git add app/_components/AccountContext.tsx app/providers.tsx app/page.tsx app/particulars/page.tsx app/holidays/page.tsx app/spending/page.tsx app/_components/accountContext.test.ts
 git commit -m "feat(client): AccountContext + thread accountId through all tRPC calls"
 ```
 
@@ -1483,7 +1483,7 @@ git commit -m "feat(client): invite accept page + account sharing panel"
 - [ ] **Step 1: Run the whole test suite**
 
 Run: `npx vitest run`
-Expected: PASS — all engine, schema, budget, router, permission, default-account, invite, and context tests green.
+Expected: PASS — all engine, schema, spending, router, permission, default-account, invite, and context tests green.
 
 - [ ] **Step 2: Typecheck + build**
 

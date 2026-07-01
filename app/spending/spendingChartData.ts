@@ -1,4 +1,4 @@
-import type { BudgetSummary } from "@/lib/budget/budget";
+import type { SpendingSummary } from "@/lib/spending/spending";
 
 export type PieDatum = {
   name: string;
@@ -6,7 +6,7 @@ export type PieDatum = {
   kind: "category" | "untagged" | "surplus";
 };
 
-export function toPieData(summary: BudgetSummary): PieDatum[] {
+export function toPieData(summary: SpendingSummary): PieDatum[] {
   const data: PieDatum[] = summary.categories.map((c) => ({
     name: c.name, value: c.monthly, kind: "category",
   }));

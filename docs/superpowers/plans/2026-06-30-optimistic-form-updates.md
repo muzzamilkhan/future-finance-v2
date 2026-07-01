@@ -489,17 +489,17 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 ---
 
-### Task 5: Category changes — CategoryPill & Budget retag (optimistic update)
+### Task 5: Category changes — CategoryPill & Spending retag (optimistic update)
 
 **Files:**
 - Modify: `app/particulars/CategoryPill.tsx:22-28`
-- Modify: `app/budget/page.tsx:26-32`
+- Modify: `app/spending/page.tsx:26-32`
 
 **Interfaces:**
 - Consumes: `updateRow` from `lib/optimistic.ts`.
 - Produces: nothing downstream.
 
-Both patch `particular.list` by setting the row's `category`. Budget also
+Both patch `particular.list` by setting the row's `category`. Spending also
 invalidates `category.list` on settle (preserve that).
 
 - [ ] **Step 1: CategoryPill — optimistic category update**
@@ -534,9 +534,9 @@ Replace the `update` mutation (lines 22-28) with:
   });
 ```
 
-- [ ] **Step 2: Budget page — optimistic retag**
+- [ ] **Step 2: Spending page — optimistic retag**
 
-In `app/budget/page.tsx` add the import:
+In `app/spending/page.tsx` add the import:
 
 ```tsx
 import { updateRow } from "@/lib/optimistic";
@@ -574,13 +574,13 @@ Expected: PASS.
 - [ ] **Step 4: Manual verification**
 
 On the running app: on Income & Expenses, change an expense's category via the
-pill — the pill reflects the new value instantly. On Budget, expand a group and
+pill — the pill reflects the new value instantly. On Spending, expand a group and
 retag an item — the chip updates instantly (group totals reconcile on settle).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add app/particulars/CategoryPill.tsx app/budget/page.tsx
+git add app/particulars/CategoryPill.tsx app/spending/page.tsx
 git commit -m "feat(categories): optimistic category retag
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
@@ -798,7 +798,7 @@ Expected: PASS — all existing server/lib tests plus the new
 
 On the running app, confirm instant update (then settle) for each:
 holiday add/delete · quick-add item · add/edit item via dialog · delete item ·
-category pill change · budget retag · override save/revert · balance edit.
+category pill change · spending retag · override save/revert · balance edit.
 For one of them (e.g. holiday add), throttle the network in devtools and confirm
 the row appears before the request completes.
 

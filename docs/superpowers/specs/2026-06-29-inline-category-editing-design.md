@@ -21,7 +21,7 @@ only for `type === "EXPENSE"`). Income rows are unchanged.
 - `app/particulars/ParticularForm.tsx` — refactor its field mapping to use the shared
   helper (so the inline edit and the form can't drift).
 
-Out of scope: income rows, the budget page, any change to the engine or server routers.
+Out of scope: income rows, the spending page, any change to the engine or server routers.
 
 ## Display
 
@@ -66,7 +66,7 @@ The component reconstructs the full payload from the row's particular via the sh
 
 - **Optimistic:** the pill shows the new value immediately.
 - **On success:** invalidate `particular.list` and `forecast.getData` (category changes
-  feed the budget view, which is derived from forecast data).
+  feed the spending view, which is derived from forecast data).
 - **On error:** `toast.error(...)` and revert to the prior value.
 
 ### Row interaction conflict

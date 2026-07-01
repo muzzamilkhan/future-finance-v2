@@ -14,7 +14,7 @@ import { creatableCategory, filterCategories } from "./categorySelection";
  * filtered list of existing categories; typing a name that doesn't exist yet
  * surfaces a "Create …" row. Picking the current category again clears it to
  * untagged (`""`). Replaces the quick-pick CategoryChips in the item form, the
- * inline row editor, and the budget retag rows. Filtering/creation logic lives
+ * inline row editor, and the spending retag rows. Filtering/creation logic lives
  * in the pure helpers in ./categorySelection (unit-tested there).
  *
  * Drop-in for CategoryChips: same `{ value, onChange, disabled? }` contract.

@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
-import { serializeCategories } from "@/lib/budget/category";
+import { serializeCategories } from "@/lib/spending/category";
 
 export function computeUserCategories(expenseCategories: (string | null)[]): string {
   return serializeCategories(

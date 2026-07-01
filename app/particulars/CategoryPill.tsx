@@ -14,7 +14,7 @@ type Particular = inferRouterOutputs<AppRouter>["particular"]["list"][number];
 /**
  * Inline category editor for an expense row — a CategoryCombobox that saves
  * the picked/created category immediately. Category changes are expense-only
- * and feed the budget view, so we invalidate both particular.list and
+ * and feed the spending view, so we invalidate both particular.list and
  * forecast.getData.
  */
 export function CategoryPill({ particular }: { particular: Particular }) {

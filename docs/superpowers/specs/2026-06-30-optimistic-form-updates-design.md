@@ -82,7 +82,7 @@ re-appears on rollback).
 | `app/particulars/ParticularForm.tsx` | `particular.update` | `particular.list` | update |
 | `app/particulars/page.tsx` | `particular.delete` | `particular.list` | remove |
 | `app/particulars/CategoryPill.tsx` | `particular.update` (category) | `particular.list` | update |
-| `app/budget/page.tsx` | `particular.update` (retag) | `particular.list` | update |
+| `app/spending/page.tsx` | `particular.update` (retag) | `particular.list` | update |
 | `app/particulars/OverrideManagement.tsx` | `particular.deleteOverride` | `particular.listOverrides` | remove |
 | `app/_components/dashboard/OverrideModal.tsx` | `particular.overrideInstance` | `particular.listOverrides` | add/upsert |
 | `app/_components/dashboard/OverrideModal.tsx` | `particular.deleteOverride` (revert) | `particular.listOverrides` | remove |

@@ -2,16 +2,16 @@ export type RecurrenceFrequency =
   | "ONCE_OFF" | "WEEKLY" | "FORTNIGHTLY" | "MONTHLY" | "ANNUAL";
 export type ParticularType = "INCOME" | "EXPENSE";
 
-export type BudgetParticular = {
+export type SpendingParticular = {
   type: ParticularType;
   amount: number;
   frequency: RecurrenceFrequency;
   category?: string | null;
 };
 
-export type BudgetCategory = { name: string; monthly: number };
-export type BudgetSummary = {
-  categories: BudgetCategory[];
+export type SpendingCategory = { name: string; monthly: number };
+export type SpendingSummary = {
+  categories: SpendingCategory[];
   untagged: number;
   totalExpense: number;
   monthlyIncome: number;
@@ -28,7 +28,7 @@ export function toMonthly(amount: number, frequency: RecurrenceFrequency): numbe
   }
 }
 
-export function buildBudget(particulars: BudgetParticular[]): BudgetSummary {
+export function buildSpending(particulars: SpendingParticular[]): SpendingSummary {
   const byCategory = new Map<string, number>();
   let untagged = 0;
   let totalExpense = 0;

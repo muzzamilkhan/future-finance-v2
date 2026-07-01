@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { toPieData } from "./budgetChartData";
-import type { BudgetSummary } from "@/lib/budget/budget";
+import { toPieData } from "./spendingChartData";
+import type { SpendingSummary } from "@/lib/spending/spending";
 
-const base: BudgetSummary = {
+const base: SpendingSummary = {
   categories: [{ name: "Rent", monthly: 1200 }, { name: "Food", monthly: 600 }],
   untagged: 0, totalExpense: 1800, monthlyIncome: 3000, surplus: 1200,
 };

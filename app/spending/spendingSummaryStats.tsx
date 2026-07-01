@@ -1,7 +1,7 @@
-import type { BudgetSummary } from "@/lib/budget/budget";
+import type { SpendingSummary } from "@/lib/spending/spending";
 import { formatCurrency, getAmountColorClass } from "@/lib/design-system";
 
-export function BudgetSummaryStats({ summary }: { summary: BudgetSummary }) {
+export function SpendingSummaryStats({ summary }: { summary: SpendingSummary }) {
   const isDeficit = summary.surplus < 0;
 
   return (

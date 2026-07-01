@@ -1,4 +1,4 @@
-// app/budget/page.tsx
+// app/spending/page.tsx
 "use client";
 
 import { useState } from "react";
@@ -6,9 +6,9 @@ import { trpc } from "@/trpc/client";
 import { Layout } from "@/app/_components/Layout";
 import { formatCurrency } from "@/lib/design-system";
 import { CategoryCombobox } from "@/app/particulars/CategoryCombobox";
-import { buildBudget, type BudgetParticular } from "@/lib/budget/budget";
-import { BudgetChart } from "./BudgetChart";
-import { BudgetSummaryStats } from "./BudgetSummaryStats";
+import { buildSpending, type SpendingParticular } from "@/lib/spending/spending";
+import { SpendingChart } from "./SpendingChart";
+import { SpendingSummaryStats } from "./SpendingSummaryStats";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "@/server/routers/_app";
 import { useActiveAccount } from "@/app/_components/AccountContext";
@@ -16,7 +16,7 @@ import { updateRow } from "@/lib/optimistic";
 
 type Particular = inferRouterOutputs<AppRouter>["particular"]["list"][number];
 
-export default function BudgetPage() {
+export default function SpendingPage() {
   const { accountId, activeMembership } = useActiveAccount();
   const canEditItems = !activeMembership || activeMembership.role === "OWNER" || activeMembership.canEditItems;
   const utils = trpc.useUtils();
@@ -47,13 +47,13 @@ export default function BudgetPage() {
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const expenses = particulars.filter((p) => p.type === "EXPENSE" && p.frequency !== "ONCE_OFF");
-  const budgetInput: BudgetParticular[] = particulars.map((p) => ({
+  const spendingInput: SpendingParticular[] = particulars.map((p) => ({
     type: p.type as "INCOME" | "EXPENSE",
     amount: Number(p.amount),
-    frequency: p.frequency as BudgetParticular["frequency"],
+    frequency: p.frequency as SpendingParticular["frequency"],
     category: p.category,
   }));
-  const summary = buildBudget(budgetInput);
+  const summary = buildSpending(spendingInput);
 
   const retag = (p: Particular, category: string) => {
     update.mutate({
@@ -62,7 +62,7 @@ export default function BudgetPage() {
       name: p.name,
       type: p.type as "INCOME" | "EXPENSE",
       amount: Math.abs(Number(p.amount)),
-      frequency: p.frequency as BudgetParticular["frequency"],
+      frequency: p.frequency as SpendingParticular["frequency"],
       startDate: new Date(p.startDate),
       endDate: p.endDate ? new Date(p.endDate) : undefined,
       isCritical: p.isCritical,
@@ -84,18 +84,18 @@ export default function BudgetPage() {
   return (
     <Layout>
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold">Budget</h1>
+        <h1 className="text-2xl font-bold">Spending</h1>
         {isLoading ? (
           <p className="text-muted-foreground">Loading…</p>
         ) : expenses.length === 0 ? (
           <p className="text-muted-foreground">
-            No recurring expenses yet. Add expenses and tag them with a category to see your budget.
+            No recurring expenses yet. Add expenses and tag them with a category to see your spending.
           </p>
         ) : (
           <>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-[7fr_3fr]">
-              <BudgetChart summary={summary} />
-              <BudgetSummaryStats summary={summary} />
+              <SpendingChart summary={summary} />
+              <SpendingSummaryStats summary={summary} />
             </div>
             <div className="space-y-2">
               {groups.map((g) => {

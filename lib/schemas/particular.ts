@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { normalizeCategory } from "@/lib/budget/category";
+import { normalizeCategory } from "@/lib/spending/category";
 
 export const particularType = z.enum(["INCOME", "EXPENSE", "TRANSFER"]);
 export const frequency = z.enum(["ONCE_OFF", "WEEKLY", "FORTNIGHTLY", "MONTHLY", "ANNUAL"]);

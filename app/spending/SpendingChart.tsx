@@ -1,8 +1,8 @@
 "use client";
 
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import type { BudgetSummary } from "@/lib/budget/budget";
-import { toPieData, type PieDatum } from "./budgetChartData";
+import type { SpendingSummary } from "@/lib/spending/spending";
+import { toPieData, type PieDatum } from "./spendingChartData";
 import { formatCurrency } from "@/lib/design-system";
 
 const CATEGORY_COLORS = [
@@ -18,7 +18,7 @@ function colorFor(d: PieDatum, i: number): string {
   return CATEGORY_COLORS[i % CATEGORY_COLORS.length]!;
 }
 
-export function BudgetChart({ summary }: { summary: BudgetSummary }) {
+export function SpendingChart({ summary }: { summary: SpendingSummary }) {
   const data = toPieData(summary);
   const isDeficit = summary.surplus < 0;
 

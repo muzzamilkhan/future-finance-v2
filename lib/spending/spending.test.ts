@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { toMonthly, buildBudget } from "./budget";
+import { toMonthly, buildSpending } from "./spending";
 
 describe("toMonthly", () => {
   it("converts each frequency to a monthly-equivalent", () => {
@@ -11,9 +11,9 @@ describe("toMonthly", () => {
   });
 });
 
-describe("buildBudget", () => {
+describe("buildSpending", () => {
   it("groups expenses by category, computes untagged, totals, and surplus", () => {
-    const s = buildBudget([
+    const s = buildSpending([
       { type: "INCOME", amount: 5000, frequency: "MONTHLY" },
       { type: "EXPENSE", amount: 1200, frequency: "MONTHLY", category: "Rent" },
       { type: "EXPENSE", amount: 600, frequency: "MONTHLY", category: "Groceries" },
@@ -30,7 +30,7 @@ describe("buildBudget", () => {
   });
 
   it("aggregates multiple expenses sharing a category and normalizes frequency", () => {
-    const s = buildBudget([
+    const s = buildSpending([
       { type: "EXPENSE", amount: 1200, frequency: "ANNUAL", category: "Insurance" }, // 100/mo
       { type: "EXPENSE", amount: 50, frequency: "WEEKLY", category: "Insurance" },   // 216.67/mo
     ]);
@@ -39,7 +39,7 @@ describe("buildBudget", () => {
   });
 
   it("reports a negative surplus (deficit) when expenses exceed income", () => {
-    const s = buildBudget([
+    const s = buildSpending([
       { type: "INCOME", amount: 1000, frequency: "MONTHLY" },
       { type: "EXPENSE", amount: 1500, frequency: "MONTHLY", category: "Rent" },
     ]);
@@ -47,10 +47,10 @@ describe("buildBudget", () => {
   });
 
   it("excludes once-offs and handles empty input", () => {
-    expect(buildBudget([])).toEqual({
+    expect(buildSpending([])).toEqual({
       categories: [], untagged: 0, totalExpense: 0, monthlyIncome: 0, surplus: 0,
     });
-    const s = buildBudget([
+    const s = buildSpending([
       { type: "EXPENSE", amount: 999, frequency: "ONCE_OFF", category: "Holiday" },
     ]);
     expect(s.totalExpense).toBe(0);

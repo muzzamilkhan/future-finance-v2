@@ -11,7 +11,7 @@ const items = [
   { to: "/", label: "Home", icon: LayoutDashboard },
   { to: "/particulars", label: "Items", icon: ListOrdered },
   { to: "/holidays", label: "Holidays", icon: CalendarDays },
-  { to: "/budget", label: "Budget", icon: PieChart },
+  { to: "/spending", label: "Spending", icon: PieChart },
 ];
 
 const itemClass = "flex min-w-[5rem] flex-1 flex-col items-center gap-1 py-2 text-xs";

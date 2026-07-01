@@ -1413,7 +1413,7 @@ onSettled: () => { utils.account.list.invalidate(); utils.forecast.getCombined.i
 
 (Keep `getData.invalidate()` too if other views still use it; otherwise replace.)
 
-> **Other invalidation sites:** `app/holidays/page.tsx` and `app/budget/page.tsx` call `utils.forecast.getData.invalidate()`. Since the dashboard now reads `getCombined`, add `utils.forecast.getCombined.invalidate()` alongside the existing `getData.invalidate()` in those files' mutation `onSettled` handlers so edits there refresh the combined dashboard. Do this as part of this task. The legacy `getData` endpoint stays (still used elsewhere).
+> **Other invalidation sites:** `app/holidays/page.tsx` and `app/spending/page.tsx` call `utils.forecast.getData.invalidate()`. Since the dashboard now reads `getCombined`, add `utils.forecast.getCombined.invalidate()` alongside the existing `getData.invalidate()` in those files' mutation `onSettled` handlers so edits there refresh the combined dashboard. Do this as part of this task. The legacy `getData` endpoint stays (still used elsewhere).
 
 - [ ] **Step 3: Typecheck**
 
@@ -1427,7 +1427,7 @@ Start a dev server on a free port per the project memory (`npx next dev -p 3105`
 - [ ] **Step 5: Commit**
 
 ```bash
-git add app/page.tsx app/holidays/page.tsx app/budget/page.tsx
+git add app/page.tsx app/holidays/page.tsx app/spending/page.tsx
 git commit -m "feat(dashboard): drive combined forecast from getCombined across accounts"
 ```
 

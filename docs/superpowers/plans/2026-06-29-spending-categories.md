@@ -1,17 +1,17 @@
-# Budget & Categories Implementation Plan
+# Spending & Categories Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a Budget section where each expense can be tagged to a per-user category, visualized as a monthly-spend donut with a Surplus slice or Deficit callout.
+**Goal:** Add a Spending section where each expense can be tagged to a per-user category, visualized as a monthly-spend donut with a Surplus slice or Deficit callout.
 
-**Architecture:** A pure `lib/budget/` module (category normalization + monthly-equivalent budget summary, no React/Prisma/Next imports) is the tested heart. Prisma gains `User.categories` (comma-sep derived cache) and `Particular.category` (nullable name). The particular router normalizes categories on save and re-syncs the user's category list after every expense mutation; a new `category` router exposes the list. A `/budget` client page renders the donut (recharts) and an inline-retag legend; nav gains a Budget item.
+**Architecture:** A pure `lib/spending/` module (category normalization + monthly-equivalent spending summary, no React/Prisma/Next imports) is the tested heart. Prisma gains `User.categories` (comma-sep derived cache) and `Particular.category` (nullable name). The particular router normalizes categories on save and re-syncs the user's category list after every expense mutation; a new `category` router exposes the list. A `/spending` client page renders the donut (recharts) and an inline-retag legend; nav gains a Spending item.
 
 **Tech Stack:** Next.js 16 (App Router) · React 19 · Vitest · tRPC 11 · Prisma 7 · recharts 3 · Tailwind v4 · Zod 4 · date-fns.
 
 ## Global Constraints
 
-- `Particular.amount` is stored **positive**; sign applied from `type` (INCOME +, EXPENSE −) inside engine/budget code — copied verbatim from spec.
-- Keep `lib/budget/` and `lib/schemas/` free of React/Prisma/Next imports.
+- `Particular.amount` is stored **positive**; sign applied from `type` (INCOME +, EXPENSE −) inside engine/spending code — copied verbatim from spec.
+- Keep `lib/spending/` and `lib/schemas/` free of React/Prisma/Next imports.
 - Categories apply to **EXPENSE** particulars only; income ignores `category`.
 - `User.categories` is a **derived cache**: rewritten from the actual set of categories referenced by the user's expenses after every expense mutation.
 - Normalization: trim, collapse internal whitespace to single spaces, title-case each word; blank → `null`/`""`.
@@ -25,8 +25,8 @@
 ### Task 1: Category normalization helpers
 
 **Files:**
-- Create: `lib/budget/category.ts`
-- Test: `lib/budget/category.test.ts`
+- Create: `lib/spending/category.ts`
+- Test: `lib/spending/category.test.ts`
 
 **Interfaces:**
 - Produces:
@@ -37,7 +37,7 @@
 - [ ] **Step 1: Write the failing test**
 
 ```ts
-// lib/budget/category.test.ts
+// lib/spending/category.test.ts
 import { describe, it, expect } from "vitest";
 import { normalizeCategory, parseCategories, serializeCategories } from "./category";
 
@@ -76,13 +76,13 @@ describe("serializeCategories", () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npx vitest run lib/budget/category.test.ts`
+Run: `npx vitest run lib/spending/category.test.ts`
 Expected: FAIL — cannot resolve `./category`.
 
 - [ ] **Step 3: Write minimal implementation**
 
 ```ts
-// lib/budget/category.ts
+// lib/spending/category.ts
 export function normalizeCategory(raw: string): string {
   const collapsed = raw.trim().replace(/\s+/g, " ");
   if (collapsed === "") return "";
@@ -110,39 +110,39 @@ export function serializeCategories(names: string[]): string {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npx vitest run lib/budget/category.test.ts`
+Run: `npx vitest run lib/spending/category.test.ts`
 Expected: PASS (3 suites).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add lib/budget/category.ts lib/budget/category.test.ts
-git commit -m "feat(budget): category normalization helpers
+git add lib/spending/category.ts lib/spending/category.test.ts
+git commit -m "feat(spending): category normalization helpers
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ```
 
 ---
 
-### Task 2: Budget engine (toMonthly + buildBudget)
+### Task 2: Spending engine (toMonthly + buildSpending)
 
 **Files:**
-- Create: `lib/budget/budget.ts`
-- Test: `lib/budget/budget.test.ts`
+- Create: `lib/spending/spending.ts`
+- Test: `lib/spending/spending.test.ts`
 
 **Interfaces:**
 - Consumes: nothing from prior tasks.
 - Produces:
   - `type RecurrenceFrequency = "ONCE_OFF" | "WEEKLY" | "FORTNIGHTLY" | "MONTHLY" | "ANNUAL";`
   - `type ParticularType = "INCOME" | "EXPENSE";`
-  - `type BudgetParticular = { type: ParticularType; amount: number; frequency: RecurrenceFrequency; category?: string | null };`
-  - `type BudgetCategory = { name: string; monthly: number };`
-  - `type BudgetSummary = { categories: BudgetCategory[]; untagged: number; totalExpense: number; monthlyIncome: number; surplus: number };`
+  - `type SpendingParticular = { type: ParticularType; amount: number; frequency: RecurrenceFrequency; category?: string | null };`
+  - `type SpendingCategory = { name: string; monthly: number };`
+  - `type SpendingSummary = { categories: SpendingCategory[]; untagged: number; totalExpense: number; monthlyIncome: number; surplus: number };`
   - `toMonthly(amount: number, frequency: RecurrenceFrequency): number`
-  - `buildBudget(particulars: BudgetParticular[]): BudgetSummary`
+  - `buildSpending(particulars: SpendingParticular[]): SpendingSummary`
 
 Notes for the implementer:
-- `toMonthly` uses `Math.abs(amount)` semantics indirectly — callers pass the stored positive amount; `toMonthly` itself just multiplies. `buildBudget` applies `Math.abs`.
+- `toMonthly` uses `Math.abs(amount)` semantics indirectly — callers pass the stored positive amount; `toMonthly` itself just multiplies. `buildSpending` applies `Math.abs`.
 - `categories` sorted by `monthly` descending; ties broken by `name` ascending.
 - ONCE_OFF contributes 0 to everything.
 - `surplus = monthlyIncome - totalExpense` (negative = deficit).
@@ -150,9 +150,9 @@ Notes for the implementer:
 - [ ] **Step 1: Write the failing test**
 
 ```ts
-// lib/budget/budget.test.ts
+// lib/spending/spending.test.ts
 import { describe, it, expect } from "vitest";
-import { toMonthly, buildBudget } from "./budget";
+import { toMonthly, buildSpending } from "./spending";
 
 describe("toMonthly", () => {
   it("converts each frequency to a monthly-equivalent", () => {
@@ -164,9 +164,9 @@ describe("toMonthly", () => {
   });
 });
 
-describe("buildBudget", () => {
+describe("buildSpending", () => {
   it("groups expenses by category, computes untagged, totals, and surplus", () => {
-    const s = buildBudget([
+    const s = buildSpending([
       { type: "INCOME", amount: 5000, frequency: "MONTHLY" },
       { type: "EXPENSE", amount: 1200, frequency: "MONTHLY", category: "Rent" },
       { type: "EXPENSE", amount: 600, frequency: "MONTHLY", category: "Groceries" },
@@ -183,7 +183,7 @@ describe("buildBudget", () => {
   });
 
   it("aggregates multiple expenses sharing a category and normalizes frequency", () => {
-    const s = buildBudget([
+    const s = buildSpending([
       { type: "EXPENSE", amount: 1200, frequency: "ANNUAL", category: "Insurance" }, // 100/mo
       { type: "EXPENSE", amount: 50, frequency: "WEEKLY", category: "Insurance" },   // 216.67/mo
     ]);
@@ -192,7 +192,7 @@ describe("buildBudget", () => {
   });
 
   it("reports a negative surplus (deficit) when expenses exceed income", () => {
-    const s = buildBudget([
+    const s = buildSpending([
       { type: "INCOME", amount: 1000, frequency: "MONTHLY" },
       { type: "EXPENSE", amount: 1500, frequency: "MONTHLY", category: "Rent" },
     ]);
@@ -200,10 +200,10 @@ describe("buildBudget", () => {
   });
 
   it("excludes once-offs and handles empty input", () => {
-    expect(buildBudget([])).toEqual({
+    expect(buildSpending([])).toEqual({
       categories: [], untagged: 0, totalExpense: 0, monthlyIncome: 0, surplus: 0,
     });
-    const s = buildBudget([
+    const s = buildSpending([
       { type: "EXPENSE", amount: 999, frequency: "ONCE_OFF", category: "Holiday" },
     ]);
     expect(s.totalExpense).toBe(0);
@@ -214,27 +214,27 @@ describe("buildBudget", () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npx vitest run lib/budget/budget.test.ts`
-Expected: FAIL — cannot resolve `./budget`.
+Run: `npx vitest run lib/spending/spending.test.ts`
+Expected: FAIL — cannot resolve `./spending`.
 
 - [ ] **Step 3: Write minimal implementation**
 
 ```ts
-// lib/budget/budget.ts
+// lib/spending/spending.ts
 export type RecurrenceFrequency =
   | "ONCE_OFF" | "WEEKLY" | "FORTNIGHTLY" | "MONTHLY" | "ANNUAL";
 export type ParticularType = "INCOME" | "EXPENSE";
 
-export type BudgetParticular = {
+export type SpendingParticular = {
   type: ParticularType;
   amount: number;
   frequency: RecurrenceFrequency;
   category?: string | null;
 };
 
-export type BudgetCategory = { name: string; monthly: number };
-export type BudgetSummary = {
-  categories: BudgetCategory[];
+export type SpendingCategory = { name: string; monthly: number };
+export type SpendingSummary = {
+  categories: SpendingCategory[];
   untagged: number;
   totalExpense: number;
   monthlyIncome: number;
@@ -251,7 +251,7 @@ export function toMonthly(amount: number, frequency: RecurrenceFrequency): numbe
   }
 }
 
-export function buildBudget(particulars: BudgetParticular[]): BudgetSummary {
+export function buildSpending(particulars: SpendingParticular[]): SpendingSummary {
   const byCategory = new Map<string, number>();
   let untagged = 0;
   let totalExpense = 0;
@@ -289,14 +289,14 @@ export function buildBudget(particulars: BudgetParticular[]): BudgetSummary {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npx vitest run lib/budget/budget.test.ts`
+Run: `npx vitest run lib/spending/spending.test.ts`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add lib/budget/budget.ts lib/budget/budget.test.ts
-git commit -m "feat(budget): monthly-equivalent budget engine
+git add lib/spending/spending.ts lib/spending/spending.test.ts
+git commit -m "feat(spending): monthly-equivalent spending engine
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ```
@@ -339,7 +339,7 @@ Expected: PASS (no new errors).
 
 ```bash
 git add prisma/schema.prisma
-git commit -m "feat(budget): add User.categories and Particular.category columns
+git commit -m "feat(spending): add User.categories and Particular.category columns
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ```
@@ -352,7 +352,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 - Modify: `lib/schemas/particular.ts`
 
 **Interfaces:**
-- Consumes: `normalizeCategory` from `lib/budget/category.ts` (Task 1).
+- Consumes: `normalizeCategory` from `lib/spending/category.ts` (Task 1).
 - Produces: `particularInput` now accepts optional `category` (string | undefined). `ParticularInput["category"]` is `string | undefined`.
 
 Note: We normalize the value at the boundary via Zod `transform` so the router and tests both get a clean value; blank/whitespace → `undefined`.
@@ -393,7 +393,7 @@ Expected: FAIL — `category` is stripped/undefined unexpectedly or assertion fa
 In `lib/schemas/particular.ts`, add the import at top:
 
 ```ts
-import { normalizeCategory } from "@/lib/budget/category";
+import { normalizeCategory } from "@/lib/spending/category";
 ```
 
 Add inside the `z.object({ ... })` (before the closing `})` that precedes `.refine`):
@@ -414,7 +414,7 @@ Expected: PASS.
 
 ```bash
 git add lib/schemas/particular.ts lib/schemas/particular.test.ts
-git commit -m "feat(budget): accept normalized category on particular input
+git commit -m "feat(spending): accept normalized category on particular input
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ```
@@ -428,7 +428,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 - Test: `server/categorySync.test.ts`
 
 **Interfaces:**
-- Consumes: `serializeCategories` from `lib/budget/category.ts` (Task 1).
+- Consumes: `serializeCategories` from `lib/spending/category.ts` (Task 1).
 - Produces:
   - `computeUserCategories(expenseCategories: (string | null)[]): string` — given the categories of a user's expenses, returns the serialized comma-sep list (dropping nulls/blanks, deduped/sorted). This is the **pure, testable** core.
   - `syncUserCategories(prisma, userId, accountId): Promise<void>` — queries the account's expense particulars, calls `computeUserCategories`, writes `User.categories`. Thin DB wrapper; not unit-tested (DB-bound), used by the router.
@@ -461,7 +461,7 @@ Expected: FAIL — cannot resolve `./categorySync`.
 ```ts
 // server/categorySync.ts
 import type { PrismaClient } from "@prisma/client";
-import { serializeCategories } from "@/lib/budget/category";
+import { serializeCategories } from "@/lib/spending/category";
 
 export function computeUserCategories(expenseCategories: (string | null)[]): string {
   return serializeCategories(
@@ -492,7 +492,7 @@ Expected: PASS.
 
 ```bash
 git add server/categorySync.ts server/categorySync.test.ts
-git commit -m "feat(budget): user-category sync helper
+git commit -m "feat(spending): user-category sync helper
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ```
@@ -553,7 +553,7 @@ Replace the `delete` body:
 ```ts
 // server/routers/category.ts
 import { router, protectedProcedure } from "../trpc";
-import { parseCategories } from "@/lib/budget/category";
+import { parseCategories } from "@/lib/spending/category";
 
 export const categoryRouter = router({
   list: protectedProcedure.query(async ({ ctx }) => {
@@ -590,7 +590,7 @@ Expected: PASS (all suites, including the existing `particular.test.ts` pure tes
 
 ```bash
 git add server/routers/particular.ts server/routers/category.ts server/routers/_app.ts
-git commit -m "feat(budget): sync user categories on mutation + category.list router
+git commit -m "feat(spending): sync user categories on mutation + category.list router
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ```
@@ -660,35 +660,35 @@ Expected: PASS.
 
 ```bash
 git add app/particulars/ParticularForm.tsx
-git commit -m "feat(budget): category combobox in particular form (expenses only)
+git commit -m "feat(spending): category combobox in particular form (expenses only)
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ```
 
 ---
 
-### Task 8: Budget donut chart component
+### Task 8: Spending donut chart component
 
 **Files:**
-- Create: `app/budget/BudgetChart.tsx`
-- Test: `app/budget/budgetChartData.test.ts`
-- Create: `app/budget/budgetChartData.ts`
+- Create: `app/spending/SpendingChart.tsx`
+- Test: `app/spending/spendingChartData.test.ts`
+- Create: `app/spending/spendingChartData.ts`
 
 **Interfaces:**
-- Consumes: `BudgetSummary`, `BudgetCategory` from `lib/budget/budget.ts` (Task 2).
+- Consumes: `SpendingSummary`, `SpendingCategory` from `lib/spending/spending.ts` (Task 2).
 - Produces:
-  - `toPieData(summary: BudgetSummary): { name: string; value: number; kind: "category" | "untagged" | "surplus" }[]` — pure, tested. Includes a `Surplus` entry only when `surplus > 0`; includes `Untagged` only when `untagged > 0`. Never includes a slice for a deficit.
-  - `BudgetChart({ summary }: { summary: BudgetSummary })` — renders a recharts donut + center total + deficit banner.
+  - `toPieData(summary: SpendingSummary): { name: string; value: number; kind: "category" | "untagged" | "surplus" }[]` — pure, tested. Includes a `Surplus` entry only when `surplus > 0`; includes `Untagged` only when `untagged > 0`. Never includes a slice for a deficit.
+  - `SpendingChart({ summary }: { summary: SpendingSummary })` — renders a recharts donut + center total + deficit banner.
 
 - [ ] **Step 1: Write the failing test for the pure data shaper**
 
 ```ts
-// app/budget/budgetChartData.test.ts
+// app/spending/spendingChartData.test.ts
 import { describe, it, expect } from "vitest";
-import { toPieData } from "./budgetChartData";
-import type { BudgetSummary } from "@/lib/budget/budget";
+import { toPieData } from "./spendingChartData";
+import type { SpendingSummary } from "@/lib/spending/spending";
 
-const base: BudgetSummary = {
+const base: SpendingSummary = {
   categories: [{ name: "Rent", monthly: 1200 }, { name: "Food", monthly: 600 }],
   untagged: 0, totalExpense: 1800, monthlyIncome: 3000, surplus: 1200,
 };
@@ -713,14 +713,14 @@ describe("toPieData", () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npx vitest run app/budget/budgetChartData.test.ts`
-Expected: FAIL — cannot resolve `./budgetChartData`.
+Run: `npx vitest run app/spending/spendingChartData.test.ts`
+Expected: FAIL — cannot resolve `./spendingChartData`.
 
 - [ ] **Step 3: Implement the pure shaper**
 
 ```ts
-// app/budget/budgetChartData.ts
-import type { BudgetSummary } from "@/lib/budget/budget";
+// app/spending/spendingChartData.ts
+import type { SpendingSummary } from "@/lib/spending/spending";
 
 export type PieDatum = {
   name: string;
@@ -728,7 +728,7 @@ export type PieDatum = {
   kind: "category" | "untagged" | "surplus";
 };
 
-export function toPieData(summary: BudgetSummary): PieDatum[] {
+export function toPieData(summary: SpendingSummary): PieDatum[] {
   const data: PieDatum[] = summary.categories.map((c) => ({
     name: c.name, value: c.monthly, kind: "category",
   }));
@@ -744,18 +744,18 @@ export function toPieData(summary: BudgetSummary): PieDatum[] {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npx vitest run app/budget/budgetChartData.test.ts`
+Run: `npx vitest run app/spending/spendingChartData.test.ts`
 Expected: PASS.
 
 - [ ] **Step 5: Implement the chart component**
 
 ```tsx
-// app/budget/BudgetChart.tsx
+// app/spending/SpendingChart.tsx
 "use client";
 
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import type { BudgetSummary } from "@/lib/budget/budget";
-import { toPieData, type PieDatum } from "./budgetChartData";
+import type { SpendingSummary } from "@/lib/spending/spending";
+import { toPieData, type PieDatum } from "./spendingChartData";
 import { formatCurrency } from "@/lib/design-system";
 
 const CATEGORY_COLORS = [
@@ -771,7 +771,7 @@ function colorFor(d: PieDatum, i: number): string {
   return CATEGORY_COLORS[i % CATEGORY_COLORS.length];
 }
 
-export function BudgetChart({ summary }: { summary: BudgetSummary }) {
+export function SpendingChart({ summary }: { summary: SpendingSummary }) {
   const data = toPieData(summary);
   const isDeficit = summary.surplus < 0;
 
@@ -816,32 +816,32 @@ Expected: PASS.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add app/budget/BudgetChart.tsx app/budget/budgetChartData.ts app/budget/budgetChartData.test.ts
-git commit -m "feat(budget): donut chart with surplus slice and deficit callout
+git add app/spending/SpendingChart.tsx app/spending/spendingChartData.ts app/spending/spendingChartData.test.ts
+git commit -m "feat(spending): donut chart with surplus slice and deficit callout
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ```
 
 ---
 
-### Task 9: Budget page with chart + inline-retag legend
+### Task 9: Spending page with chart + inline-retag legend
 
 **Files:**
-- Create: `app/budget/page.tsx`
+- Create: `app/spending/page.tsx`
 
 **Interfaces:**
-- Consumes: `particular.list` query, `particular.update` mutation, `category.list` query; `buildBudget` (Task 2); `BudgetChart` (Task 8); `formatCurrency`.
-- Produces: the `/budget` route.
+- Consumes: `particular.list` query, `particular.update` mutation, `category.list` query; `buildSpending` (Task 2); `SpendingChart` (Task 8); `formatCurrency`.
+- Produces: the `/spending` route.
 
 Notes:
-- Build `BudgetParticular[]` for `buildBudget` by mapping `particular.list` rows: `{ type, amount: Number(p.amount), frequency, category: p.category }`.
+- Build `SpendingParticular[]` for `buildSpending` by mapping `particular.list` rows: `{ type, amount: Number(p.amount), frequency, category: p.category }`.
 - The legend lists `summary.categories` (and an "Untagged" group when present). Each group is expandable to its expenses; each expense has a datalist input to retag, calling `particular.update` with the full row plus the new `category`. On success, invalidate `particular.list`, `category.list`, and `forecast.getData`.
 - `particular.update` requires the full `particularInput` shape — pass through the existing row's fields (name, type, amount as positive, frequency, startDate, endDate, isCritical, isFixed, businessDayAdjustment) plus `category`.
 
 - [ ] **Step 1: Create the page**
 
 ```tsx
-// app/budget/page.tsx
+// app/spending/page.tsx
 "use client";
 
 import { useState } from "react";
@@ -849,14 +849,14 @@ import { trpc } from "@/trpc/client";
 import { Layout } from "@/app/_components/Layout";
 import { Input } from "@/app/_components/ui/input";
 import { formatCurrency } from "@/lib/design-system";
-import { buildBudget, type BudgetParticular } from "@/lib/budget/budget";
-import { BudgetChart } from "./BudgetChart";
+import { buildSpending, type SpendingParticular } from "@/lib/spending/spending";
+import { SpendingChart } from "./SpendingChart";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "@/server/routers/_app";
 
 type Particular = inferRouterOutputs<AppRouter>["particular"]["list"][number];
 
-export default function BudgetPage() {
+export default function SpendingPage() {
   const utils = trpc.useUtils();
   const { data: particulars = [], isLoading } = trpc.particular.list.useQuery();
   const { data: categoryOptions = [] } = trpc.category.list.useQuery();
@@ -870,13 +870,13 @@ export default function BudgetPage() {
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const expenses = particulars.filter((p) => p.type === "EXPENSE" && p.frequency !== "ONCE_OFF");
-  const budgetInput: BudgetParticular[] = particulars.map((p) => ({
+  const spendingInput: SpendingParticular[] = particulars.map((p) => ({
     type: p.type as "INCOME" | "EXPENSE",
     amount: Number(p.amount),
-    frequency: p.frequency as BudgetParticular["frequency"],
+    frequency: p.frequency as SpendingParticular["frequency"],
     category: p.category,
   }));
-  const summary = buildBudget(budgetInput);
+  const summary = buildSpending(spendingInput);
 
   const retag = (p: Particular, category: string) => {
     update.mutate({
@@ -884,7 +884,7 @@ export default function BudgetPage() {
       name: p.name,
       type: p.type as "INCOME" | "EXPENSE",
       amount: Math.abs(Number(p.amount)),
-      frequency: p.frequency as BudgetParticular["frequency"],
+      frequency: p.frequency as SpendingParticular["frequency"],
       startDate: new Date(p.startDate),
       endDate: p.endDate ? new Date(p.endDate) : undefined,
       isCritical: p.isCritical,
@@ -906,16 +906,16 @@ export default function BudgetPage() {
   return (
     <Layout>
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold">Budget</h1>
+        <h1 className="text-2xl font-bold">Spending</h1>
         {isLoading ? (
           <p className="text-muted-foreground">Loading…</p>
         ) : expenses.length === 0 ? (
           <p className="text-muted-foreground">
-            No recurring expenses yet. Add expenses and tag them with a category to see your budget.
+            No recurring expenses yet. Add expenses and tag them with a category to see your spending.
           </p>
         ) : (
           <>
-            <BudgetChart summary={summary} />
+            <SpendingChart summary={summary} />
             <div className="space-y-2">
               {groups.map((g) => {
                 const items = expenses.filter((e) => (e.category ?? "") === g.key);
@@ -935,7 +935,7 @@ export default function BudgetPage() {
                             <span className="text-sm">{e.name}</span>
                             <Input
                               className="h-8 w-40"
-                              list="budget-category-options"
+                              list="spending-category-options"
                               defaultValue={e.category ?? ""}
                               placeholder="Untagged"
                               onBlur={(ev) => {
@@ -950,7 +950,7 @@ export default function BudgetPage() {
                   </div>
                 );
               })}
-              <datalist id="budget-category-options">
+              <datalist id="spending-category-options">
                 {categoryOptions.map((c) => (
                   <option key={c} value={c} />
                 ))}
@@ -977,22 +977,22 @@ Expected: PASS.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add app/budget/page.tsx
-git commit -m "feat(budget): budget page with donut + inline retag legend
+git add app/spending/page.tsx
+git commit -m "feat(spending): spending page with donut + inline retag legend
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ```
 
 ---
 
-### Task 10: Budget nav item
+### Task 10: Spending nav item
 
 **Files:**
 - Modify: `app/_components/Sidebar.tsx`
 - Modify: `app/_components/BottomNav.tsx`
 
 **Interfaces:**
-- Consumes: the `/budget` route (Task 9).
+- Consumes: the `/spending` route (Task 9).
 
 - [ ] **Step 1: Add to Sidebar**
 
@@ -1005,7 +1005,7 @@ import { LayoutDashboard, ListOrdered, CalendarDays, PieChart } from "lucide-rea
 Add to the `items` array (after the particulars entry):
 
 ```ts
-  { to: "/budget", label: "Budget", icon: PieChart },
+  { to: "/spending", label: "Spending", icon: PieChart },
 ```
 
 - [ ] **Step 2: Add to BottomNav**
@@ -1019,7 +1019,7 @@ import { LayoutDashboard, ListOrdered, CalendarDays, PieChart } from "lucide-rea
 Add to the `items` array (after the items entry):
 
 ```ts
-  { to: "/budget", label: "Budget", icon: PieChart },
+  { to: "/spending", label: "Spending", icon: PieChart },
 ```
 
 - [ ] **Step 3: Typecheck**
@@ -1031,7 +1031,7 @@ Expected: PASS.
 
 ```bash
 git add app/_components/Sidebar.tsx app/_components/BottomNav.tsx
-git commit -m "feat(budget): add Budget nav item to sidebar and bottom nav
+git commit -m "feat(spending): add Spending nav item to sidebar and bottom nav
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ```
@@ -1045,7 +1045,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 - [ ] **Step 1: Full test suite**
 
 Run: `npx vitest run`
-Expected: PASS — all suites including `lib/budget/*`, `lib/schemas/particular`, `server/categorySync`, `app/budget/budgetChartData`.
+Expected: PASS — all suites including `lib/spending/*`, `lib/schemas/particular`, `server/categorySync`, `app/spending/spendingChartData`.
 
 - [ ] **Step 2: Typecheck**
 
@@ -1055,7 +1055,7 @@ Expected: PASS.
 - [ ] **Step 3: Production build (catches client/server boundary + recharts issues)**
 
 Run: `npx next build`
-Expected: build completes; `/budget` appears in the route list.
+Expected: build completes; `/spending` appears in the route list.
 
 - [ ] **Step 4: Confirm clean git state**
 
@@ -1066,6 +1066,6 @@ Expected: working tree clean (all tasks committed).
 
 ## Self-Review Notes
 
-- **Spec coverage:** User.categories + Particular.category (Task 3); normalization (Tasks 1, 4); cleanup/derived-cache removing orphans (Tasks 5, 6); category engine `toMonthly`/`buildBudget` (Task 2); tagging in form (Task 7) and on budget page (Task 9); donut + surplus + deficit callout (Task 8); legend + inline retag (Task 9); nav item both navs (Task 10); category.list router (Task 6). All spec sections mapped.
+- **Spec coverage:** User.categories + Particular.category (Task 3); normalization (Tasks 1, 4); cleanup/derived-cache removing orphans (Tasks 5, 6); category engine `toMonthly`/`buildSpending` (Task 2); tagging in form (Task 7) and on spending page (Task 9); donut + surplus + deficit callout (Task 8); legend + inline retag (Task 9); nav item both navs (Task 10); category.list router (Task 6). All spec sections mapped.
 - **Pure/impure split:** all unit-tested logic is pure (no DB); DB wrappers (`syncUserCategories`, routers) verified via typecheck + build, matching the repo's existing test conventions.
-- **Type consistency:** `BudgetParticular`, `BudgetSummary`, `PieDatum`, `toPieData`, `buildBudget`, `toMonthly`, `normalizeCategory`, `parseCategories`, `serializeCategories`, `computeUserCategories`, `syncUserCategories`, `category.list` used consistently across tasks.
+- **Type consistency:** `SpendingParticular`, `SpendingSummary`, `PieDatum`, `toPieData`, `buildSpending`, `toMonthly`, `normalizeCategory`, `parseCategories`, `serializeCategories`, `computeUserCategories`, `syncUserCategories`, `category.list` used consistently across tasks.

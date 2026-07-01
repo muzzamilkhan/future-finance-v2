@@ -11,7 +11,7 @@ const items = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/particulars", label: "Income & Expenses", icon: ListOrdered },
   { to: "/holidays", label: "Holidays", icon: CalendarDays },
-  { to: "/budget", label: "Budget", icon: PieChart },
+  { to: "/spending", label: "Spending", icon: PieChart },
 ];
 
 export function Sidebar() {
