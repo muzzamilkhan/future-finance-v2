@@ -341,3 +341,47 @@ it("orders exhaustions by date ascending across accounts", () => {
   ));
   expect(r.exhaustions.map(e => e.accountId)).toEqual(["credit", "debit"]);
 });
+
+describe("lowestByAccount", () => {
+  it("is empty when there are no days", () => {
+    const r = computeForecast({ ...input([], [debit]), viewStart: day(0, 31), viewEnd: day(0, 1) });
+    expect(r.lowestByAccount).toEqual([]);
+  });
+
+  it("has one entry for a single account", () => {
+    const r = computeForecast(input([], [debit]));
+    expect(r.lowestByAccount).toHaveLength(1);
+    expect(r.lowestByAccount[0]!.accountId).toBe("debit");
+  });
+
+  it("tracks each debit account's own lowest by balance and date", () => {
+    // debit dips to 900 on the 5th (100 expense) and stays there through end
+    const r = computeForecast(input([p({ id: "e", type: "EXPENSE", accountId: "debit", amount: 100 })], [debit]));
+    const low = r.lowestByAccount.find((a) => a.accountId === "debit")!;
+    expect(low.balance).toBe(900);
+    expect(low.date.getUTCDate()).toBe(5); // first day it reaches the running min
+  });
+
+  it("uses available credit as the low figure for CREDIT accounts", () => {
+    // credit expense on the 5th: available drops 800 -> 700 and stays
+    const r = computeForecast(input([p({ id: "e", type: "EXPENSE", accountId: "credit", amount: 100 })], [debit, credit]));
+    const low = r.lowestByAccount.find((a) => a.accountId === "credit")!;
+    expect(low.availableCredit).toBe(700);
+    expect(low.date.getUTCDate()).toBe(5); // first day it reaches 700
+  });
+
+  it("picks the earliest day on a tie", () => {
+    // 100 expense on the 5th (debit -> 900), then a 0 expense on the 10th (still 900).
+    // Running min (900) is first reached on the 5th.
+    const r = computeForecast(input(
+      [
+        p({ id: "e1", type: "EXPENSE", accountId: "debit", amount: 100, startDate: day(0, 5) }),
+        p({ id: "e2", type: "EXPENSE", accountId: "debit", amount: 0, startDate: day(0, 10) }),
+      ],
+      [debit],
+    ));
+    const low = r.lowestByAccount.find((a) => a.accountId === "debit")!;
+    expect(low.balance).toBe(900);
+    expect(low.date.getUTCDate()).toBe(5);
+  });
+});
