@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, ListOrdered, CalendarDays, PieChart } from "lucide-react";
+import { LayoutDashboard, ListOrdered, CalendarDays, PieChart, TrendingDown } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
 import { AccountPicker } from "./AccountPicker";
 import { cn } from "@/lib/utils";
@@ -12,6 +12,7 @@ const items = [
   { to: "/particulars", label: "Items", icon: ListOrdered },
   { to: "/holidays", label: "Holidays", icon: CalendarDays },
   { to: "/spending", label: "Spending", icon: PieChart },
+  { to: "/debts", label: "Debts", icon: TrendingDown },
 ];
 
 export function Sidebar() {
