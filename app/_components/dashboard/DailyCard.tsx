@@ -1,17 +1,17 @@
 import type { DailyBalance } from "@/lib/engine";
 import { Card, CardContent } from "@/app/_components/ui/card";
 import { formatCurrency } from "@/lib/design-system";
-import { format } from "date-fns";
+import { dateToInputValue, formatUtcWeekdayMonthDay } from "@/lib/dateInput";
 import { ArrowRight } from "lucide-react";
 import { sortDailyEvents } from "./sortEvents";
 import { AccountBadge } from "./AccountBadge";
 
 export function DailyCard({ day, onEventClick, interactive = true, accountNames, accountIds = [] }: { day: DailyBalance; onEventClick?: (particularId: string, originalDate?: Date, currentAmount?: number, currentDate?: Date, overrideId?: string) => void; interactive?: boolean; accountNames?: Map<string, string>; accountIds?: string[] }) {
   return (
-    <Card id={`day-${format(day.date, "yyyy-MM-dd")}`} className={day.isNegative ? "border-finance-expense" : undefined}>
+    <Card id={`day-${dateToInputValue(day.date)}`} className={day.isNegative ? "border-finance-expense" : undefined}>
       <CardContent className="p-3">
         <div className="flex items-center justify-between">
-          <span className="font-medium">{format(day.date, "EEE, MMM d")}</span>
+          <span className="font-medium">{formatUtcWeekdayMonthDay(day.date)}</span>
           <span className={day.closingBalance < 0 ? "text-finance-expense" : "text-foreground"}>
             {formatCurrency(day.closingBalance)}
           </span>

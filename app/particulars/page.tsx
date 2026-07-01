@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { trpc } from "@/trpc/client";
+import { formatUtcWeekday } from "@/lib/dateInput";
 import { Layout } from "@/app/_components/Layout";
 import { Button } from "@/app/_components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/app/_components/ui/dialog";
@@ -18,13 +19,8 @@ import { removeRow, isTempId } from "@/lib/optimistic";
 
 type Particular = inferRouterOutputs<AppRouter>["particular"]["list"][number];
 
-// Recurring frequencies, ordered annual to weekly for display.
-const FREQUENCY_RANK: Record<string, number> = {
-  ANNUAL: 0, MONTHLY: 1, FORTNIGHTLY: 2, WEEKLY: 3,
-};
-
-function byFrequency(a: Particular, b: Particular) {
-  return (FREQUENCY_RANK[a.frequency] ?? 99) - (FREQUENCY_RANK[b.frequency] ?? 99);
+function byDate(a: Particular, b: Particular) {
+  return (a.startDate.getUTCDate()) - (b.startDate.getUTCDate());
 }
 
 export default function ParticularsPage() {
@@ -74,12 +70,15 @@ export default function ParticularsPage() {
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const all = particulars ?? [];
+  const recurringTransfers = all
+    .filter((p) => p.type === "TRANSFER" && p.frequency !== "ONCE_OFF")
+    .sort(byDate);
   const recurringIncome = all
     .filter((p) => p.type === "INCOME" && p.frequency !== "ONCE_OFF")
-    .sort(byFrequency);
+    .sort(byDate);
   const recurringExpenses = all
     .filter((p) => p.type === "EXPENSE" && p.frequency !== "ONCE_OFF")
-    .sort(byFrequency);
+    .sort(byDate);
   const onceOffs = all.filter((p) => p.frequency === "ONCE_OFF");
 
   const renderRow = (p: Particular) => {
@@ -90,7 +89,10 @@ export default function ParticularsPage() {
           <div className="flex min-w-0 items-center justify-between gap-2 sm:justify-start">
             <button className="min-w-0 text-left" onClick={() => setExpanded(expanded === p.id ? null : p.id)}>
               <span className="font-medium">{p.name}</span>
-              <span className="ml-2 text-xs text-muted-foreground">{p.frequency}</span>
+              <span className="ml-2 text-xs text-muted-foreground ">{p.frequency.toLowerCase()} (
+                {p.frequency === "MONTHLY" && p.startDate.getUTCDate()}
+                {p.frequency === "FORTNIGHTLY" && formatUtcWeekday(p.startDate)}
+              )</span>
             </button>
             {p.type === "EXPENSE" && <CategoryPill particular={p} />}
             <span className={`ml-auto shrink-0 sm:hidden ${signed < 0 ? "text-finance-expense" : "text-finance-income"}`}>
@@ -132,6 +134,7 @@ export default function ParticularsPage() {
         <QuickAddRow disabled={!canEditItems} />
         {isLoading ? <p className="text-muted-foreground">Loading...</p> : (
           <div className="space-y-6">
+            {renderSection("Recurring Transfers", recurringTransfers)}
             {renderSection("Recurring Income", recurringIncome)}
             {renderSection("Recurring Expenses", recurringExpenses)}
             {renderSection("Once-offs", onceOffs)}

@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import type { DailyBalance } from "@/lib/engine";
 import { formatCurrency } from "@/lib/design-system";
-import { format, isSameDay } from "date-fns";
+import { formatUtcWeekdayMonthDay } from "@/lib/dateInput";
+import { isSameDay } from "date-fns";
 import {
   LineChart, Line, ResponsiveContainer, YAxis, XAxis, Tooltip, ReferenceDot,
 } from "recharts";
@@ -22,7 +23,7 @@ export function BalanceSparkline({
   const active = activeIndex != null ? (data[activeIndex] ?? null) : null;
 
   const label = active
-    ? `${format(active.date, "EEE, MMM d")} · ${formatCurrency(active.v)}`
+    ? `${formatUtcWeekdayMonthDay(active.date)} · ${formatCurrency(active.v)}`
     : lowest && highest
       ? `Low ${formatCurrency(lowest.closingBalance)} · High ${formatCurrency(highest.closingBalance)}`
       : "";

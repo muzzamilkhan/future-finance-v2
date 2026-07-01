@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { format } from "date-fns";
+import { dateToInputValue, inputValueToDate } from "@/lib/dateInput";
 import { trpc } from "@/trpc/client";
 import { useActiveAccount } from "@/app/_components/AccountContext";
 import { Button } from "@/app/_components/ui/button";
@@ -19,7 +19,7 @@ export function OverrideModal(
   // Pre-populate with the occurrence's current values. Amount is stored signed in
   // the engine but overrides expect a positive magnitude (sign is applied from type).
   const [amount, setAmount] = useState(String(Math.abs(currentAmount)));
-  const [date, setDate] = useState(format(currentDate, "yyyy-MM-dd"));
+  const [date, setDate] = useState(dateToInputValue(currentDate));
   const [skip, setSkip] = useState(false);
   const settle = () => { utils.forecast.getData.invalidate(); utils.particular.listOverrides.invalidate({ accountId: accountId!, particularId }); };
   const override = trpc.particular.overrideInstance.useMutation({
@@ -72,7 +72,7 @@ export function OverrideModal(
             // Only send fields the user can actually override for this particular —
             // the server rejects amount on fixed and date/skip on critical.
             overriddenAmount: !isFixed && amount ? Number(amount) : undefined,
-            overriddenDate: !isCritical && date ? new Date(date) : undefined,
+            overriddenDate: !isCritical && date ? inputValueToDate(date) : undefined,
             isSkipped: !isCritical && skip,
           });
         }}>

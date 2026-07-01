@@ -6,7 +6,7 @@ import { Layout } from "@/app/_components/Layout";
 import { Button } from "@/app/_components/ui/button";
 import { Input } from "@/app/_components/ui/input";
 import { Checkbox } from "@/app/_components/ui/checkbox";
-import { format } from "date-fns";
+import { formatUtcMonthDayYear, inputValueToDate } from "@/lib/dateInput";
 import { useActiveAccount } from "@/app/_components/AccountContext";
 import { addRow, removeRow, newTempId, isTempId } from "@/lib/optimistic";
 
@@ -28,7 +28,7 @@ function HolidaySection({ title, holidays, canEdit, onDelete }: {
           {holidays.map((h) => (
             <div key={h.id} className={`flex items-center justify-between rounded-md border p-3${isTempId(h.id) ? " opacity-60 animate-pulse" : ""}`}>
               <span>
-                {h.name} — {format(new Date(h.date), "MMM d, yyyy")}{h.isRecurring ? " (yearly)" : ""}
+                {h.name} — {formatUtcMonthDayYear(new Date(h.date))}{h.isRecurring ? " (yearly)" : ""}
               </span>
               <Button variant="ghost" size="sm" disabled={!canEdit} onClick={() => onDelete(h.id)}>Delete</Button>
             </div>
@@ -138,7 +138,7 @@ export default function HolidaysPage() {
           {importMsg && <span className="text-sm text-muted-foreground">{importMsg}</span>}
         </div>
         <form className="flex flex-wrap items-end gap-2 rounded-md border p-3"
-          onSubmit={(e) => { e.preventDefault(); create.mutate({ accountId: accountId!, name, date: new Date(date), isRecurring: recurring }); setName(""); setDate(""); }}>
+          onSubmit={(e) => { e.preventDefault(); const parsed = inputValueToDate(date); if (!parsed) return; create.mutate({ accountId: accountId!, name, date: parsed, isRecurring: recurring }); setName(""); setDate(""); }}>
           <div className="flex flex-col gap-1 text-sm">
             <span>Name</span>
             <Input className="w-40" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />

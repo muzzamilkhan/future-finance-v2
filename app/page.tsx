@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { addMonths, format, isSameDay } from "date-fns";
+import { isSameDay } from "date-fns";
+import { dateToInputValue, formatUtcMonthDay, formatUtcWeekdayMonthDay } from "@/lib/dateInput";
 import { keepPreviousData } from "@tanstack/react-query";
 import { trpc } from "@/trpc/client";
 import { computeForecast } from "@/lib/engine";
@@ -35,7 +36,12 @@ export default function DashboardPage() {
   // today's events from the running balance via skipToday). The list then starts
   // at tomorrow instead of today.
   const viewStart = skipToday ? new Date(today.getTime() + 86_400_000) : today;
-  const viewEnd = addMonths(today, monthsAhead);
+  // Add months in UTC so the window bound can't drift across a DST boundary (date-fns
+  // addMonths works on local wall-clock; on our UTC-midnight `today` that could land
+  // on an adjacent UTC day when the offset changes). The engine compares in UTC.
+  const viewEnd = new Date(Date.UTC(
+    today.getUTCFullYear(), today.getUTCMonth() + monthsAhead, today.getUTCDate(),
+  ));
 
   const { accountId, accounts, activeMembership } = useActiveAccount();
   const canUpdateBalance = !activeMembership || activeMembership.role === "OWNER" || activeMembership.canUpdateBalance;
@@ -64,7 +70,7 @@ export default function DashboardPage() {
 
   const scrollToDay = (date: Date) => {
     document
-      .getElementById(`day-${format(date, "yyyy-MM-dd")}`)
+      .getElementById(`day-${dateToInputValue(date)}`)
       ?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
@@ -118,7 +124,7 @@ export default function DashboardPage() {
               <span className="font-medium">{formatCurrency(current)}</span>
               {result.lowest && (
                 <span className="text-muted-foreground">
-                  Low {formatCurrency(result.lowest.closingBalance)} · {format(result.lowest.date, "MMM d")}
+                  Low {formatCurrency(result.lowest.closingBalance)} · {formatUtcMonthDay(result.lowest.date)}
                 </span>
               )}
             </div>
@@ -136,10 +142,10 @@ export default function DashboardPage() {
               } />
             <MetricCard title="Lowest Balance" value={result.lowest?.closingBalance ?? 0}
               type={(result.lowest?.closingBalance ?? 0) >= 0 ? "income" : "expense"}
-              subtitle={result.lowest ? format(result.lowest.date, "EEE, MMM d") : undefined}
+              subtitle={result.lowest ? formatUtcWeekdayMonthDay(result.lowest.date) : undefined}
               onClick={result.lowest ? () => scrollToDay(result.lowest!.date) : undefined} />
             <MetricCard title="Next Negative" value={result.firstNegative?.closingBalance ?? 0} type="warning"
-              subtitle={result.firstNegative ? format(result.firstNegative.date, "EEE, MMM d") : undefined}
+              subtitle={result.firstNegative ? formatUtcWeekdayMonthDay(result.firstNegative.date) : undefined}
               onClick={result.firstNegative ? () => scrollToDay(result.firstNegative!.date) : undefined} />
             <MetricCard title="This Month" value={thisMonth?.netChange ?? 0}
               subtitle={`${formatCurrency(thisMonth?.totalIncome ?? 0)} in, ${formatCurrency(thisMonth?.totalExpenses ?? 0)} out`}

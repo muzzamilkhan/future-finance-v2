@@ -4,7 +4,7 @@ import { trpc } from "@/trpc/client";
 import { useActiveAccount } from "@/app/_components/AccountContext";
 import { Button } from "@/app/_components/ui/button";
 import { formatCurrency } from "@/lib/design-system";
-import { format } from "date-fns";
+import { formatUtcMonthDay, formatUtcMonthDayYear } from "@/lib/dateInput";
 import { removeRow, isTempId } from "@/lib/optimistic";
 
 export function OverrideManagement({ particularId }: { particularId: string }) {
@@ -32,10 +32,10 @@ export function OverrideManagement({ particularId }: { particularId: string }) {
       {overrides.map((o) => (
         <div key={o.id} className={`flex items-center justify-between rounded-md border p-2 text-sm${isTempId(o.id) ? " opacity-60 animate-pulse" : ""}`}>
           <span>
-            {format(new Date(o.originalDate), "MMM d, yyyy")}
+            {formatUtcMonthDayYear(new Date(o.originalDate))}
             {o.isSkipped ? " — skipped"
               : o.overriddenAmount != null ? ` — ${formatCurrency(Number(o.overriddenAmount))}`
-              : o.overriddenDate ? ` — moved to ${format(new Date(o.overriddenDate), "MMM d")}` : ""}
+              : o.overriddenDate ? ` — moved to ${formatUtcMonthDay(new Date(o.overriddenDate))}` : ""}
           </span>
           <Button variant="ghost" size="sm" onClick={() => del.mutate({ accountId: accountId!, id: o.id })}>Revert</Button>
         </div>

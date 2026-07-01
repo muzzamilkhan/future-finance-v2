@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
 import { particularInput, type ParticularInput, toParticularInput } from "@/lib/schemas";
-import { dateToInputValue, inputValueToDate } from "@/lib/dateInput";
+import { dateToInputValue, inputValueToDate, todayAsUtcDate } from "@/lib/dateInput";
 import { trpc } from "@/trpc/client";
 import { useActiveAccount } from "@/app/_components/AccountContext";
 import { Button } from "@/app/_components/ui/button";
@@ -48,7 +48,7 @@ export function ParticularForm(
       type: (existing?.type as "INCOME" | "EXPENSE" | "TRANSFER") ?? "EXPENSE",
       amount: existing ? Math.abs(Number(existing.amount)) : 0,
       frequency: (existing?.frequency as ParticularInput["frequency"]) ?? "MONTHLY",
-      startDate: existing ? new Date(existing.startDate) : new Date(),
+      startDate: existing ? new Date(existing.startDate) : todayAsUtcDate(),
       isCritical: existing?.isCritical ?? true,
       isFixed: existing?.isFixed ?? true,
       businessDayAdjustment: (existing?.businessDayAdjustment as ParticularInput["businessDayAdjustment"]) ?? "NONE",

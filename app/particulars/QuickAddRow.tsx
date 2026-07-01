@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
 import { particularInput } from "@/lib/schemas";
-import { dateToInputValue, inputValueToDate } from "@/lib/dateInput";
+import { dateToInputValue, inputValueToDate, todayAsUtcDate } from "@/lib/dateInput";
 import { trpc } from "@/trpc/client";
 import { useActiveAccount } from "@/app/_components/AccountContext";
 import { addRow, newTempId } from "@/lib/optimistic";
@@ -23,7 +23,7 @@ const defaults = (): QuickAddValues => ({
   type: "EXPENSE",
   amount: 0,
   frequency: "MONTHLY",
-  startDate: new Date(),
+  startDate: todayAsUtcDate(),
   isCritical: true,
   isFixed: true,
   businessDayAdjustment: "NONE",
