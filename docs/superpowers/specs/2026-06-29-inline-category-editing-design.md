@@ -5,7 +5,7 @@
 
 ## Goal
 
-On the "Income & Expenses" page (`app/particulars/page.tsx`), show each expense's
+On the "Items" page (`app/particulars/page.tsx`), show each expense's
 category inline in its row, and let the user edit it inline (click to edit, type-ahead,
 save on select/blur) without opening the full edit form.
 

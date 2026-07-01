@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 
 const items = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/particulars", label: "Income & Expenses", icon: ListOrdered },
+  { to: "/particulars", label: "Items", icon: ListOrdered },
   { to: "/holidays", label: "Holidays", icon: CalendarDays },
   { to: "/spending", label: "Spending", icon: PieChart },
 ];

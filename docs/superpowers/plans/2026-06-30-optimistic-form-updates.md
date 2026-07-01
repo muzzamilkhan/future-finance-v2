@@ -379,7 +379,7 @@ Expected: PASS.
 
 - [ ] **Step 5: Manual verification**
 
-On the running app (Income & Expenses): use the QuickAddRow to add an item — it
+On the running app (Items): use the QuickAddRow to add an item — it
 appears in the correct section instantly (pulsing), then settles; the form clears
 immediately for the next entry. Delete an item — it disappears instantly.
 
@@ -573,7 +573,7 @@ Expected: PASS.
 
 - [ ] **Step 4: Manual verification**
 
-On the running app: on Income & Expenses, change an expense's category via the
+On the running app: on Items, change an expense's category via the
 pill — the pill reflects the new value instantly. On Spending, expand a group and
 retag an item — the chip updates instantly (group totals reconcile on settle).
 
@@ -703,7 +703,7 @@ Expected: PASS.
 
 On the running app: open an override modal from a dashboard transaction, set a
 new amount/date or skip, Save — the modal closes immediately and the forecast
-reconciles shortly after. On Income & Expenses, expand an item with overrides and
+reconciles shortly after. On Items, expand an item with overrides and
 Revert one — it disappears from the list instantly.
 
 - [ ] **Step 5: Commit**

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add an inline quick-add row to the Income & Expenses page and make a blank end date reliably mean "no end date".
+**Goal:** Add an inline quick-add row to the Items page and make a blank end date reliably mean "no end date".
 
 **Architecture:** Fix the shared `particularInput` Zod schema so empty end-date values normalize to `undefined` (fixing a latent 1970-coercion bug that affects both the existing modal and the new row). Add a `QuickAddRow` client component that submits via the existing `particular.create` tRPC mutation with the modal's defaults, and render it below the list. The edit modal is unchanged.
 
