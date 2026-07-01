@@ -12,6 +12,7 @@ import { Button } from "@/app/_components/ui/button";
 import { formatCurrency } from "@/lib/design-system";
 import { MetricCard } from "@/app/_components/dashboard/MetricCard";
 import { AccountBalanceList } from "@/app/_components/dashboard/AccountBalanceList";
+import { AccountLowList } from "@/app/_components/dashboard/AccountLowList";
 import { DailyCard } from "@/app/_components/dashboard/DailyCard";
 import { AccountBadge } from "@/app/_components/dashboard/AccountBadge";
 import { DangerNotification } from "@/app/_components/dashboard/DangerNotification";
@@ -144,7 +145,14 @@ export default function DashboardPage() {
             <MetricCard title="Lowest Balance" value={result.lowest?.closingBalance ?? 0}
               type={(result.lowest?.closingBalance ?? 0) >= 0 ? "income" : "expense"}
               subtitle={result.lowest ? formatUtcWeekdayMonthDay(result.lowest.date) : undefined}
-              onClick={result.lowest ? () => scrollToDay(result.lowest!.date) : undefined} />
+              onClick={result.lowest ? () => scrollToDay(result.lowest!.date) : undefined}
+              footer={
+                <AccountLowList
+                  accounts={accounts}
+                  lows={result.lowestByAccount}
+                  onSelect={(date) => scrollToDay(date)}
+                />
+              } />
             <MetricCard title="Combined Shortfall" value={result.firstNegative?.closingBalance ?? 0} type="warning"
               subtitle={result.firstNegative ? formatUtcWeekdayMonthDay(result.firstNegative.date) : undefined}
               onClick={result.firstNegative ? () => scrollToDay(result.firstNegative!.date) : undefined}
