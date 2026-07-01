@@ -4,3 +4,4 @@ export * from "./dates";
 export * from "./instances";
 export * from "./forecast";
 export * from "./debt";
+export * from "./debtTips";
