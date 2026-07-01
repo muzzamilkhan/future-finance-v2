@@ -155,7 +155,7 @@ export default function DashboardPage() {
                       <li key={ex.accountId}>
                         <button
                           type="button"
-                          onClick={() => scrollToDay(ex.date)}
+                          onClick={(e) => { e.stopPropagation(); scrollToDay(ex.date); }}
                           className="flex w-full items-center justify-between gap-1 text-left text-xs"
                         >
                           <span className="flex items-center gap-1">
