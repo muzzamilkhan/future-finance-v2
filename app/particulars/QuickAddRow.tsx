@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -30,7 +31,10 @@ const defaults = (): QuickAddValues => ({
 });
 
 export function QuickAddRow({ disabled }: { disabled?: boolean }) {
-  const { accountId } = useActiveAccount();
+  const { accountId, accounts } = useActiveAccount();
+  const [selectedAccount, setSelectedAccount] = useState<string>("");
+  useEffect(() => { if (accountId && !selectedAccount) setSelectedAccount(accountId); }, [accountId, selectedAccount]);
+
   const utils = trpc.useUtils();
   const form = useForm<QuickAddValues>({
     resolver: zodResolver(particularInput),
@@ -39,32 +43,29 @@ export function QuickAddRow({ disabled }: { disabled?: boolean }) {
 
   const create = trpc.particular.create.useMutation({
     onMutate: async (vars) => {
-      const key = { accountId: vars.accountId };
-      await utils.particular.list.cancel(key);
-      const prev = utils.particular.list.getData(key);
-      utils.particular.list.setData(key, (old) =>
+      await utils.particular.listAll.cancel();
+      const prev = utils.particular.listAll.getData();
+      const acct = accounts.find((a) => a.id === vars.accountId);
+      utils.particular.listAll.setData(undefined, (old) =>
         addRow(old, {
           id: newTempId(),
-          name: vars.name,
-          type: vars.type,
-          amount: vars.amount,
-          frequency: vars.frequency,
-          startDate: vars.startDate as Date,
-          endDate: (vars.endDate as Date | undefined) ?? null,
-          isCritical: vars.isCritical,
-          isFixed: vars.isFixed,
-          businessDayAdjustment: vars.businessDayAdjustment,
-          category: vars.category ?? null,
+          name: vars.name, type: vars.type, amount: vars.amount, frequency: vars.frequency,
+          startDate: vars.startDate as Date, endDate: (vars.endDate as Date | undefined) ?? null,
+          isCritical: vars.isCritical, isFixed: vars.isFixed,
+          businessDayAdjustment: vars.businessDayAdjustment, category: vars.category ?? null,
+          accountId: vars.accountId, toAccountId: null,
+          accountName: acct?.name ?? "", direction: "OUT", canEditItems: true,
+          overrides: [],
         } as never),
       );
-      return { prev, key };
+      return { prev };
     },
     onError: (error, variables, ctx) => {
-      if (ctx) utils.particular.list.setData(ctx.key, ctx.prev);
-      toast.error(`Couldn't add “${variables.name}”`, { description: error.message });
+      if (ctx) utils.particular.listAll.setData(undefined, ctx.prev);
+      toast.error(`Couldn't add "${variables.name}"`, { description: error.message });
     },
     onSettled: () => {
-      utils.particular.list.invalidate();
+      utils.particular.listAll.invalidate();
       utils.forecast.getData.invalidate();
     },
   });
@@ -73,9 +74,10 @@ export function QuickAddRow({ disabled }: { disabled?: boolean }) {
   // server. The mutation fires in the background; the list/forecast refresh
   // when it lands. Concurrent submissions are independent and safe.
   const submit = form.handleSubmit((values) => {
-    create.mutate({ accountId: accountId!, ...values });
+    create.mutate({ accountId: selectedAccount || accountId!, ...values });
     form.reset(defaults());
     form.setFocus("name");
+    setSelectedAccount(accountId!);
   });
 
   return (
@@ -129,6 +131,14 @@ export function QuickAddRow({ disabled }: { disabled?: boolean }) {
         value={dateToInputValue(form.watch("startDate") as Date | undefined)}
         onChange={(e) => form.setValue("startDate", inputValueToDate(e.target.value), { shouldValidate: true })}
       />
+      <Select value={selectedAccount} onValueChange={setSelectedAccount}>
+        <SelectTrigger className="w-40"><SelectValue placeholder="Account" /></SelectTrigger>
+        <SelectContent>
+          {accounts.filter((a) => a.canEditItems).map((a) => (
+            <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
       <Button type="submit" disabled={disabled}>Add</Button>
     </form>
   );
