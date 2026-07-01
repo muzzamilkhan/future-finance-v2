@@ -5,7 +5,7 @@ import { assertCan } from "../permissions";
 import { particularInput, overrideInstanceInput } from "@/lib/schemas";
 import { syncAccountCategories } from "../categorySync";
 import { assertTransferShape } from "../transfers";
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient, Prisma } from "@prisma/client";
 
 export function assertOverrideAllowed(
   rule: { isFixed: boolean; isCritical: boolean },
@@ -40,9 +40,21 @@ export function assertReassignAllowed(
 }
 
 type FetchedParticular = {
-  id: string; name: string; type: "INCOME" | "EXPENSE" | "TRANSFER";
-  accountId: string; toAccountId: string | null;
-  [key: string]: unknown;
+  id: string;
+  name: string;
+  type: "INCOME" | "EXPENSE" | "TRANSFER";
+  accountId: string;
+  toAccountId: string | null;
+  /** Prisma returns Decimal; callers use Number(amount). number/string accepted for tests. */
+  amount: Prisma.Decimal | number | string;
+  frequency: "ONCE_OFF" | "WEEKLY" | "FORTNIGHTLY" | "MONTHLY" | "ANNUAL";
+  startDate: Date;
+  endDate?: Date | null;
+  isCritical: boolean;
+  isFixed: boolean;
+  businessDayAdjustment: "NONE" | "NEXT_BUSINESS_DAY" | "PREVIOUS_BUSINESS_DAY";
+  category: string | null;
+  overrides: Prisma.ParticularGetPayload<{ include: { overrides: true } }>["overrides"];
 };
 
 export type ListAllRow = FetchedParticular & {
@@ -91,7 +103,7 @@ export const particularRouter = router({
       include: { overrides: true },
       orderBy: { startDate: "asc" },
     });
-    return buildListAllRows(particulars as never, accountMeta);
+    return buildListAllRows(particulars, accountMeta);
   }),
 
   list: accountProcedure.query(({ ctx }) =>

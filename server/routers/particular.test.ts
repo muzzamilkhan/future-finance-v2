@@ -65,8 +65,8 @@ describe("buildListAllRows", () => {
   ]);
 
   const base = {
-    startDate: new Date("2026-01-01"), amount: 10, frequency: "MONTHLY",
-    isCritical: true, isFixed: true, businessDayAdjustment: "NONE",
+    startDate: new Date("2026-01-01"), amount: 10, frequency: "MONTHLY" as const,
+    isCritical: true, isFixed: true, businessDayAdjustment: "NONE" as const,
     category: null, overrides: [],
   };
 

@@ -20,13 +20,8 @@ import { isTempId } from "@/lib/optimistic";
 
 type Particular = inferRouterOutputs<AppRouter>["particular"]["listAll"][number];
 
-// The listAll row uses [key: string]: unknown in FetchedParticular; cast helpers
-// narrow the fields we need without changing runtime behaviour.
-type PartWithDate = { startDate: Date; frequency: string };
-type ParticularsListRow = inferRouterOutputs<AppRouter>["particular"]["list"][number];
-
 function byDate(a: Particular, b: Particular) {
-  return ((a as unknown as PartWithDate).startDate.getUTCDate()) - ((b as unknown as PartWithDate).startDate.getUTCDate());
+  return a.startDate.getUTCDate() - b.startDate.getUTCDate();
 }
 
 export default function ParticularsPage() {
@@ -94,12 +89,12 @@ export default function ParticularsPage() {
           <div className="flex min-w-0 items-center justify-between gap-2 sm:justify-start">
             <button className="min-w-0 text-left" onClick={() => setExpanded(expanded === p.id ? null : p.id)}>
               <span className="font-medium">{p.name}</span>
-              <span className="ml-2 text-xs text-muted-foreground">{frequencyLabel(p as unknown as PartWithDate & { frequency: "ONCE_OFF" | "WEEKLY" | "FORTNIGHTLY" | "MONTHLY" | "ANNUAL" }, today)}</span>
+              <span className="ml-2 text-xs text-muted-foreground">{frequencyLabel(p, today)}</span>
             </button>
             <span className="ml-2 inline-flex items-center rounded-full border px-2 py-0.5 text-xs text-muted-foreground">
               {p.accountName}
             </span>
-            {p.type === "EXPENSE" && <CategoryPill particular={p as unknown as ParticularsListRow} />}
+            {p.type === "EXPENSE" && <CategoryPill particular={p} />}
             <span className={`ml-auto shrink-0 sm:hidden ${signed < 0 ? "text-finance-expense" : "text-finance-income"}`}>
               {formatCurrency(signed)}
             </span>
