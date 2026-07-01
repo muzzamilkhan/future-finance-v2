@@ -81,17 +81,16 @@ describe("buildListAllRows", () => {
     });
   });
 
-  it("emits an IN echo on the to-account for a transfer between own accounts", () => {
+  it("emits a single OUT row for a transfer between own accounts", () => {
     const rows = buildListAllRows(
       [{ ...base, id: "t1", name: "Pay card", type: "TRANSFER", accountId: "debit", toAccountId: "credit" }],
       meta,
     );
-    expect(rows).toHaveLength(2);
-    const out = rows.find((r) => r.direction === "OUT")!;
-    const inn = rows.find((r) => r.direction === "IN")!;
-    expect(out).toMatchObject({ accountId: "debit", accountName: "Everyday", canEditItems: true });
-    expect(inn).toMatchObject({ accountId: "credit", accountName: "Visa", canEditItems: false });
-    expect(inn.id).toBe("t1");
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.direction).toBe("OUT");
+    expect(rows[0]!.accountId).toBe("debit");
+    expect(rows[0]!.toAccountId).toBe("credit");
+    expect(rows[0]!.canEditItems).toBe(true);
   });
 
   it("emits only the OUT row when the to-account is not one of the user's accounts", () => {
@@ -101,17 +100,5 @@ describe("buildListAllRows", () => {
     );
     expect(rows).toHaveLength(1);
     expect(rows[0]!.direction).toBe("OUT");
-  });
-
-  it("forces canEditItems false on IN echoes even when the to-account is editable", () => {
-    const editableBoth = new Map([
-      ["a", { name: "A", canEditItems: true }],
-      ["b", { name: "B", canEditItems: true }],
-    ]);
-    const rows = buildListAllRows(
-      [{ ...base, id: "t3", name: "Move", type: "TRANSFER", accountId: "a", toAccountId: "b" }],
-      editableBoth,
-    );
-    expect(rows.find((r) => r.direction === "IN")!.canEditItems).toBe(false);
   });
 });

@@ -64,10 +64,9 @@ export type ListAllRow = FetchedParticular & {
 };
 
 /**
- * Flatten fetched particulars into display rows. Each row is tagged with the
- * account it displays under. Transfers whose destination is one of the user's
- * own accounts additionally emit a read-only IN echo on that to-account.
- * Pure — no Prisma, no clock.
+ * Flatten fetched particulars into display rows. Each particular yields exactly
+ * ONE row (the OUT/source row). Transfers carry `toAccountId` so the client can
+ * render both account badges. Pure — no Prisma, no clock.
  */
 export function buildListAllRows(
   particulars: FetchedParticular[],
@@ -78,12 +77,6 @@ export function buildListAllRows(
     const from = accountMeta.get(p.accountId);
     if (from) {
       rows.push({ ...p, accountName: from.name, direction: "OUT", canEditItems: from.canEditItems });
-    }
-    if (p.type === "TRANSFER" && p.toAccountId) {
-      const to = accountMeta.get(p.toAccountId);
-      if (to) {
-        rows.push({ ...p, accountId: p.toAccountId, accountName: to.name, direction: "IN", canEditItems: false });
-      }
     }
   }
   return rows;

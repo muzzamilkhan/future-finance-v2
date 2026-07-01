@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { trpc } from "@/trpc/client";
 import { todayAsUtcDate } from "@/lib/dateInput";
 import { Layout } from "@/app/_components/Layout";
@@ -17,6 +17,8 @@ import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "@/server/routers/_app";
 import { useActiveAccount } from "@/app/_components/AccountContext";
 import { isTempId } from "@/lib/optimistic";
+import { AccountBadge } from "@/app/_components/dashboard/AccountBadge";
+import { ArrowRight } from "lucide-react";
 
 type Particular = inferRouterOutputs<AppRouter>["particular"]["listAll"][number];
 
@@ -44,6 +46,11 @@ export default function ParticularsPage() {
     onSettled: () => { utils.particular.listAll.invalidate(); utils.forecast.getData.invalidate(); },
   });
   const { data: accountList } = trpc.account.list.useQuery();
+  const accountNames = useMemo(
+    () => new Map((accountList ?? []).map((a) => [a.id, a.name] as const)),
+    [accountList],
+  );
+  const accountIds = useMemo(() => (accountList ?? []).map((a) => a.id), [accountList]);
   const [pendingMove, setPendingMove] = useState<Particular | null>(null);
   const [moveDest, setMoveDest] = useState<string>("");
 
@@ -79,29 +86,35 @@ export default function ParticularsPage() {
   const onceOffs = all.filter((p) => p.frequency === "ONCE_OFF");
 
   const renderRow = (p: Particular) => {
-    const signed =
-      p.type === "EXPENSE" ? -Math.abs(Number(p.amount))
-      : p.type === "TRANSFER" ? (p.direction === "IN" ? Math.abs(Number(p.amount)) : -Math.abs(Number(p.amount)))
-      : Math.abs(Number(p.amount));
+    const isTransfer = p.type === "TRANSFER";
+    const signed = p.type === "EXPENSE" ? -Math.abs(Number(p.amount)) : Math.abs(Number(p.amount));
+    const amountText = isTransfer ? formatCurrency(Math.abs(Number(p.amount))) : formatCurrency(signed);
+    const amountClass = isTransfer ? "text-blue-600 dark:text-blue-400" : (signed < 0 ? "text-finance-expense" : "text-finance-income");
     return (
-      <div key={`${p.id}-${p.direction}`} className={`rounded-md border p-3${isTempId(p.id) ? " opacity-60 animate-pulse" : ""}`}>
+      <div key={p.id} className={`rounded-md border p-3${isTempId(p.id) ? " opacity-60 animate-pulse" : ""}`}>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center justify-between gap-2 sm:justify-start">
             <button className="min-w-0 text-left" onClick={() => setExpanded(expanded === p.id ? null : p.id)}>
-              <span className="font-medium">{p.name}</span>
+              <span className="font-medium">{isTransfer ? "Transfer" : p.name}</span>
               <span className="ml-2 text-xs text-muted-foreground">{frequencyLabel(p, today)}</span>
             </button>
-            <span className="ml-2 inline-flex items-center rounded-full border px-2 py-0.5 text-xs text-muted-foreground">
-              {p.accountName}
-            </span>
+            {isTransfer ? (
+              <span className="ml-2 inline-flex flex-wrap items-center gap-1">
+                <AccountBadge accountId={p.accountId} accountNames={accountNames} orderedIds={accountIds} />
+                <ArrowRight className="size-3.5 shrink-0 text-muted-foreground" aria-label="to" />
+                <AccountBadge accountId={p.toAccountId!} accountNames={accountNames} orderedIds={accountIds} />
+              </span>
+            ) : (
+              <AccountBadge accountId={p.accountId} accountNames={accountNames} orderedIds={accountIds} className="ml-2" />
+            )}
             {p.type === "EXPENSE" && <CategoryPill particular={p} />}
-            <span className={`ml-auto shrink-0 sm:hidden ${signed < 0 ? "text-finance-expense" : "text-finance-income"}`}>
-              {formatCurrency(signed)}
+            <span className={`ml-auto shrink-0 sm:hidden ${amountClass}`}>
+              {amountText}
             </span>
           </div>
           <div className="flex items-center justify-end gap-2">
-            <span className={`hidden sm:inline ${signed < 0 ? "text-finance-expense" : "text-finance-income"}`}>
-              {formatCurrency(signed)}
+            <span className={`hidden sm:inline ${amountClass}`}>
+              {amountText}
             </span>
             <Button variant="ghost" size="sm" disabled={!p.canEditItems || isTempId(p.id)} onClick={() => { setEditing(p.id); setFormOpen(true); }}>Edit</Button>
             {p.type !== "TRANSFER" && (accountList ?? []).some((a) => a.id !== accountId) && (
