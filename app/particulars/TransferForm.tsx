@@ -17,6 +17,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/app/_components/ui/select";
+import { Checkbox } from "@/app/_components/ui/checkbox";
 import { Label } from "@/app/_components/ui/label";
 import { FormTabs, FormRow } from "./FormTabs";
 import { addRow, updateRow, newTempId } from "@/lib/optimistic";
@@ -101,7 +102,7 @@ export function TransferForm(
   // Which tab each field lives on, so submit can jump to the first tab with an error.
   const fieldTab: Partial<Record<keyof TransferFormValues, number>> = {
     accountId: 0, toAccountId: 0, amount: 0, frequency: 0, startDate: 0,
-    businessDayAdjustment: 1, endDate: 1,
+    businessDayAdjustment: 1, endDate: 1, isCritical: 1, isFixed: 1,
   };
 
   const submit = form.handleSubmit(
@@ -234,6 +235,16 @@ export function TransferForm(
                 />
                 <FieldError name="endDate" />
               </div>
+            </FormRow>
+            <FormRow>
+              <label className="flex items-start gap-2 text-sm">
+                <Checkbox className="mt-0.5" checked={form.watch("isCritical")} onCheckedChange={(c) => form.setValue("isCritical", !!c)} />
+                <span>Critical <span className="text-muted-foreground">(cannot be skipped or moved)</span></span>
+              </label>
+              <label className="flex items-start gap-2 text-sm">
+                <Checkbox className="mt-0.5" checked={form.watch("isFixed")} onCheckedChange={(c) => form.setValue("isFixed", !!c)} />
+                <span>Fixed <span className="text-muted-foreground">(amount cannot be overridden)</span></span>
+              </label>
             </FormRow>
           </div>
           </div>
