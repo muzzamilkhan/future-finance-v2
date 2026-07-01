@@ -70,6 +70,7 @@ export const forecastRouter = router({
       const memberships = await ctx.prisma.accountMembership.findMany({
         where: { userId: ctx.user.id, account: { closedAt: null } },
         include: { account: true },
+        orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
       });
       const accounts = memberships.map((m) => m.account);
       const accountIds = accounts.map((a) => a.id);

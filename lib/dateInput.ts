@@ -42,6 +42,9 @@ const utcMonthDay = new Intl.DateTimeFormat("en-US", {
 const utcWeekday = new Intl.DateTimeFormat("en-US", {
   weekday: "short", timeZone: "UTC",
 });
+const utcWeekdayLong = new Intl.DateTimeFormat("en-US", {
+  weekday: "long", timeZone: "UTC",
+});
 
 /** "Tue, Jul 15" — weekday, month, day in UTC. */
 export function formatUtcWeekdayMonthDay(date: Date): string {
@@ -61,6 +64,23 @@ export function formatUtcMonthDay(date: Date): string {
 /** "Wed" — short weekday in UTC. */
 export function formatUtcWeekday(date: Date): string {
   return utcWeekday.format(date);
+}
+
+/** "Monday" — full weekday in UTC. */
+export function formatUtcWeekdayLong(date: Date): string {
+  return utcWeekdayLong.format(date);
+}
+
+/** "1st", "2nd", "3rd", "14th", "21st" — English ordinal for a day-of-month. */
+export function ordinal(n: number): string {
+  const rem100 = n % 100;
+  if (rem100 >= 11 && rem100 <= 13) return `${n}th`;
+  switch (n % 10) {
+    case 1: return `${n}st`;
+    case 2: return `${n}nd`;
+    case 3: return `${n}rd`;
+    default: return `${n}th`;
+  }
 }
 
 // UTC midnight of the user's *local* calendar day — i.e. the day that shows as

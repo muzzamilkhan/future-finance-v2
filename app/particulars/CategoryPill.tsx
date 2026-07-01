@@ -3,13 +3,12 @@
 import { toast } from "sonner";
 import { trpc } from "@/trpc/client";
 import { useActiveAccount } from "@/app/_components/AccountContext";
-import { toParticularInput } from "@/lib/schemas";
+import { toParticularInput, type StoredParticular } from "@/lib/schemas";
 import { CategoryCombobox } from "./CategoryCombobox";
 import { updateRow } from "@/lib/optimistic";
-import type { inferRouterOutputs } from "@trpc/server";
-import type { AppRouter } from "@/server/routers/_app";
 
-type Particular = inferRouterOutputs<AppRouter>["particular"]["list"][number];
+/** Minimum shape CategoryPill needs — a superset of StoredParticular with an id. */
+type CategoryPillParticular = StoredParticular & { id: string };
 
 /**
  * Inline category editor for an expense row — a CategoryCombobox that saves
@@ -17,7 +16,7 @@ type Particular = inferRouterOutputs<AppRouter>["particular"]["list"][number];
  * and feed the spending view, so we invalidate both particular.list and
  * forecast.getData.
  */
-export function CategoryPill({ particular }: { particular: Particular }) {
+export function CategoryPill({ particular }: { particular: CategoryPillParticular }) {
   const { accountId } = useActiveAccount();
   const utils = trpc.useUtils();
   const update = trpc.particular.update.useMutation({

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { trpc } from "@/trpc/client";
-import { formatUtcWeekday } from "@/lib/dateInput";
+import { todayAsUtcDate } from "@/lib/dateInput";
 import { Layout } from "@/app/_components/Layout";
 import { Button } from "@/app/_components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/app/_components/ui/dialog";
@@ -12,54 +12,58 @@ import { ParticularForm } from "./ParticularForm";
 import { OverrideManagement } from "./OverrideManagement";
 import { QuickAddRow } from "./QuickAddRow";
 import { CategoryPill } from "./CategoryPill";
+import { frequencyLabel } from "./frequencyLabel";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "@/server/routers/_app";
 import { useActiveAccount } from "@/app/_components/AccountContext";
-import { removeRow, isTempId } from "@/lib/optimistic";
+import { isTempId } from "@/lib/optimistic";
+import { AccountBadge } from "@/app/_components/dashboard/AccountBadge";
+import { ArrowRight } from "lucide-react";
 
-type Particular = inferRouterOutputs<AppRouter>["particular"]["list"][number];
+type Particular = inferRouterOutputs<AppRouter>["particular"]["listAll"][number];
 
 function byDate(a: Particular, b: Particular) {
-  return (a.startDate.getUTCDate()) - (b.startDate.getUTCDate());
+  return a.startDate.getUTCDate() - b.startDate.getUTCDate();
 }
 
 export default function ParticularsPage() {
   const { accountId, activeMembership } = useActiveAccount();
   const canEditItems = !activeMembership || activeMembership.role === "OWNER" || activeMembership.canEditItems;
   const utils = trpc.useUtils();
-  const { data: particulars, isLoading } = trpc.particular.list.useQuery(
-    { accountId: accountId! },
-    { enabled: !!accountId },
-  );
+  const today = todayAsUtcDate();
+  const { data: particulars, isLoading } = trpc.particular.listAll.useQuery();
   const [pendingDelete, setPendingDelete] = useState<Particular | null>(null);
   const del = trpc.particular.delete.useMutation({
     onMutate: async (vars) => {
-      const key = { accountId: vars.accountId };
-      await utils.particular.list.cancel(key);
-      const prev = utils.particular.list.getData(key);
-      utils.particular.list.setData(key, (old) => removeRow(old, vars.id));
-      return { prev, key };
+      await utils.particular.listAll.cancel();
+      const prev = utils.particular.listAll.getData();
+      utils.particular.listAll.setData(undefined, (old) => (old ?? []).filter((r) => r.id !== vars.id));
+      return { prev };
     },
     onError: (_e, _vars, ctx) => {
-      if (ctx) utils.particular.list.setData(ctx.key, ctx.prev);
+      if (ctx) utils.particular.listAll.setData(undefined, ctx.prev);
     },
-    onSettled: () => { utils.particular.list.invalidate(); utils.forecast.getData.invalidate(); },
+    onSettled: () => { utils.particular.listAll.invalidate(); utils.forecast.getData.invalidate(); },
   });
   const { data: accountList } = trpc.account.list.useQuery();
+  const accountNames = useMemo(
+    () => new Map((accountList ?? []).map((a) => [a.id, a.name] as const)),
+    [accountList],
+  );
+  const accountIds = useMemo(() => (accountList ?? []).map((a) => a.id), [accountList]);
   const [pendingMove, setPendingMove] = useState<Particular | null>(null);
   const [moveDest, setMoveDest] = useState<string>("");
 
   const reassign = trpc.particular.reassignAccount.useMutation({
     onMutate: async (vars) => {
-      const key = { accountId: vars.accountId };
-      await utils.particular.list.cancel(key);
-      const prev = utils.particular.list.getData(key);
-      utils.particular.list.setData(key, (old) => removeRow(old, vars.id));
-      return { prev, key };
+      await utils.particular.listAll.cancel();
+      const prev = utils.particular.listAll.getData();
+      utils.particular.listAll.setData(undefined, (old) => (old ?? []).filter((r) => r.id !== vars.id));
+      return { prev };
     },
-    onError: (_e, _vars, ctx) => { if (ctx) utils.particular.list.setData(ctx.key, ctx.prev); },
+    onError: (_e, _vars, ctx) => { if (ctx) utils.particular.listAll.setData(undefined, ctx.prev); },
     onSettled: () => {
-      utils.particular.list.invalidate();
+      utils.particular.listAll.invalidate();
       utils.forecast.getData.invalidate();
       utils.forecast.getCombined.invalidate();
     },
@@ -82,33 +86,42 @@ export default function ParticularsPage() {
   const onceOffs = all.filter((p) => p.frequency === "ONCE_OFF");
 
   const renderRow = (p: Particular) => {
+    const isTransfer = p.type === "TRANSFER";
     const signed = p.type === "EXPENSE" ? -Math.abs(Number(p.amount)) : Math.abs(Number(p.amount));
+    const amountText = isTransfer ? formatCurrency(Math.abs(Number(p.amount))) : formatCurrency(signed);
+    const amountClass = isTransfer ? "text-blue-600 dark:text-blue-400" : (signed < 0 ? "text-finance-expense" : "text-finance-income");
     return (
       <div key={p.id} className={`rounded-md border p-3${isTempId(p.id) ? " opacity-60 animate-pulse" : ""}`}>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center justify-between gap-2 sm:justify-start">
             <button className="min-w-0 text-left" onClick={() => setExpanded(expanded === p.id ? null : p.id)}>
-              <span className="font-medium">{p.name}</span>
-              <span className="ml-2 text-xs text-muted-foreground ">{p.frequency.toLowerCase()} (
-                {p.frequency === "MONTHLY" && p.startDate.getUTCDate()}
-                {p.frequency === "FORTNIGHTLY" && formatUtcWeekday(p.startDate)}
-              )</span>
+              <span className="font-medium">{isTransfer ? "Transfer" : p.name}</span>
+              <span className="ml-2 text-xs text-muted-foreground">{frequencyLabel(p, today)}</span>
             </button>
+            {isTransfer ? (
+              <span className="ml-2 inline-flex flex-wrap items-center gap-1">
+                <AccountBadge accountId={p.accountId} accountNames={accountNames} orderedIds={accountIds} />
+                <ArrowRight className="size-3.5 shrink-0 text-muted-foreground" aria-label="to" />
+                <AccountBadge accountId={p.toAccountId!} accountNames={accountNames} orderedIds={accountIds} />
+              </span>
+            ) : (
+              <AccountBadge accountId={p.accountId} accountNames={accountNames} orderedIds={accountIds} className="ml-2" />
+            )}
             {p.type === "EXPENSE" && <CategoryPill particular={p} />}
-            <span className={`ml-auto shrink-0 sm:hidden ${signed < 0 ? "text-finance-expense" : "text-finance-income"}`}>
-              {formatCurrency(signed)}
+            <span className={`ml-auto shrink-0 sm:hidden ${amountClass}`}>
+              {amountText}
             </span>
           </div>
           <div className="flex items-center justify-end gap-2">
-            <span className={`hidden sm:inline ${signed < 0 ? "text-finance-expense" : "text-finance-income"}`}>
-              {formatCurrency(signed)}
+            <span className={`hidden sm:inline ${amountClass}`}>
+              {amountText}
             </span>
-            <Button variant="ghost" size="sm" disabled={!canEditItems || isTempId(p.id)} onClick={() => { setEditing(p.id); setFormOpen(true); }}>Edit</Button>
+            <Button variant="ghost" size="sm" disabled={!p.canEditItems || isTempId(p.id)} onClick={() => { setEditing(p.id); setFormOpen(true); }}>Edit</Button>
             {p.type !== "TRANSFER" && (accountList ?? []).some((a) => a.id !== accountId) && (
-              <Button variant="ghost" size="sm" disabled={!canEditItems || isTempId(p.id)}
+              <Button variant="ghost" size="sm" disabled={!p.canEditItems || isTempId(p.id)}
                 onClick={() => { setMoveDest(""); setPendingMove(p); }}>Move</Button>
             )}
-            <Button variant="ghost" size="sm" disabled={!canEditItems || isTempId(p.id)} onClick={() => del.mutate({ accountId: accountId!, id: p.id })}>Delete</Button>
+            <Button variant="ghost" size="sm" disabled={!p.canEditItems || isTempId(p.id)} onClick={() => setPendingDelete(p)}>Delete</Button>
           </div>
         </div>
         {expanded === p.id && <div className="mt-2"><OverrideManagement particularId={p.id} /></div>}
@@ -159,7 +172,7 @@ export default function ParticularsPage() {
               <Button
                 variant="destructive"
                 disabled={del.isPending}
-                onClick={() => { if (pendingDelete) del.mutate({ accountId: accountId!, id: pendingDelete.id }); }}
+                onClick={() => { if (pendingDelete) del.mutate({ accountId: pendingDelete.accountId, id: pendingDelete.id }); }}
               >
                 {del.isPending ? "Deleting..." : "Delete"}
               </Button>
@@ -194,7 +207,7 @@ export default function ParticularsPage() {
                 disabled={reassign.isPending || !moveDest}
                 onClick={() => {
                   if (pendingMove && moveDest) {
-                    reassign.mutate({ accountId: accountId!, id: pendingMove.id, toAccountId: moveDest });
+                    reassign.mutate({ accountId: pendingMove.accountId, id: pendingMove.id, toAccountId: moveDest });
                     setPendingMove(null);
                   }
                 }}

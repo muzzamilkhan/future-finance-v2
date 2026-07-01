@@ -7,7 +7,7 @@ import { describe, it, expect, vi } from "vitest";
 vi.mock("../db", () => ({ prisma: {} }));
 vi.mock("../auth", () => ({ auth: vi.fn().mockResolvedValue(null) }));
 
-import { assertOverrideAllowed, ownedAccountIds, assertReassignAllowed } from "./particular";
+import { assertOverrideAllowed, ownedAccountIds, assertReassignAllowed, buildListAllRows } from "./particular";
 
 describe("assertOverrideAllowed", () => {
   it("rejects amount override on a fixed particular", () => {
@@ -55,5 +55,50 @@ describe("assertReassignAllowed", () => {
   });
   it("rejects an unowned destination", () => {
     expect(() => assertReassignAllowed({ type: "EXPENSE" }, "debit", "savings", owned)).toThrow(/not found/);
+  });
+});
+
+describe("buildListAllRows", () => {
+  const meta = new Map([
+    ["debit", { name: "Everyday", canEditItems: true }],
+    ["credit", { name: "Visa", canEditItems: false }],
+  ]);
+
+  const base = {
+    startDate: new Date("2026-01-01"), amount: 10, frequency: "MONTHLY" as const,
+    isCritical: true, isFixed: true, businessDayAdjustment: "NONE" as const,
+    category: null, overrides: [],
+  };
+
+  it("tags own-account rows as OUT with account meta", () => {
+    const rows = buildListAllRows(
+      [{ ...base, id: "p1", name: "Salary", type: "INCOME", accountId: "debit", toAccountId: null }],
+      meta,
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      id: "p1", direction: "OUT", accountId: "debit", accountName: "Everyday", canEditItems: true,
+    });
+  });
+
+  it("emits a single OUT row for a transfer between own accounts", () => {
+    const rows = buildListAllRows(
+      [{ ...base, id: "t1", name: "Pay card", type: "TRANSFER", accountId: "debit", toAccountId: "credit" }],
+      meta,
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.direction).toBe("OUT");
+    expect(rows[0]!.accountId).toBe("debit");
+    expect(rows[0]!.toAccountId).toBe("credit");
+    expect(rows[0]!.canEditItems).toBe(true);
+  });
+
+  it("emits only the OUT row when the to-account is not one of the user's accounts", () => {
+    const rows = buildListAllRows(
+      [{ ...base, id: "t2", name: "Rent", type: "TRANSFER", accountId: "debit", toAccountId: "external" }],
+      meta,
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.direction).toBe("OUT");
   });
 });

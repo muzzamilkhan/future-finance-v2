@@ -7,6 +7,8 @@ import {
   formatUtcMonthDayYear,
   formatUtcMonthDay,
   formatUtcWeekday,
+  ordinal,
+  formatUtcWeekdayLong,
 } from "./dateInput";
 
 // The engine reads every date via getUTCDate()/getUTCMonth()/getUTCFullYear()
@@ -105,5 +107,35 @@ describe("UTC display formatters", () => {
 
   it("formatUtcWeekday -> 'Wed'", () => {
     expect(formatUtcWeekday(d)).toBe("Wed");
+  });
+});
+
+describe("ordinal", () => {
+  it("handles the common ones/twos/threes", () => {
+    expect(ordinal(1)).toBe("1st");
+    expect(ordinal(2)).toBe("2nd");
+    expect(ordinal(3)).toBe("3rd");
+    expect(ordinal(4)).toBe("4th");
+  });
+  it("handles the teens as th", () => {
+    expect(ordinal(11)).toBe("11th");
+    expect(ordinal(12)).toBe("12th");
+    expect(ordinal(13)).toBe("13th");
+    expect(ordinal(14)).toBe("14th");
+  });
+  it("handles the twenties", () => {
+    expect(ordinal(21)).toBe("21st");
+    expect(ordinal(22)).toBe("22nd");
+    expect(ordinal(23)).toBe("23rd");
+    expect(ordinal(26)).toBe("26th");
+  });
+});
+
+describe("formatUtcWeekdayLong", () => {
+  it("returns the full UTC weekday name", () => {
+    // 2026-08-26 is a Wednesday
+    expect(formatUtcWeekdayLong(new Date(Date.UTC(2026, 7, 26)))).toBe("Wednesday");
+    // 2026-07-06 is a Monday
+    expect(formatUtcWeekdayLong(new Date(Date.UTC(2026, 6, 6)))).toBe("Monday");
   });
 });

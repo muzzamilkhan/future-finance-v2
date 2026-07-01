@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { router, accountProcedure } from "../trpc";
+import { router, accountProcedure, protectedProcedure } from "../trpc";
 import { assertCan } from "../permissions";
 import { particularInput, overrideInstanceInput } from "@/lib/schemas";
 import { syncAccountCategories } from "../categorySync";
 import { assertTransferShape } from "../transfers";
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient, Prisma } from "@prisma/client";
 
 export function assertOverrideAllowed(
   rule: { isFixed: boolean; isCritical: boolean },
@@ -39,7 +39,66 @@ export function assertReassignAllowed(
   if (!ownedAccountIds.has(toAccountId)) throw new TRPCError({ code: "BAD_REQUEST", message: "Destination account not found" });
 }
 
+type FetchedParticular = {
+  id: string;
+  name: string;
+  type: "INCOME" | "EXPENSE" | "TRANSFER";
+  accountId: string;
+  toAccountId: string | null;
+  /** Prisma returns Decimal; callers use Number(amount). number/string accepted for tests. */
+  amount: Prisma.Decimal | number | string;
+  frequency: "ONCE_OFF" | "WEEKLY" | "FORTNIGHTLY" | "MONTHLY" | "ANNUAL";
+  startDate: Date;
+  endDate?: Date | null;
+  isCritical: boolean;
+  isFixed: boolean;
+  businessDayAdjustment: "NONE" | "NEXT_BUSINESS_DAY" | "PREVIOUS_BUSINESS_DAY";
+  category: string | null;
+  overrides: Prisma.ParticularGetPayload<{ include: { overrides: true } }>["overrides"];
+};
+
+export type ListAllRow = FetchedParticular & {
+  accountName: string;
+  direction: "OUT" | "IN";
+  canEditItems: boolean;
+};
+
+/**
+ * Flatten fetched particulars into display rows. Each particular yields exactly
+ * ONE row (the OUT/source row). Transfers carry `toAccountId` so the client can
+ * render both account badges. Pure — no Prisma, no clock.
+ */
+export function buildListAllRows(
+  particulars: FetchedParticular[],
+  accountMeta: Map<string, { name: string; canEditItems: boolean }>,
+): ListAllRow[] {
+  const rows: ListAllRow[] = [];
+  for (const p of particulars) {
+    const from = accountMeta.get(p.accountId);
+    if (from) {
+      rows.push({ ...p, accountName: from.name, direction: "OUT", canEditItems: from.canEditItems });
+    }
+  }
+  return rows;
+}
+
 export const particularRouter = router({
+  listAll: protectedProcedure.query(async ({ ctx }) => {
+    const memberships = await ctx.prisma.accountMembership.findMany({
+      where: { userId: ctx.user.id, account: { closedAt: null } },
+      select: { canEditItems: true, account: { select: { id: true, name: true } } },
+    });
+    const accountMeta = new Map(
+      memberships.map((m) => [m.account.id, { name: m.account.name, canEditItems: m.canEditItems }]),
+    );
+    const particulars = await ctx.prisma.particular.findMany({
+      where: { accountId: { in: [...accountMeta.keys()] } },
+      include: { overrides: true },
+      orderBy: { startDate: "asc" },
+    });
+    return buildListAllRows(particulars, accountMeta);
+  }),
+
   list: accountProcedure.query(({ ctx }) =>
     ctx.prisma.particular.findMany({
       where: { accountId: ctx.account.id }, include: { overrides: true }, orderBy: { startDate: "asc" },
