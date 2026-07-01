@@ -9,7 +9,6 @@ import {
   type DebtInput,
   type Strategy,
 } from "@/lib/engine";
-import type { DebtInputSchema } from "@/lib/schemas";
 import { formatCurrency } from "@/lib/design-system";
 import { Card } from "@/app/_components/ui/card";
 import { Button } from "@/app/_components/ui/button";
@@ -65,7 +64,8 @@ export default function DebtsPage() {
     const avalanche = run("AVALANCHE", extraPayment);
     const active = run(strategy, extraPayment);
     const activeNoExtra = run(strategy, 0);
-    return { snowball, avalanche, active, activeNoExtra };
+    const custom = run("CUSTOM", extraPayment);
+    return { snowball, avalanche, active, activeNoExtra, custom };
   }, [debts, customOrder, strategy, extraPayment]);
 
   const tips = useMemo(
@@ -127,7 +127,7 @@ export default function DebtsPage() {
                     {s.label} · {monthsLabel(
                       s.value === "SNOWBALL" ? sims.snowball.payoffMonth
                       : s.value === "AVALANCHE" ? sims.avalanche.payoffMonth
-                      : simulateDebtPayoff({ debts, strategy: "CUSTOM", extraPayment, customOrder }).payoffMonth,
+                      : sims.custom.payoffMonth,
                     )}
                   </Button>
                 ))}
