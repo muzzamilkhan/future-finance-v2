@@ -46,5 +46,12 @@ describe("frequencyLabel", () => {
       expect(frequencyLabel({ frequency: "FORTNIGHTLY", startDate: start }, d(2026, 6, 15)))
         .toBe("Every other Tue");
     });
+
+    it("assigns a Sunday occurrence to the Mon-Sun week that began the prior Monday", () => {
+      // Start Sun 2026-07-05; its Mon-Sun week is Mon 06-29..Sun 07-05.
+      // today Mon 2026-06-29 is in that same week -> "This Sun" (exercises dow=0 -> daysSinceMonday=6).
+      expect(frequencyLabel({ frequency: "FORTNIGHTLY", startDate: d(2026, 7, 5) }, d(2026, 6, 29)))
+        .toBe("This Sun");
+    });
   });
 });
