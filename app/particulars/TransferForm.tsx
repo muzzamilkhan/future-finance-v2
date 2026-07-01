@@ -98,20 +98,32 @@ export function TransferForm(
     onSettled,
   });
 
-  const submit = form.handleSubmit((values) => {
-    if (particularId) {
-      // Accounts are not editable on update; keep the transfer's existing from/to.
-      update.mutate({
-        ...values,
-        accountId: existing?.accountId ?? accountId!,
-        toAccountId: existing?.toAccountId ?? (values.toAccountId as string | undefined),
-        id: particularId,
-      });
-    } else {
-      create.mutate({ ...values, accountId: (values.accountId as string | undefined) || accountId! });
-    }
-    close();
-  });
+  // Which tab each field lives on, so submit can jump to the first tab with an error.
+  const fieldTab: Partial<Record<keyof TransferFormValues, number>> = {
+    accountId: 0, toAccountId: 0, amount: 0, frequency: 0, startDate: 0,
+    businessDayAdjustment: 1, endDate: 1,
+  };
+
+  const submit = form.handleSubmit(
+    (values) => {
+      if (particularId) {
+        // Accounts are not editable on update; keep the transfer's existing from/to.
+        update.mutate({
+          ...values,
+          accountId: existing?.accountId ?? accountId!,
+          toAccountId: existing?.toAccountId ?? (values.toAccountId as string | undefined),
+          id: particularId,
+        });
+      } else {
+        create.mutate({ ...values, accountId: (values.accountId as string | undefined) || accountId! });
+      }
+      close();
+    },
+    (errs) => {
+      const tabs = Object.keys(errs).map((k) => fieldTab[k as keyof TransferFormValues] ?? 0);
+      if (tabs.length) setStep(Math.min(...tabs));
+    },
+  );
 
   const close = () => { setStep(0); onClose(); };
 

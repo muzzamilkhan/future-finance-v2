@@ -103,15 +103,27 @@ export function ParticularForm(
     onSettled,
   });
 
-  const submit = form.handleSubmit((values) => {
-    if (particularId) {
-      // Account is not editable on update; keep the item on its existing account.
-      update.mutate({ ...values, accountId: existing?.accountId ?? accountId!, id: particularId });
-    } else {
-      create.mutate({ ...values, accountId: (values.accountId as string | undefined) || accountId! });
-    }
-    close();
-  });
+  // Which tab each field lives on, so submit can jump to the first tab with an error.
+  const fieldTab: Partial<Record<keyof ParticularFormValues, number>> = {
+    accountId: 0, type: 0, name: 0, amount: 0, frequency: 0, startDate: 0,
+    businessDayAdjustment: 1, endDate: 1, isCritical: 1, isFixed: 1, category: 1,
+  };
+
+  const submit = form.handleSubmit(
+    (values) => {
+      if (particularId) {
+        // Account is not editable on update; keep the item on its existing account.
+        update.mutate({ ...values, accountId: existing?.accountId ?? accountId!, id: particularId });
+      } else {
+        create.mutate({ ...values, accountId: (values.accountId as string | undefined) || accountId! });
+      }
+      close();
+    },
+    (errs) => {
+      const tabs = Object.keys(errs).map((k) => fieldTab[k as keyof ParticularFormValues] ?? 0);
+      if (tabs.length) setStep(Math.min(...tabs));
+    },
+  );
 
   const close = () => { setStep(0); onClose(); };
 
