@@ -42,6 +42,7 @@ export default function SpendingPage() {
     onSettled: () => {
       utils.particular.listAll.invalidate();
       utils.category.list.invalidate();
+      utils.category.listAll.invalidate();
       utils.forecast.getData.invalidate();
       utils.forecast.getCombined.invalidate();
     },
@@ -133,6 +134,7 @@ export default function SpendingPage() {
                             <CategoryCombobox
                               value={e.category ?? ""}
                               disabled={!e.canEditItems}
+                              allAccounts
                               onChange={(v) => { if (v !== (e.category ?? "")) retag(e, v); }}
                             />
                           </div>

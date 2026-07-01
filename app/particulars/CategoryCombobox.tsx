@@ -20,14 +20,16 @@ import { creatableCategory, filterCategories } from "./categorySelection";
  * Drop-in for CategoryChips: same `{ value, onChange, disabled? }` contract.
  */
 export function CategoryCombobox(
-  { value, onChange, disabled = false }:
-  { value: string; onChange: (next: string) => void; disabled?: boolean },
+  { value, onChange, disabled = false, allAccounts = false }:
+  { value: string; onChange: (next: string) => void; disabled?: boolean; allAccounts?: boolean },
 ) {
   const { accountId } = useActiveAccount();
-  const { data: categoryOptions = [] } = trpc.category.list.useQuery(
+  const scoped = trpc.category.list.useQuery(
     { accountId: accountId! },
-    { enabled: !!accountId },
+    { enabled: !allAccounts && !!accountId },
   );
+  const union = trpc.category.listAll.useQuery(undefined, { enabled: allAccounts });
+  const categoryOptions = (allAccounts ? union.data : scoped.data) ?? [];
 
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
