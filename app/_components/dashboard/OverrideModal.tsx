@@ -21,7 +21,7 @@ export function OverrideModal(
   const [amount, setAmount] = useState(String(Math.abs(currentAmount)));
   const [date, setDate] = useState(dateToInputValue(currentDate));
   const [skip, setSkip] = useState(false);
-  const settle = () => { utils.forecast.getData.invalidate(); utils.particular.listOverrides.invalidate({ accountId: accountId!, particularId }); };
+  const settle = () => { utils.forecast.getCombined.invalidate(); utils.particular.listOverrides.invalidate({ accountId: accountId!, particularId }); };
   const override = trpc.particular.overrideInstance.useMutation({
     onMutate: async (vars) => {
       const key = { accountId: accountId!, particularId };
