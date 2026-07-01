@@ -8,7 +8,7 @@ import { AccountBadge } from "./AccountBadge";
 
 export function DailyCard({ day, onEventClick, interactive = true, accountNames, accountIds = [] }: { day: DailyBalance; onEventClick?: (particularId: string, originalDate?: Date, currentAmount?: number, currentDate?: Date, overrideId?: string) => void; interactive?: boolean; accountNames?: Map<string, string>; accountIds?: string[] }) {
   return (
-    <Card id={`day-${dateToInputValue(day.date)}`} className={day.isNegative ? "border-finance-expense" : undefined}>
+    <Card id={`day-${dateToInputValue(day.date)}`} className={day.isNegative || day.hasExhaustedAccount ? "border-finance-expense" : undefined}>
       <CardContent className="p-3">
         <div className="flex items-center justify-between">
           <span className="font-medium">{formatUtcWeekdayMonthDay(day.date)}</span>
@@ -16,6 +16,21 @@ export function DailyCard({ day, onEventClick, interactive = true, accountNames,
             {formatCurrency(day.closingBalance)}
           </span>
         </div>
+        {day.hasExhaustedAccount && (
+          <ul className="mt-1 space-y-0.5">
+            {day.accounts.filter((a) => a.isExhausted).map((a) => (
+              <li key={a.accountId} className="flex justify-between text-xs text-finance-expense">
+                <span className="flex items-center gap-1">
+                  <AccountBadge accountId={a.accountId} accountNames={accountNames} orderedIds={accountIds} className="px-1.5 py-0 text-[10px]" />
+                  <span>overdrawn</span>
+                </span>
+                <span className="shrink-0">
+                  {formatCurrency(a.type === "CREDIT" ? (a.availableCredit ?? 0) : a.balance)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
         {day.events.length > 0 && (
           <ul className="mt-2 space-y-1">
             {sortDailyEvents(day.events).map((e, i) => {
