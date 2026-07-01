@@ -12,7 +12,7 @@ function nextUtcDay(d: Date): Date {
 }
 import type {
   EngineParticular, EngineHoliday, EngineAccount, AccountDaily,
-  DailyBalance, DailyEvent, MonthlySummary,
+  DailyBalance, DailyEvent, MonthlySummary, AccountExhaustion,
 } from "./types";
 
 export interface ForecastInput {
@@ -31,6 +31,7 @@ export interface ForecastResult {
   firstNegative: DailyBalance | null;
   lowest: DailyBalance | null;
   highest: DailyBalance | null;
+  exhaustions: AccountExhaustion[];
 }
 
 type RawEvent = {
@@ -160,10 +161,29 @@ export function computeForecast(input: ForecastInput): ForecastResult {
         accounts: closingSnap,
         events,
         isNegative: combined < 0,
+        hasExhaustedAccount: closingSnap.some((s) => s.isExhausted),
       });
     }
     cursor = nextUtcDay(cursor);
   }
+
+  const firstExhaustionByAccount = new Map<string, AccountExhaustion>();
+  for (const day of days) {
+    for (const acct of day.accounts) {
+      if (acct.isExhausted && !firstExhaustionByAccount.has(acct.accountId)) {
+        firstExhaustionByAccount.set(acct.accountId, {
+          accountId: acct.accountId,
+          date: day.date,
+          balance: acct.balance,
+          availableCredit: acct.availableCredit,
+          type: acct.type,
+        });
+      }
+    }
+  }
+  const exhaustions = [...firstExhaustionByAccount.values()].sort(
+    (a, b) => a.date.getTime() - b.date.getTime(),
+  );
 
   return {
     days,
@@ -171,6 +191,7 @@ export function computeForecast(input: ForecastInput): ForecastResult {
     firstNegative: days.find((d) => d.isNegative) ?? null,
     lowest: days.length ? days.reduce((lo, c) => (c.combined < lo.combined ? c : lo)) : null,
     highest: days.length ? days.reduce((hi, c) => (c.combined > hi.combined ? c : hi)) : null,
+    exhaustions,
   };
 }
 
