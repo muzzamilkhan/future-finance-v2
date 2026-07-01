@@ -1,7 +1,7 @@
 // app/spending/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { trpc } from "@/trpc/client";
 import { Layout } from "@/app/_components/Layout";
 import { formatCurrency } from "@/lib/design-system";
@@ -11,34 +11,36 @@ import { SpendingChart } from "./SpendingChart";
 import { SpendingSummaryStats } from "./SpendingSummaryStats";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "@/server/routers/_app";
-import { useActiveAccount } from "@/app/_components/AccountContext";
+import { AccountBadge } from "@/app/_components/dashboard/AccountBadge";
 import { updateRow } from "@/lib/optimistic";
 
-type Particular = inferRouterOutputs<AppRouter>["particular"]["list"][number];
+type ListAllRow = inferRouterOutputs<AppRouter>["particular"]["listAll"][number];
 
 export default function SpendingPage() {
-  const { accountId, activeMembership } = useActiveAccount();
-  const canEditItems = !activeMembership || activeMembership.role === "OWNER" || activeMembership.canEditItems;
   const utils = trpc.useUtils();
-  const { data: particulars = [], isLoading } = trpc.particular.list.useQuery(
-    { accountId: accountId! },
-    { enabled: !!accountId },
+  // Spending combines every account the user can see, excluding transfers.
+  const { data: rows = [], isLoading } = trpc.particular.listAll.useQuery();
+  const { data: accountList } = trpc.account.list.useQuery();
+  const accountNames = useMemo(
+    () => new Map((accountList ?? []).map((a) => [a.id, a.name] as const)),
+    [accountList],
   );
+  const accountIds = useMemo(() => (accountList ?? []).map((a) => a.id), [accountList]);
+
   const update = trpc.particular.update.useMutation({
     onMutate: async (vars) => {
-      const key = { accountId: vars.accountId };
-      await utils.particular.list.cancel(key);
-      const prev = utils.particular.list.getData(key);
-      utils.particular.list.setData(key, (old) =>
+      await utils.particular.listAll.cancel();
+      const prev = utils.particular.listAll.getData();
+      utils.particular.listAll.setData(undefined, (old) =>
         updateRow(old, vars.id, { category: vars.category ?? null } as never),
       );
-      return { prev, key };
+      return { prev };
     },
     onError: (_e, _vars, ctx) => {
-      if (ctx) utils.particular.list.setData(ctx.key, ctx.prev);
+      if (ctx) utils.particular.listAll.setData(undefined, ctx.prev);
     },
     onSettled: () => {
-      utils.particular.list.invalidate();
+      utils.particular.listAll.invalidate();
       utils.category.list.invalidate();
       utils.forecast.getData.invalidate();
       utils.forecast.getCombined.invalidate();
@@ -46,18 +48,20 @@ export default function SpendingPage() {
   });
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  const expenses = particulars.filter((p) => p.type === "EXPENSE" && p.frequency !== "ONCE_OFF");
-  const spendingInput: SpendingParticular[] = particulars.map((p) => ({
-    type: p.type as "INCOME" | "EXPENSE",
+  // Spending only counts recurring expenses; once-offs are never factored in.
+  const expenses = rows.filter((p) => p.type === "EXPENSE" && p.frequency !== "ONCE_OFF");
+  const untaggedItems = expenses.filter((p) => !p.category);
+  const spendingInput: SpendingParticular[] = rows.map((p) => ({
+    type: p.type,
     amount: Number(p.amount),
     frequency: p.frequency as SpendingParticular["frequency"],
     category: p.category,
   }));
   const summary = buildSpending(spendingInput);
 
-  const retag = (p: Particular, category: string) => {
+  const retag = (p: ListAllRow, category: string) => {
     update.mutate({
-      accountId: accountId!,
+      accountId: p.accountId,
       id: p.id,
       name: p.name,
       type: p.type as "INCOME" | "EXPENSE",
@@ -67,7 +71,7 @@ export default function SpendingPage() {
       endDate: p.endDate ? new Date(p.endDate) : undefined,
       isCritical: p.isCritical,
       isFixed: p.isFixed,
-      businessDayAdjustment: p.businessDayAdjustment as Particular["businessDayAdjustment"],
+      businessDayAdjustment: p.businessDayAdjustment,
       category,
     });
   };
@@ -75,10 +79,11 @@ export default function SpendingPage() {
   const groupName = (name: string) =>
     name === "" ? "Untagged" : name;
 
-  // Build display groups: each category + an Untagged bucket if present.
+  // Build display groups: each recurring category + an Untagged bucket whenever any
+  // recurring uncategorized expense exists.
   const groups: { name: string; monthly: number; key: string }[] = [
     ...summary.categories.map((c) => ({ name: c.name, monthly: c.monthly, key: c.name })),
-    ...(summary.untagged > 0 ? [{ name: "Untagged", monthly: summary.untagged, key: "" }] : []),
+    ...(untaggedItems.length > 0 ? [{ name: "Untagged", monthly: summary.untagged, key: "" }] : []),
   ];
 
   return (
@@ -99,7 +104,11 @@ export default function SpendingPage() {
             </div>
             <div className="space-y-2">
               {groups.map((g) => {
-                const items = expenses.filter((e) => (e.category ?? "") === g.key);
+                // Untagged lists recurring uncategorized expenses;
+                // category groups list their recurring members.
+                const items = g.key === ""
+                  ? untaggedItems
+                  : expenses.filter((e) => (e.category ?? "") === g.key);
                 return (
                   <div key={g.key || "untagged"} className="rounded-md border p-3">
                     <button
@@ -113,10 +122,17 @@ export default function SpendingPage() {
                       <div className="mt-3 space-y-2">
                         {items.map((e) => (
                           <div key={e.id} className="flex items-center justify-between gap-2">
-                            <span className="text-sm">{e.name}</span>
+                            <span className="flex items-center gap-2 text-sm">
+                              {e.name}
+                              <AccountBadge
+                                accountId={e.accountId}
+                                accountNames={accountNames}
+                                orderedIds={accountIds}
+                              />
+                            </span>
                             <CategoryCombobox
                               value={e.category ?? ""}
-                              disabled={!canEditItems}
+                              disabled={!e.canEditItems}
                               onChange={(v) => { if (v !== (e.category ?? "")) retag(e, v); }}
                             />
                           </div>

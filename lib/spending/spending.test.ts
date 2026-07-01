@@ -46,6 +46,18 @@ describe("buildSpending", () => {
     expect(s.surplus).toBe(-500);
   });
 
+  it("excludes transfers from all totals", () => {
+    const s = buildSpending([
+      { type: "INCOME", amount: 5000, frequency: "MONTHLY" },
+      { type: "EXPENSE", amount: 1000, frequency: "MONTHLY", category: "Rent" },
+      { type: "TRANSFER", amount: 800, frequency: "MONTHLY", category: "Savings" },
+    ]);
+    expect(s.monthlyIncome).toBe(5000);
+    expect(s.totalExpense).toBe(1000);
+    expect(s.untagged).toBe(0);
+    expect(s.categories).toEqual([{ name: "Rent", monthly: 1000 }]);
+  });
+
   it("excludes once-offs and handles empty input", () => {
     expect(buildSpending([])).toEqual({
       categories: [], untagged: 0, totalExpense: 0, monthlyIncome: 0, surplus: 0,

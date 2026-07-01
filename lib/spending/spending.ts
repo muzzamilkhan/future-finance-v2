@@ -1,6 +1,6 @@
 export type RecurrenceFrequency =
   | "ONCE_OFF" | "WEEKLY" | "FORTNIGHTLY" | "MONTHLY" | "ANNUAL";
-export type ParticularType = "INCOME" | "EXPENSE";
+export type ParticularType = "INCOME" | "EXPENSE" | "TRANSFER";
 
 export type SpendingParticular = {
   type: ParticularType;
@@ -41,6 +41,8 @@ export function buildSpending(particulars: SpendingParticular[]): SpendingSummar
       monthlyIncome += monthly;
       continue;
     }
+    // Only EXPENSE contributes to spending. Any other type (e.g. TRANSFER) is ignored.
+    if (p.type !== "EXPENSE") continue;
     totalExpense += monthly;
     const name = p.category ?? "";
     if (name === "") {
