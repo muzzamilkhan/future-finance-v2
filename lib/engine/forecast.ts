@@ -12,7 +12,7 @@ function nextUtcDay(d: Date): Date {
 }
 import type {
   EngineParticular, EngineHoliday, EngineAccount, AccountDaily,
-  DailyBalance, DailyEvent, MonthlySummary, AccountExhaustion,
+  DailyBalance, DailyEvent, MonthlySummary, AccountExhaustion, AccountLow,
 } from "./types";
 
 export interface ForecastInput {
@@ -32,6 +32,7 @@ export interface ForecastResult {
   lowest: DailyBalance | null;
   highest: DailyBalance | null;
   exhaustions: AccountExhaustion[];
+  lowestByAccount: AccountLow[];
 }
 
 type RawEvent = {
@@ -185,6 +186,29 @@ export function computeForecast(input: ForecastInput): ForecastResult {
     (a, b) => a.date.getTime() - b.date.getTime(),
   );
 
+  // Per-account lowest point, measured on the DISPLAY figure the UI renders:
+  // available credit for CREDIT, cash balance for DEBIT. Earliest day wins ties.
+  const displayFigure = (a: AccountDaily): number =>
+    a.type === "CREDIT" ? a.availableCredit ?? 0 : a.balance;
+  const lowestByAccount = new Map<string, AccountLow>();
+  const lowestFigure = new Map<string, number>();
+  for (const day of days) {
+    for (const acct of day.accounts) {
+      const fig = displayFigure(acct);
+      const prev = lowestFigure.get(acct.accountId);
+      if (prev === undefined || fig < prev) {
+        lowestFigure.set(acct.accountId, fig);
+        lowestByAccount.set(acct.accountId, {
+          accountId: acct.accountId,
+          type: acct.type,
+          date: day.date,
+          balance: acct.balance,
+          availableCredit: acct.availableCredit,
+        });
+      }
+    }
+  }
+
   return {
     days,
     months: summarize(days),
@@ -192,6 +216,7 @@ export function computeForecast(input: ForecastInput): ForecastResult {
     lowest: days.length ? days.reduce((lo, c) => (c.combined < lo.combined ? c : lo)) : null,
     highest: days.length ? days.reduce((hi, c) => (c.combined > hi.combined ? c : hi)) : null,
     exhaustions,
+    lowestByAccount: [...lowestByAccount.values()],
   };
 }
 

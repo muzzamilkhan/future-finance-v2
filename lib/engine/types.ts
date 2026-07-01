@@ -50,6 +50,14 @@ export interface AccountExhaustion {
   type: "DEBIT" | "CREDIT";
 }
 
+export interface AccountLow {
+  accountId: string;
+  type: "DEBIT" | "CREDIT";
+  date: Date;                     // the day this account hit its lowest
+  balance: number;                // DEBIT cash at that point
+  availableCredit: number | null; // CREDIT available credit at that point; null for DEBIT
+}
+
 export interface EngineHoliday {
   date: Date;
   isRecurring: boolean;
