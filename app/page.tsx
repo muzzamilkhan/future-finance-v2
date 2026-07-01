@@ -10,6 +10,7 @@ import { Layout } from "@/app/_components/Layout";
 import { Button } from "@/app/_components/ui/button";
 import { formatCurrency } from "@/lib/design-system";
 import { MetricCard } from "@/app/_components/dashboard/MetricCard";
+import { AccountBalanceList } from "@/app/_components/dashboard/AccountBalanceList";
 import { DailyCard } from "@/app/_components/dashboard/DailyCard";
 import { DangerNotification } from "@/app/_components/dashboard/DangerNotification";
 import { SkipTodayButton } from "@/app/_components/dashboard/SkipTodayButton";
@@ -28,7 +29,7 @@ export default function DashboardPage() {
   const viewStart = today;
   const viewEnd = addMonths(today, monthsAhead);
 
-  const { accountId, activeMembership } = useActiveAccount();
+  const { accountId, accounts, activeMembership } = useActiveAccount();
   const canUpdateBalance = !activeMembership || activeMembership.role === "OWNER" || activeMembership.canUpdateBalance;
   const canEditOverrides = !activeMembership || activeMembership.role === "OWNER" || activeMembership.canEditOverrides;
   const utils = trpc.useUtils();
@@ -113,7 +114,14 @@ export default function DashboardPage() {
         >
           <div className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-4">
             <MetricCard title="Current Balance" value={current} type={current >= 0 ? "income" : "expense"}
-              editable={canUpdateBalance} onSave={(balance) => updateBalance.mutate({ accountId: accountId!, balance })} />
+              editable={canUpdateBalance && accounts.length <= 1}
+              onSave={(balance) => updateBalance.mutate({ accountId: accountId!, balance })}
+              footer={
+                <AccountBalanceList
+                  accounts={accounts}
+                  onSave={(id, balance) => updateBalance.mutate({ accountId: id, balance })}
+                />
+              } />
             <MetricCard title="Lowest Balance" value={result.lowest?.closingBalance ?? 0}
               type={(result.lowest?.closingBalance ?? 0) >= 0 ? "income" : "expense"}
               subtitle={result.lowest ? format(result.lowest.date, "EEE, MMM d") : undefined}

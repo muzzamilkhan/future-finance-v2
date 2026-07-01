@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Check, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
 import { Input } from "@/app/_components/ui/input";
 import { formatCurrency } from "@/lib/design-system";
 
 export function MetricCard(
-  { title, value, subtitle, type, onClick, editable, onSave }:
+  { title, value, subtitle, type, onClick, editable, onSave, footer }:
   {
     title: string;
     value: number;
@@ -16,6 +16,7 @@ export function MetricCard(
     onClick?: () => void;
     editable?: boolean;
     onSave?: (value: number) => void;
+    footer?: ReactNode;
   },
 ) {
   const [editing, setEditing] = useState(false);
@@ -62,6 +63,7 @@ export function MetricCard(
             {subtitle && <div className="text-xs text-muted-foreground">{subtitle}</div>}
           </>
         )}
+        {footer}
       </CardContent>
     </Card>
   );
