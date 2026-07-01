@@ -282,3 +282,62 @@ it("transfer event carries from/to account ids", () => {
   expect(ev.fromAccountId).toBe("debit");
   expect(ev.toAccountId).toBe("credit");
 });
+
+it("nets a transfer to zero on the combined line yet flags the overdrawn source", () => {
+  // debit has 1000; transfer 1200 out to credit. Combined stays flat, but debit -> -200.
+  const r = computeForecast(input(
+    [p({ id: "t", type: "TRANSFER", accountId: "debit", toAccountId: "credit", amount: 1200 })],
+    [debit, credit],
+  ));
+  const jan5 = r.days.find(x => x.date.getUTCDate() === 5)!;
+  // combined unchanged by a same-day transfer, so no combined-negative day:
+  expect(r.firstNegative).toBeNull();
+  // but the source account is exhausted that day:
+  expect(jan5.hasExhaustedAccount).toBe(true);
+  const ex = r.exhaustions.find(e => e.accountId === "debit")!;
+  expect(ex).toBeDefined();
+  expect(ex.date.getUTCDate()).toBe(5);
+  expect(ex.balance).toBe(-200);
+  expect(ex.type).toBe("DEBIT");
+  expect(ex.availableCredit).toBeNull();
+});
+
+it("reports a credit account pushed past its limit as an exhaustion", () => {
+  // credit anchor -200, limit 1000 => availableCredit 800. A 900 expense -> availableCredit -100.
+  const r = computeForecast(input([p({ id: "e", type: "EXPENSE", accountId: "credit", amount: 900 })], [debit, credit]));
+  const ex = r.exhaustions.find(e => e.accountId === "credit")!;
+  expect(ex).toBeDefined();
+  expect(ex.type).toBe("CREDIT");
+  expect(ex.availableCredit).toBe(-100);
+});
+
+it("records only the FIRST day an account is exhausted", () => {
+  const r = computeForecast(input(
+    [
+      p({ id: "a", type: "EXPENSE", accountId: "debit", amount: 1200, startDate: day(0, 5) }),
+      p({ id: "b", type: "EXPENSE", accountId: "debit", amount: 50, startDate: day(0, 9) }),
+    ],
+    [debit],
+  ));
+  const debitExhaustions = r.exhaustions.filter(e => e.accountId === "debit");
+  expect(debitExhaustions).toHaveLength(1);
+  expect(debitExhaustions[0]!.date.getUTCDate()).toBe(5);
+});
+
+it("returns no exhaustions and hasExhaustedAccount false when all accounts stay solvent", () => {
+  const r = computeForecast(input([p({ id: "e", type: "EXPENSE", accountId: "debit", amount: 100 })], [debit, credit]));
+  expect(r.exhaustions).toEqual([]);
+  expect(r.days.every(d => d.hasExhaustedAccount === false)).toBe(true);
+});
+
+it("orders exhaustions by date ascending across accounts", () => {
+  // credit exhausted Jan 5, debit exhausted Jan 9.
+  const r = computeForecast(input(
+    [
+      p({ id: "c", type: "EXPENSE", accountId: "credit", amount: 900, startDate: day(0, 5) }),
+      p({ id: "d", type: "EXPENSE", accountId: "debit", amount: 1100, startDate: day(0, 9) }),
+    ],
+    [debit, credit],
+  ));
+  expect(r.exhaustions.map(e => e.accountId)).toEqual(["credit", "debit"]);
+});

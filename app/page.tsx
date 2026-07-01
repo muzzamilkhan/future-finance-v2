@@ -13,6 +13,7 @@ import { formatCurrency } from "@/lib/design-system";
 import { MetricCard } from "@/app/_components/dashboard/MetricCard";
 import { AccountBalanceList } from "@/app/_components/dashboard/AccountBalanceList";
 import { DailyCard } from "@/app/_components/dashboard/DailyCard";
+import { AccountBadge } from "@/app/_components/dashboard/AccountBadge";
 import { DangerNotification } from "@/app/_components/dashboard/DangerNotification";
 import { SkipTodayButton } from "@/app/_components/dashboard/SkipTodayButton";
 import { BalanceSparkline } from "@/app/_components/dashboard/BalanceSparkline";
@@ -144,9 +145,32 @@ export default function DashboardPage() {
               type={(result.lowest?.closingBalance ?? 0) >= 0 ? "income" : "expense"}
               subtitle={result.lowest ? formatUtcWeekdayMonthDay(result.lowest.date) : undefined}
               onClick={result.lowest ? () => scrollToDay(result.lowest!.date) : undefined} />
-            <MetricCard title="Next Negative" value={result.firstNegative?.closingBalance ?? 0} type="warning"
+            <MetricCard title="Combined Shortfall" value={result.firstNegative?.closingBalance ?? 0} type="warning"
               subtitle={result.firstNegative ? formatUtcWeekdayMonthDay(result.firstNegative.date) : undefined}
-              onClick={result.firstNegative ? () => scrollToDay(result.firstNegative!.date) : undefined} />
+              onClick={result.firstNegative ? () => scrollToDay(result.firstNegative!.date) : undefined}
+              footer={
+                result.exhaustions.length > 0 ? (
+                  <ul className="space-y-1">
+                    {result.exhaustions.map((ex) => (
+                      <li key={ex.accountId}>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); scrollToDay(ex.date); }}
+                          className="flex w-full items-center justify-between gap-1 text-left text-xs"
+                        >
+                          <span className="flex items-center gap-1">
+                            <AccountBadge accountId={ex.accountId} accountNames={accountNames} orderedIds={accountIds} className="px-1.5 py-0 text-[10px]" />
+                            <span className="text-muted-foreground">{formatUtcWeekdayMonthDay(ex.date)}</span>
+                          </span>
+                          <span className="shrink-0 text-finance-expense">
+                            {formatCurrency(ex.type === "CREDIT" ? (ex.availableCredit ?? 0) : ex.balance)}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : undefined
+              } />
             <MetricCard title="This Month" value={thisMonth?.netChange ?? 0}
               subtitle={`${formatCurrency(thisMonth?.totalIncome ?? 0)} in, ${formatCurrency(thisMonth?.totalExpenses ?? 0)} out`}
               type={(thisMonth?.netChange ?? 0) >= 0 ? "income" : "expense"} />
@@ -162,6 +186,7 @@ export default function DashboardPage() {
           {result.days
             .filter((day) =>
               day.events.length > 0 ||
+              day.hasExhaustedAccount ||
               (result.lowest && isSameDay(day.date, result.lowest.date)) ||
               (result.firstNegative && isSameDay(day.date, result.firstNegative.date)),
             )

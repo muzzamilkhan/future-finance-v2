@@ -42,6 +42,14 @@ export interface AccountDaily {
   isExhausted: boolean; // debit balance < 0, or credit availableCredit < 0
 }
 
+export interface AccountExhaustion {
+  accountId: string;
+  date: Date;                      // first day this account is exhausted
+  balance: number;                 // that account's balance that day (negative for debit)
+  availableCredit: number | null;  // creditLimit + balance for CREDIT; null for DEBIT
+  type: "DEBIT" | "CREDIT";
+}
+
 export interface EngineHoliday {
   date: Date;
   isRecurring: boolean;
@@ -82,6 +90,7 @@ export interface DailyBalance {
   accounts: AccountDaily[];
   events: DailyEvent[];
   isNegative: boolean;
+  hasExhaustedAccount: boolean; // true if any account snapshot this day is exhausted
 }
 
 export interface MonthlySummary {
