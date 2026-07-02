@@ -14,7 +14,7 @@ import {
 import { formatCurrency } from "@/lib/design-system";
 import { SharePanel } from "@/app/_components/SharePanel";
 import { AddCreditAccountDialog } from "@/app/_components/account/AddCreditAccountDialog";
-import { Star, Pencil, Share2, Archive, LogOut } from "lucide-react";
+import { Star, Share2, Archive, LogOut } from "lucide-react";
 import { groupAccounts, parseCreditLimit } from "./accountsPageHelpers";
 
 export default function AccountsPage() {
@@ -44,54 +44,59 @@ export default function AccountsPage() {
 
   const { owned, shared } = groupAccounts(accounts);
 
-  const renderCard = (a: AccountListItem) => (
-    <div key={a.id} className="rounded-md border p-3">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="truncate font-medium">{a.name}</span>
-          {a.isDefault && <Star className="h-3 w-3" aria-label="Default" />}
-          <Badge variant="secondary">{a.type === "CREDIT" ? "Credit" : "Debit"}</Badge>
-          {a.role === "MEMBER" && <Badge variant="secondary">shared</Badge>}
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">
-            {formatCurrency(a.currentBalance)}
-            {a.type === "CREDIT" && a.creditLimit != null ? ` / ${formatCurrency(a.creditLimit)}` : ""}
-          </span>
-          {!a.isDefault && (
-            <Button variant="ghost" size="icon-sm" aria-label="Set as default"
-              onClick={() => setDefault.mutate({ accountId: a.id })}>
-              <Star className="size-4" />
-            </Button>
-          )}
-          {a.role === "OWNER" && (
-            <Button variant="ghost" size="icon-sm" aria-label="Edit account"
-              onClick={() => { setEditName(a.name); setEditLimit(String(a.creditLimit ?? "")); setEditing(a); }}>
-              <Pencil className="size-4" />
-            </Button>
-          )}
-          {a.role === "OWNER" && (
-            <Button variant="ghost" size="icon-sm" aria-label="Manage sharing"
-              onClick={() => setSharing(a)}>
-              <Share2 className="size-4" />
-            </Button>
-          )}
-          {a.role === "OWNER" && (
-            <Button variant="ghost" size="icon-sm" aria-label="Close account"
-              onClick={() => setClosing(a)}>
-              <Archive className="size-4" />
-            </Button>
-          )}
-          {a.role === "MEMBER" && (
-            <Button variant="ghost" size="icon-sm" aria-label="Leave account"
-              onClick={() => setLeaving(a)}>
-              <LogOut className="size-4" />
-            </Button>
-          )}
+  const renderCard = (a: AccountListItem) => {
+    const canEdit = a.role === "OWNER";
+    const openEdit = () => { if (!canEdit) return; setEditName(a.name); setEditLimit(String(a.creditLimit ?? "")); setEditing(a); };
+    return (
+      <div
+        key={a.id}
+        role={canEdit ? "button" : undefined}
+        tabIndex={canEdit ? 0 : undefined}
+        onClick={openEdit}
+        onKeyDown={(e) => { if (canEdit && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openEdit(); } }}
+        className={`rounded-md border p-3${canEdit ? " cursor-pointer hover:bg-muted/50" : ""}`}
+      >
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="truncate font-medium">{a.name}</span>
+            {a.isDefault && <Star className="h-3 w-3" aria-label="Default" />}
+            <Badge variant="secondary">{a.type === "CREDIT" ? "Credit" : "Debit"}</Badge>
+            {a.role === "MEMBER" && <Badge variant="secondary">shared</Badge>}
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">
+              {formatCurrency(a.currentBalance)}
+              {a.type === "CREDIT" && a.creditLimit != null ? ` / ${formatCurrency(a.creditLimit)}` : ""}
+            </span>
+            {!a.isDefault && (
+              <Button variant="ghost" size="icon-sm" aria-label="Set as default"
+                onClick={(e) => { e.stopPropagation(); setDefault.mutate({ accountId: a.id }); }}>
+                <Star className="size-4" />
+              </Button>
+            )}
+            {a.role === "OWNER" && (
+              <Button variant="ghost" size="icon-sm" aria-label="Manage sharing"
+                onClick={(e) => { e.stopPropagation(); setSharing(a); }}>
+                <Share2 className="size-4" />
+              </Button>
+            )}
+            {a.role === "OWNER" && (
+              <Button variant="ghost" size="icon-sm" aria-label="Close account"
+                onClick={(e) => { e.stopPropagation(); setClosing(a); }}>
+                <Archive className="size-4" />
+              </Button>
+            )}
+            {a.role === "MEMBER" && (
+              <Button variant="ghost" size="icon-sm" aria-label="Leave account"
+                onClick={(e) => { e.stopPropagation(); setLeaving(a); }}>
+                <LogOut className="size-4" />
+              </Button>
+            )}
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <Layout>
