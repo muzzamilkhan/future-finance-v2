@@ -1,39 +1,32 @@
 import { z } from "zod";
-import { router, accountProcedure } from "../trpc";
-import { assertCan } from "../permissions";
+import { router, protectedProcedure } from "../trpc";
 import { holidayInput, importHolidaysInput } from "@/lib/schemas";
 import { fetchCountries, subdivisionsForCountry, fetchHolidays, filterHolidays } from "@/lib/holidayImport";
 
 export const holidayRouter = router({
-  list: accountProcedure.query(({ ctx }) =>
-    ctx.prisma.holiday.findMany({ where: { accountId: ctx.account.id }, orderBy: { date: "asc" } })),
+  list: protectedProcedure.query(({ ctx }) =>
+    ctx.prisma.holiday.findMany({ where: { userId: ctx.user.id }, orderBy: { date: "asc" } })),
 
-  create: accountProcedure.input(holidayInput).mutation(async ({ ctx, input }) => {
-    assertCan(ctx.membership, "editHolidays");
-    const { accountId: _a, ...rest } = input as typeof input & { accountId: string };
-    return ctx.prisma.holiday.create({ data: { ...rest, accountId: ctx.account.id, source: "CUSTOM" } });
-  }),
+  create: protectedProcedure.input(holidayInput).mutation(async ({ ctx, input }) =>
+    ctx.prisma.holiday.create({ data: { ...input, userId: ctx.user.id, source: "CUSTOM" } })),
 
-  delete: accountProcedure.input(z.object({ id: z.string() })).mutation(async ({ ctx, input }) => {
-    assertCan(ctx.membership, "editHolidays");
-    return ctx.prisma.holiday.deleteMany({ where: { id: input.id, accountId: ctx.account.id } });
-  }),
+  delete: protectedProcedure.input(z.object({ id: z.string() })).mutation(async ({ ctx, input }) =>
+    ctx.prisma.holiday.deleteMany({ where: { id: input.id, userId: ctx.user.id } })),
 
-  availableCountries: accountProcedure.query(() => fetchCountries()),
+  availableCountries: protectedProcedure.query(() => fetchCountries()),
 
-  subdivisions: accountProcedure
+  subdivisions: protectedProcedure
     .input(z.object({ countryCode: z.string().length(2) }))
     .query(({ input }) => subdivisionsForCountry(input.countryCode, new Date().getFullYear())),
 
-  import: accountProcedure.input(importHolidaysInput).mutation(async ({ ctx, input }) => {
-    assertCan(ctx.membership, "editHolidays");
+  import: protectedProcedure.input(importHolidaysInput).mutation(async ({ ctx, input }) => {
     const year = new Date().getFullYear();
     const holidays = filterHolidays(await fetchHolidays(input.countryCode, year), input.stateCode);
 
-    // Dedupe by name (the unique key is (accountId, name, source)); keep the last occurrence.
+    // Dedupe by name (the unique key is (userId, name, source)); keep the last occurrence.
     const byName = new Map(holidays.map((h) => [h.name, h]));
     const data = [...byName.values()].map((h) => ({
-      accountId: ctx.account.id,
+      userId: ctx.user.id,
       name: h.name,
       date: new Date(h.date),
       isRecurring: true,
@@ -42,9 +35,7 @@ export const holidayRouter = router({
 
     // Replace: drop all previously imported holidays, then insert the fresh set.
     await ctx.prisma.$transaction([
-      ctx.prisma.holiday.deleteMany({
-        where: { accountId: ctx.account.id, source: "IMPORTED" },
-      }),
+      ctx.prisma.holiday.deleteMany({ where: { userId: ctx.user.id, source: "IMPORTED" } }),
       ctx.prisma.holiday.createMany({ data }),
     ]);
 
