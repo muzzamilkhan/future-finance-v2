@@ -14,7 +14,7 @@ import { Card } from "@/app/_components/ui/card";
 import { Button } from "@/app/_components/ui/button";
 import { Input } from "@/app/_components/ui/input";
 import { Label } from "@/app/_components/ui/label";
-import { DebtForm } from "./DebtForm";
+import { DebtFormDialog } from "./DebtForm";
 import { DebtCard } from "./DebtCard";
 import { DebtForecastChart } from "./DebtForecastChart";
 import { DebtTipsPanel } from "./DebtTipsPanel";
@@ -80,9 +80,31 @@ export default function DebtsPage() {
   const totalOwed = debts.reduce((s, d) => s + d.balance, 0);
   const totalMin = debts.reduce((s, d) => s + d.minPayment, 0);
 
+  const editingRow = editingId ? rows.find((d) => d.id === editingId) : undefined;
+
   return (
     <Layout>
-      <div className="mx-auto grid max-w-3xl gap-6">
+      <DebtFormDialog
+        open={adding}
+        onSubmit={(v) => create.mutate(v)}
+        onClose={() => setAdding(false)}
+        submitting={create.isPending}
+      />
+      {editingRow && (
+        <DebtFormDialog
+          open={!!editingRow}
+          initial={{
+            name: editingRow.name,
+            balance: Number(editingRow.balance),
+            aprPercent: Number(editingRow.apr) * 100,
+            minPayment: Number(editingRow.minPayment),
+          }}
+          onSubmit={(v) => update.mutate({ id: editingRow.id, ...v })}
+          onClose={() => setEditingId(null)}
+          submitting={update.isPending}
+        />
+      )}
+      <div className="grid gap-6">
         <div>
           <h1 className="text-2xl font-bold">Debt Buster</h1>
           <p className="text-sm text-muted-foreground">Plan your path to debt-free.</p>
@@ -90,14 +112,15 @@ export default function DebtsPage() {
 
         {isLoading ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
-        ) : debts.length === 0 && !adding ? (
+        ) : debts.length === 0 ? (
           <Card className="grid gap-3 p-4">
             <p className="text-sm text-muted-foreground">No debts yet. Add your first to see a payoff forecast.</p>
-            <Button onClick={() => setAdding(true)}>Add debt</Button>
+            <Button onClick={() => setAdding(true)} className="justify-self-start">Add debt</Button>
           </Card>
         ) : (
-          <>
-            {debts.length > 0 && (
+          <div className="grid gap-6 lg:grid-cols-5">
+            {/* Left: forecast + strategy + tips (80%) */}
+            <div className="grid content-start gap-6 lg:col-span-4">
               <div className="grid gap-4 sm:grid-cols-3">
                 <Card className="p-4">
                   <p className="text-xs text-muted-foreground">Total owed</p>
@@ -112,86 +135,62 @@ export default function DebtsPage() {
                   <p className="text-xl font-bold">{monthsLabel(sims.active.payoffMonth)}</p>
                 </Card>
               </div>
-            )}
 
-            <Card className="grid gap-4 p-4">
-              <div className="flex flex-wrap items-center gap-2">
-                {STRATEGIES.map((s) => (
-                  <Button
-                    key={s.value}
-                    type="button"
-                    variant={strategy === s.value ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setStrategy(s.value)}
-                  >
-                    {s.label} · {monthsLabel(
-                      s.value === "SNOWBALL" ? sims.snowball.payoffMonth
-                      : s.value === "AVALANCHE" ? sims.avalanche.payoffMonth
-                      : sims.custom.payoffMonth,
-                    )}
-                  </Button>
-                ))}
-              </div>
-              <div className="grid max-w-xs gap-1">
-                <Label htmlFor="extra">Extra payment / mo</Label>
-                <Input
-                  id="extra"
-                  inputMode="decimal"
-                  value={extraStr}
-                  onChange={(e) => setExtraStr(e.target.value)}
-                />
-              </div>
-              {debts.length > 0 && <DebtForecastChart result={sims.active} />}
-            </Card>
+              <Card className="grid gap-4 p-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  {STRATEGIES.map((s) => (
+                    <Button
+                      key={s.value}
+                      type="button"
+                      variant={strategy === s.value ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setStrategy(s.value)}
+                    >
+                      {s.label} · {monthsLabel(
+                        s.value === "SNOWBALL" ? sims.snowball.payoffMonth
+                        : s.value === "AVALANCHE" ? sims.avalanche.payoffMonth
+                        : sims.custom.payoffMonth,
+                      )}
+                    </Button>
+                  ))}
+                </div>
+                <div className="grid max-w-xs gap-1">
+                  <Label htmlFor="extra">Extra payment / mo</Label>
+                  <Input
+                    id="extra"
+                    inputMode="decimal"
+                    value={extraStr}
+                    onChange={(e) => setExtraStr(e.target.value)}
+                  />
+                </div>
+                <DebtForecastChart result={sims.active} />
+              </Card>
 
-            {debts.length > 0 && <DebtTipsPanel tips={tips} extraPayment={extraPayment} />}
+              <DebtTipsPanel tips={tips} extraPayment={extraPayment} />
+            </div>
 
-            <div className="grid gap-3">
+            {/* Right: debt list (20%) */}
+            <div className="grid content-start gap-3 lg:col-span-1">
               <div className="flex items-center justify-between">
                 <h2 className="font-semibold">Your debts</h2>
-                {!adding && <Button size="sm" onClick={() => setAdding(true)}>Add debt</Button>}
+                <Button size="sm" onClick={() => setAdding(true)}>Add</Button>
               </div>
-              {adding && (
-                <Card className="p-4">
-                  <DebtForm
-                    onSubmit={(v) => create.mutate(v)}
-                    onCancel={() => setAdding(false)}
-                    submitting={create.isPending}
-                  />
-                </Card>
-              )}
-              {rows.map((d) =>
-                editingId === d.id ? (
-                  <Card key={d.id} className="p-4">
-                    <DebtForm
-                      initial={{
-                        name: d.name,
-                        balance: Number(d.balance),
-                        aprPercent: Number(d.apr) * 100,
-                        minPayment: Number(d.minPayment),
-                      }}
-                      onSubmit={(v) => update.mutate({ id: d.id, ...v })}
-                      onCancel={() => setEditingId(null)}
-                      submitting={update.isPending}
-                    />
-                  </Card>
-                ) : (
-                  <DebtCard
-                    key={d.id}
-                    debt={{
-                      id: d.id,
-                      name: d.name,
-                      balance: Number(d.balance),
-                      apr: Number(d.apr),
-                      minPayment: Number(d.minPayment),
-                    }}
-                    onEdit={() => setEditingId(d.id)}
-                    onDelete={() => del.mutate({ id: d.id })}
-                  />
-                ),
-              )}
+              {rows.map((d) => (
+                <DebtCard
+                  key={d.id}
+                  debt={{
+                    id: d.id,
+                    name: d.name,
+                    balance: Number(d.balance),
+                    apr: Number(d.apr),
+                    minPayment: Number(d.minPayment),
+                  }}
+                  onEdit={() => setEditingId(d.id)}
+                  onDelete={() => del.mutate({ id: d.id })}
+                />
+              ))}
             </div>
-          </>
+          </div>
         )}
       </div>
     </Layout>
