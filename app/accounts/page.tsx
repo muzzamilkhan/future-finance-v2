@@ -14,7 +14,7 @@ import {
 import { formatCurrency } from "@/lib/design-system";
 import { SharePanel } from "@/app/_components/SharePanel";
 import { AddCreditAccountDialog } from "@/app/_components/account/AddCreditAccountDialog";
-import { Star, Wallet, Share2, Archive, LogOut } from "lucide-react";
+import { Star, Pencil, Share2, Archive, LogOut } from "lucide-react";
 import { groupAccounts, parseCreditLimit } from "./accountsPageHelpers";
 
 export default function AccountsPage() {
@@ -26,8 +26,8 @@ export default function AccountsPage() {
   const setDefault = trpc.account.setDefault.useMutation({ onSuccess: invalidate, onError: (e) => setError(e.message) });
   const close = trpc.account.close.useMutation({ onSuccess: () => { invalidate(); setClosing(null); }, onError: (e) => setError(e.message) });
   const leave = trpc.account.leave.useMutation({ onSuccess: () => { invalidate(); setLeaving(null); }, onError: (e) => setError(e.message) });
-  const updateCreditLimit = trpc.account.updateCreditLimit.useMutation({
-    onSuccess: () => { invalidate(); utils.forecast.getCombined.invalidate(); setLimitFor(null); },
+  const update = trpc.account.update.useMutation({
+    onSuccess: () => { invalidate(); utils.forecast.getCombined.invalidate(); setEditing(null); },
     onError: (e) => setError(e.message),
   });
 
@@ -36,8 +36,9 @@ export default function AccountsPage() {
   const [newName, setNewName] = useState("New Account");
   const [addCreditOpen, setAddCreditOpen] = useState(false);
   const [sharing, setSharing] = useState<AccountListItem | null>(null);
-  const [limitFor, setLimitFor] = useState<AccountListItem | null>(null);
-  const [limitInput, setLimitInput] = useState("");
+  const [editing, setEditing] = useState<AccountListItem | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editLimit, setEditLimit] = useState("");
   const [closing, setClosing] = useState<AccountListItem | null>(null);
   const [leaving, setLeaving] = useState<AccountListItem | null>(null);
 
@@ -63,10 +64,10 @@ export default function AccountsPage() {
               <Star className="size-4" />
             </Button>
           )}
-          {a.type === "CREDIT" && a.role === "OWNER" && (
-            <Button variant="ghost" size="icon-sm" aria-label="Edit credit limit"
-              onClick={() => { setLimitInput(String(a.creditLimit ?? "")); setLimitFor(a); }}>
-              <Wallet className="size-4" />
+          {a.role === "OWNER" && (
+            <Button variant="ghost" size="icon-sm" aria-label="Edit account"
+              onClick={() => { setEditName(a.name); setEditLimit(String(a.creditLimit ?? "")); setEditing(a); }}>
+              <Pencil className="size-4" />
             </Button>
           )}
           {a.role === "OWNER" && (
@@ -135,22 +136,30 @@ export default function AccountsPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Edit credit limit */}
-        <Dialog open={!!limitFor} onOpenChange={(o) => { if (!o && !updateCreditLimit.isPending) setLimitFor(null); }}>
+        {/* Edit account */}
+        <Dialog open={!!editing} onOpenChange={(o) => { if (!o && !update.isPending) setEditing(null); }}>
           <DialogContent>
-            <DialogHeader><DialogTitle>Edit credit limit</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>Edit account</DialogTitle></DialogHeader>
             <div className="space-y-1">
-              <Label>Credit limit</Label>
-              <Input value={limitInput} onChange={(e) => setLimitInput(e.target.value)} inputMode="decimal" />
+              <Label>Name</Label>
+              <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
             </div>
+            {editing?.type === "CREDIT" && (
+              <div className="space-y-1">
+                <Label>Credit limit</Label>
+                <Input value={editLimit} onChange={(e) => setEditLimit(e.target.value)} inputMode="decimal" />
+              </div>
+            )}
             <DialogFooter>
-              <Button variant="outline" disabled={updateCreditLimit.isPending} onClick={() => setLimitFor(null)}>Cancel</Button>
-              <Button disabled={updateCreditLimit.isPending || parseCreditLimit(limitInput) === null}
+              <Button variant="outline" disabled={update.isPending} onClick={() => setEditing(null)}>Cancel</Button>
+              <Button disabled={update.isPending || !editName.trim() || (editing?.type === "CREDIT" && parseCreditLimit(editLimit) === null)}
                 onClick={() => {
-                  const n = parseCreditLimit(limitInput);
-                  if (limitFor && n !== null) { setError(null); updateCreditLimit.mutate({ accountId: limitFor.id, creditLimit: n }); }
+                  if (!editing) return;
+                  const creditLimit = editing.type === "CREDIT" ? parseCreditLimit(editLimit) ?? undefined : undefined;
+                  setError(null);
+                  update.mutate({ accountId: editing.id, name: editName.trim(), creditLimit });
                 }}>
-                {updateCreditLimit.isPending ? "Saving..." : "Save"}
+                {update.isPending ? "Saving..." : "Save"}
               </Button>
             </DialogFooter>
           </DialogContent>

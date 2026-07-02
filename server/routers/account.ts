@@ -3,7 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { router, protectedProcedure, accountProcedure, ensureBootstrapAccount } from "../trpc";
 import { assertCan } from "../permissions";
 import { pickNextDefault } from "../defaultAccount";
-import { updateBalanceInput, createCreditAccountInput, updateCreditLimitInput } from "@/lib/schemas";
+import { updateBalanceInput, createCreditAccountInput, updateAccountInput } from "@/lib/schemas";
 
 /** Prisma `data` for creating a credit account. Outstanding is entered positive (amount owed); stored negative. */
 export function creditAccountCreateData(input: { name: string; creditLimit: number; outstanding: number }) {
@@ -160,11 +160,15 @@ export const accountRouter = router({
     return { id: account.id };
   }),
 
-  updateCreditLimit: accountProcedure.input(updateCreditLimitInput).mutation(async ({ ctx, input }) => {
-    assertCan(ctx.membership, "updateBalance");
-    if (ctx.account.type !== "CREDIT") throw new TRPCError({ code: "BAD_REQUEST", message: "Not a credit account" });
+  update: accountProcedure.input(updateAccountInput).mutation(async ({ ctx, input }) => {
+    if (ctx.membership.role !== "OWNER") throw new TRPCError({ code: "FORBIDDEN", message: "Only the owner can edit an account" });
+    if (input.creditLimit !== undefined && ctx.account.type !== "CREDIT") throw new TRPCError({ code: "BAD_REQUEST", message: "Not a credit account" });
     return ctx.prisma.financeAccount.update({
-      where: { id: ctx.account.id }, data: { creditLimit: input.creditLimit },
+      where: { id: ctx.account.id },
+      data: {
+        name: input.name,
+        ...(input.creditLimit !== undefined ? { creditLimit: input.creditLimit } : {}),
+      },
     });
   }),
 });
