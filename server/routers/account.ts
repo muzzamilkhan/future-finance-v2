@@ -150,10 +150,6 @@ export const accountRouter = router({
 
   createCredit: protectedProcedure.input(createCreditAccountInput).mutation(async ({ ctx, input }) => {
     await ensureBootstrapAccount(ctx.user.id);
-    const existingCredit = await ctx.prisma.accountMembership.findFirst({
-      where: { userId: ctx.user.id, role: "OWNER", account: { type: "CREDIT", closedAt: null } },
-    });
-    if (existingCredit) throw new TRPCError({ code: "BAD_REQUEST", message: "You already have a credit account" });
     const account = await ctx.prisma.financeAccount.create({ data: creditAccountCreateData(input) });
     await ctx.prisma.accountMembership.create({
       data: {

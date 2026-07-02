@@ -42,7 +42,6 @@ export default function AccountsPage() {
   const [leaving, setLeaving] = useState<AccountListItem | null>(null);
 
   const { owned, shared } = groupAccounts(accounts);
-  const hasCredit = accounts.some((a) => a.type === "CREDIT");
 
   const renderCard = (a: AccountListItem) => (
     <div key={a.id} className="rounded-md border p-3">
@@ -100,9 +99,7 @@ export default function AccountsPage() {
           <h1 className="text-2xl font-bold">Accounts</h1>
           <div className="flex items-center gap-2">
             <Button size="sm" onClick={() => { setNewName("New Account"); setNewOpen(true); }}>New account</Button>
-            {!hasCredit && (
-              <Button size="sm" variant="outline" onClick={() => setAddCreditOpen(true)}>Add credit account</Button>
-            )}
+            <Button size="sm" variant="outline" onClick={() => setAddCreditOpen(true)}>Add credit account</Button>
           </div>
         </div>
 
