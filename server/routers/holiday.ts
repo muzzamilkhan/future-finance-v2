@@ -30,21 +30,24 @@ export const holidayRouter = router({
     const year = new Date().getFullYear();
     const holidays = filterHolidays(await fetchHolidays(input.countryCode, year), input.stateCode);
 
-    let imported = 0;
-    let updated = 0;
-    await ctx.prisma.$transaction(async (tx) => {
-      for (const h of holidays) {
-        const existing = await tx.holiday.findUnique({
-          where: { accountId_name_source: { accountId: ctx.account.id, name: h.name, source: "IMPORTED" } },
-        });
-        if (existing) updated++; else imported++;
-        await tx.holiday.upsert({
-          where: { accountId_name_source: { accountId: ctx.account.id, name: h.name, source: "IMPORTED" } },
-          create: { accountId: ctx.account.id, name: h.name, date: new Date(h.date), isRecurring: true, source: "IMPORTED" },
-          update: { date: new Date(h.date), isRecurring: true },
-        });
-      }
-    });
-    return { imported, updated };
+    // Dedupe by name (the unique key is (accountId, name, source)); keep the last occurrence.
+    const byName = new Map(holidays.map((h) => [h.name, h]));
+    const data = [...byName.values()].map((h) => ({
+      accountId: ctx.account.id,
+      name: h.name,
+      date: new Date(h.date),
+      isRecurring: true,
+      source: "IMPORTED" as const,
+    }));
+
+    // Replace: drop all previously imported holidays, then insert the fresh set.
+    await ctx.prisma.$transaction([
+      ctx.prisma.holiday.deleteMany({
+        where: { accountId: ctx.account.id, source: "IMPORTED" },
+      }),
+      ctx.prisma.holiday.createMany({ data }),
+    ]);
+
+    return { imported: data.length };
   }),
 });

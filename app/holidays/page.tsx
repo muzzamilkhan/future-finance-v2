@@ -6,6 +6,8 @@ import { Layout } from "@/app/_components/Layout";
 import { Button } from "@/app/_components/ui/button";
 import { Input } from "@/app/_components/ui/input";
 import { Checkbox } from "@/app/_components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/_components/ui/select";
+import { Label } from "@/app/_components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/app/_components/ui/dialog";
 import { formatUtcMonthDayYear, inputValueToDate } from "@/lib/dateInput";
 import { useActiveAccount } from "@/app/_components/AccountContext";
@@ -87,7 +89,7 @@ export default function HolidaysPage() {
     onSettled: () => { utils.holiday.list.invalidate(); utils.forecast.getData.invalidate(); utils.forecast.getCombined.invalidate(); },
   });
   const [pendingDelete, setPendingDelete] = useState<HolidayItem | null>(null);
-  const [name, setName] = useState(""); const [date, setDate] = useState(""); const [recurring, setRecurring] = useState(false);
+  const [name, setName] = useState(""); const [date, setDate] = useState(""); const [recurring, setRecurring] = useState(true);
 
   const [country, setCountry] = useState("");
   const [stateCode, setStateCode] = useState("");
@@ -102,7 +104,7 @@ export default function HolidaysPage() {
   );
   const importHolidays = trpc.holiday.import.useMutation({
     onSuccess: (r) => {
-      setImportMsg(`Imported ${r.imported}, updated ${r.updated}.`);
+      setImportMsg(`Imported ${r.imported} holidays.`);
       utils.holiday.list.invalidate(); utils.forecast.getData.invalidate(); utils.forecast.getCombined.invalidate();
     },
     onError: (e) => setImportMsg(`Import failed: ${e.message}`),
@@ -113,49 +115,60 @@ export default function HolidaysPage() {
       <div className="space-y-4">
         <h1 className="text-2xl font-bold">Holidays</h1>
         <div className="grid grid-cols-1 items-stretch gap-4 md:grid-cols-2">
-        <div className="flex flex-wrap items-end gap-2 rounded-md border p-3">
-          <div className="flex flex-col gap-1 text-sm">
-            <span>Country</span>
-            <select className="rounded-md border px-2 py-1" value={country}
-              onChange={(e) => { setCountry(e.target.value); setStateCode(""); }}>
-              <option value="">Select…</option>
-              {(countries ?? []).map((c) => (
-                <option key={c.countryCode} value={c.countryCode}>{c.name}</option>
-              ))}
-            </select>
-          </div>
-          {(subdivisions ?? []).length > 0 && (
-            <div className="flex flex-col gap-1 text-sm">
-              <span>State (optional)</span>
-              <select className="rounded-md border px-2 py-1" value={stateCode}
-                onChange={(e) => setStateCode(e.target.value)}>
-                <option value="">National only</option>
-                {(subdivisions ?? []).map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
+        <div className="flex flex-col gap-3 rounded-md border p-3">
+          <div className="flex gap-2">
+            <div className="flex flex-1 flex-col gap-1">
+              <Label>Country</Label>
+              <Select value={country || undefined}
+                onValueChange={(v) => { setCountry(v); setStateCode(""); }}>
+                <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
+                <SelectContent>
+                  {(countries ?? []).map((c) => (
+                    <SelectItem key={c.countryCode} value={c.countryCode}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          )}
-          <Button size="sm" disabled={!canEditHolidays || country.length !== 2 || importHolidays.isPending}
-            onClick={() => { setImportMsg(null); importHolidays.mutate({ accountId: accountId!, countryCode: country, stateCode: stateCode || undefined }); }}>
-            {importHolidays.isPending ? "Importing…" : "Import holidays"}
-          </Button>
-          {importMsg && <span className="text-sm text-muted-foreground">{importMsg}</span>}
+            <div className="flex flex-1 flex-col gap-1">
+              <Label>State (optional)</Label>
+              <Select value={stateCode || undefined} disabled={(subdivisions ?? []).length === 0}
+                onValueChange={(v) => setStateCode(v === "__national__" ? "" : v)}>
+                <SelectTrigger><SelectValue placeholder="National only" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__national__">National only</SelectItem>
+                  {(subdivisions ?? []).map((s) => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="mt-auto flex items-center justify-end gap-2">
+            {importMsg && <span className="text-sm text-muted-foreground">{importMsg}</span>}
+            <Button size="sm" disabled={!canEditHolidays || country.length !== 2 || importHolidays.isPending}
+              onClick={() => { setImportMsg(null); importHolidays.mutate({ accountId: accountId!, countryCode: country, stateCode: stateCode || undefined }); }}>
+              {importHolidays.isPending ? "Importing…" : "Import holidays"}
+            </Button>
+          </div>
         </div>
-        <form className="flex flex-wrap items-end gap-2 rounded-md border p-3"
-          onSubmit={(e) => { e.preventDefault(); const parsed = inputValueToDate(date); if (!parsed) return; create.mutate({ accountId: accountId!, name, date: parsed, isRecurring: recurring }); setName(""); setDate(""); }}>
-          <div className="flex flex-col gap-1 text-sm">
-            <span>Name</span>
-            <Input className="w-40" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
+        <form className="flex flex-col gap-3 rounded-md border p-3"
+          onSubmit={(e) => { e.preventDefault(); const parsed = inputValueToDate(date); if (!parsed) return; create.mutate({ accountId: accountId!, name, date: parsed, isRecurring: recurring }); setName(""); setDate(""); setRecurring(true); }}>
+          <div className="flex gap-2">
+            <div className="flex flex-1 flex-col gap-1">
+              <Label>Name</Label>
+              <Input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
+            <div className="flex flex-1 flex-col gap-1">
+              <Label>Date</Label>
+              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </div>
           </div>
-          <div className="flex flex-col gap-1 text-sm">
-            <span>Date</span>
-            <Input className="w-36" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          <div className="mt-auto flex items-center justify-between gap-2">
+            <label className="flex h-9 items-center gap-1 text-sm">
+              <Checkbox checked={recurring} onCheckedChange={(c) => setRecurring(!!c)} /> Recurring
+            </label>
+            <Button type="submit" size="sm" disabled={!canEditHolidays}>Add</Button>
           </div>
-          <label className="flex h-9 items-center gap-1 text-sm">
-            <Checkbox checked={recurring} onCheckedChange={(c) => setRecurring(!!c)} /> Recurring
-          </label>
-          <Button type="submit" size="sm" disabled={!canEditHolidays}>Add</Button>
         </form>
         </div>
         <HolidaySection title="Imported Holidays"
