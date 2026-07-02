@@ -14,9 +14,15 @@ export function DebtTipsPanel({ tips, extraPayment }: { tips: DebtTips; extraPay
   if (tips.recommendation.kind === "compare") {
     const r = tips.recommendation;
     const name = r.winner === "AVALANCHE" ? "Avalanche" : "Snowball";
-    lines.push(
-      `${name} clears your debt ${pluralMonths(r.monthsSaved)} sooner and saves ${formatCurrency(r.interestSaved)} in interest.`,
-    );
+    if (r.monthsSaved === 0) {
+      lines.push(
+        `${name} saves you ${formatCurrency(r.interestSaved)} in interest (same debt-free timing).`,
+      );
+    } else {
+      lines.push(
+        `${name} clears your debt ${pluralMonths(r.monthsSaved)} sooner and saves ${formatCurrency(r.interestSaved)} in interest.`,
+      );
+    }
   } else if (tips.recommendation.kind === "tie") {
     lines.push("Snowball and avalanche finish at the same time and cost — pick whichever keeps you motivated.");
   } else {
