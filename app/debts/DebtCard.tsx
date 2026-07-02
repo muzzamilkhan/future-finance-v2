@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/app/_components/ui/button";
+import { X } from "lucide-react";
 import { Card } from "@/app/_components/ui/card";
 import { formatCurrency } from "@/lib/design-system";
 
@@ -14,17 +14,35 @@ export function DebtCard({
   onDelete: () => void;
 }) {
   return (
-    <Card className="flex items-center justify-between gap-3 p-4">
-      <div>
+    <Card
+      role="button"
+      tabIndex={0}
+      onClick={onEdit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onEdit();
+        }
+      }}
+      className="flex w-full cursor-pointer flex-row items-center gap-3 p-4 text-left transition-colors hover:bg-accent/50 focus-visible:ring-ring/50 focus-visible:ring-[3px] focus-visible:outline-none"
+    >
+      <div className="w-full min-w-0 flex-1">
         <p className="font-medium">{debt.name}</p>
         <p className="text-sm text-muted-foreground">
           {formatCurrency(debt.balance)} · {(debt.apr * 100).toFixed(2)}% · {formatCurrency(debt.minPayment)}/mo
         </p>
       </div>
-      <div className="flex gap-2">
-        <Button type="button" variant="ghost" size="sm" onClick={onEdit}>Edit</Button>
-        <Button type="button" variant="ghost" size="sm" onClick={onDelete}>Delete</Button>
-      </div>
+      <button
+        type="button"
+        aria-label={`Delete ${debt.name}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete();
+        }}
+        className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-ring/50 focus-visible:ring-[3px] focus-visible:outline-none"
+      >
+        <X className="h-4 w-4" />
+      </button>
     </Card>
   );
 }

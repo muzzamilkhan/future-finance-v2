@@ -14,10 +14,20 @@ import { Card } from "@/app/_components/ui/card";
 import { Button } from "@/app/_components/ui/button";
 import { Input } from "@/app/_components/ui/input";
 import { Label } from "@/app/_components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/app/_components/ui/dialog";
 import { DebtFormDialog } from "./DebtForm";
 import { DebtCard } from "./DebtCard";
 import { DebtForecastChart } from "./DebtForecastChart";
 import { DebtTipsPanel } from "./DebtTipsPanel";
+import { addRow, removeRow, newTempId } from "@/lib/optimistic";
+import { toast } from "sonner";
 
 const STRATEGIES: { value: Strategy; label: string }[] = [
   { value: "SNOWBALL", label: "Snowball" },
@@ -38,11 +48,55 @@ export default function DebtsPage() {
   const [extraStr, setExtraStr] = useState("0");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null);
 
   const invalidate = () => utils.debt.list.invalidate();
-  const create = trpc.debt.create.useMutation({ onSuccess: () => { setAdding(false); invalidate(); } });
+
+  const create = trpc.debt.create.useMutation({
+    onMutate: async (vars) => {
+      setAdding(false);
+      await utils.debt.list.cancel();
+      const prev = utils.debt.list.getData();
+      const now = new Date();
+      const maxSort = (prev ?? []).reduce((m, d) => Math.max(m, d.sortOrder), -1);
+      utils.debt.list.setData(undefined, (old) =>
+        addRow(old, {
+          id: newTempId(),
+          userId: "",
+          name: vars.name,
+          balance: vars.balance,
+          apr: vars.apr,
+          minPayment: vars.minPayment,
+          sortOrder: maxSort + 1,
+          createdAt: now,
+          updatedAt: now,
+        } as never),
+      );
+      return { prev };
+    },
+    onError: (error, vars, ctx) => {
+      if (ctx) utils.debt.list.setData(undefined, ctx.prev);
+      toast.error(`Couldn't add "${vars.name}"`, { description: error.message });
+    },
+    onSettled: () => invalidate(),
+  });
+
   const update = trpc.debt.update.useMutation({ onSuccess: () => { setEditingId(null); invalidate(); } });
-  const del = trpc.debt.delete.useMutation({ onSuccess: invalidate });
+
+  const del = trpc.debt.delete.useMutation({
+    onMutate: async (vars) => {
+      setPendingDelete(null);
+      await utils.debt.list.cancel();
+      const prev = utils.debt.list.getData();
+      utils.debt.list.setData(undefined, (old) => removeRow(old, vars.id));
+      return { prev };
+    },
+    onError: (error, _vars, ctx) => {
+      if (ctx) utils.debt.list.setData(undefined, ctx.prev);
+      toast.error("Couldn't delete debt", { description: error.message });
+    },
+    onSettled: () => invalidate(),
+  });
 
   const debts: DebtInput[] = useMemo(
     () => rows.map((d) => ({
@@ -104,10 +158,35 @@ export default function DebtsPage() {
           submitting={update.isPending}
         />
       )}
+      <Dialog open={!!pendingDelete} onOpenChange={(o) => { if (!o && !del.isPending) setPendingDelete(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete debt?</DialogTitle>
+            <DialogDescription>
+              {pendingDelete
+                ? `"${pendingDelete.name}" will be permanently removed. This cannot be undone.`
+                : null}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" disabled={del.isPending} onClick={() => setPendingDelete(null)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={del.isPending}
+              onClick={() => { if (pendingDelete) del.mutate({ id: pendingDelete.id }); }}
+            >
+              {del.isPending ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <div className="grid gap-6">
-        <div>
-          <h1 className="text-2xl font-bold">Debt Buster</h1>
-          <p className="text-sm text-muted-foreground">Plan your path to debt-free.</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Debt Buster</h1>
+            <p className="text-sm text-muted-foreground">Plan your path to debt-free.</p>
+          </div>
+          <Button size="sm" onClick={() => setAdding(true)}>Add</Button>
         </div>
 
         {isLoading ? (
@@ -118,79 +197,78 @@ export default function DebtsPage() {
             <Button onClick={() => setAdding(true)} className="justify-self-start">Add debt</Button>
           </Card>
         ) : (
-          <div className="grid gap-6 lg:grid-cols-5">
-            {/* Left: forecast + strategy + tips (80%) */}
-            <div className="grid content-start gap-6 lg:col-span-4">
-              <div className="grid gap-4 sm:grid-cols-3">
-                <Card className="p-4">
-                  <p className="text-xs text-muted-foreground">Total owed</p>
-                  <p className="text-xl font-bold">{formatCurrency(totalOwed)}</p>
-                </Card>
-                <Card className="p-4">
-                  <p className="text-xs text-muted-foreground">Minimums / mo</p>
-                  <p className="text-xl font-bold">{formatCurrency(totalMin)}</p>
-                </Card>
-                <Card className="p-4">
-                  <p className="text-xs text-muted-foreground">Debt-free in</p>
-                  <p className="text-xl font-bold">{monthsLabel(sims.active.payoffMonth)}</p>
-                </Card>
-              </div>
-
-              <Card className="grid gap-4 p-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  {STRATEGIES.map((s) => (
-                    <Button
-                      key={s.value}
-                      type="button"
-                      variant={strategy === s.value ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setStrategy(s.value)}
-                    >
-                      {s.label} · {monthsLabel(
-                        s.value === "SNOWBALL" ? sims.snowball.payoffMonth
-                        : s.value === "AVALANCHE" ? sims.avalanche.payoffMonth
-                        : sims.custom.payoffMonth,
-                      )}
-                    </Button>
-                  ))}
-                </div>
-                <div className="grid max-w-xs gap-1">
-                  <Label htmlFor="extra">Extra payment / mo</Label>
-                  <Input
-                    id="extra"
-                    inputMode="decimal"
-                    value={extraStr}
-                    onChange={(e) => setExtraStr(e.target.value)}
-                  />
-                </div>
-                <DebtForecastChart result={sims.active} />
+          <>
+            {/* Summary widgets: own full-width row */}
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Card className="p-4">
+                <p className="text-xs text-muted-foreground">Total owed</p>
+                <p className="text-xl font-bold">{formatCurrency(totalOwed)}</p>
               </Card>
-
-              <DebtTipsPanel tips={tips} extraPayment={extraPayment} />
+              <Card className="p-4">
+                <p className="text-xs text-muted-foreground">Minimums / mo</p>
+                <p className="text-xl font-bold">{formatCurrency(totalMin)}</p>
+              </Card>
+              <Card className="p-4">
+                <p className="text-xs text-muted-foreground">Debt-free in</p>
+                <p className="text-xl font-bold">{monthsLabel(sims.active.payoffMonth)}</p>
+              </Card>
             </div>
 
-            {/* Right: debt list (20%) */}
-            <div className="grid content-start gap-3 lg:col-span-1">
-              <div className="flex items-center justify-between">
-                <h2 className="font-semibold">Your debts</h2>
-                <Button size="sm" onClick={() => setAdding(true)}>Add</Button>
+            <div className="grid gap-6 lg:grid-cols-3">
+              {/* Left: forecast + strategy + tips (2/3) */}
+              <div className="grid content-start gap-6 lg:col-span-2">
+                <Card className="grid gap-4 p-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {STRATEGIES.map((s) => (
+                      <Button
+                        key={s.value}
+                        type="button"
+                        variant={strategy === s.value ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setStrategy(s.value)}
+                      >
+                        {s.label} · {monthsLabel(
+                          s.value === "SNOWBALL" ? sims.snowball.payoffMonth
+                          : s.value === "AVALANCHE" ? sims.avalanche.payoffMonth
+                          : sims.custom.payoffMonth,
+                        )}
+                      </Button>
+                    ))}
+                  </div>
+                  <div className="grid max-w-xs gap-1">
+                    <Label htmlFor="extra">Extra payment / mo</Label>
+                    <Input
+                      id="extra"
+                      inputMode="decimal"
+                      value={extraStr}
+                      onChange={(e) => setExtraStr(e.target.value)}
+                    />
+                  </div>
+                  <DebtForecastChart result={sims.active} />
+                </Card>
+
+                <DebtTipsPanel tips={tips} extraPayment={extraPayment} />
               </div>
-              {rows.map((d) => (
-                <DebtCard
-                  key={d.id}
-                  debt={{
-                    id: d.id,
-                    name: d.name,
-                    balance: Number(d.balance),
-                    apr: Number(d.apr),
-                    minPayment: Number(d.minPayment),
-                  }}
-                  onEdit={() => setEditingId(d.id)}
-                  onDelete={() => del.mutate({ id: d.id })}
-                />
-              ))}
+
+              {/* Right: debt list (1/3) */}
+              <div className="grid content-start gap-3 lg:col-span-1">
+                {rows.map((d) => (
+                  <DebtCard
+                    key={d.id}
+                    debt={{
+                      id: d.id,
+                      name: d.name,
+                      balance: Number(d.balance),
+                      apr: Number(d.apr),
+                      minPayment: Number(d.minPayment),
+                    }}
+                    onEdit={() => setEditingId(d.id)}
+                    onDelete={() => setPendingDelete({ id: d.id, name: d.name })}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
+          </>
         )}
       </div>
     </Layout>
