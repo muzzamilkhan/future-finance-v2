@@ -22,12 +22,12 @@ export default function AccountsPage() {
   const utils = trpc.useUtils();
   const invalidate = () => utils.account.list.invalidate();
 
-  const create = trpc.account.create.useMutation({ onSuccess: (r) => { invalidate(); setAccountId(r.id); }, onError: (e) => setError(e.message) });
+  const create = trpc.account.create.useMutation({ onSuccess: (r) => { invalidate(); setAccountId(r.id); setNewOpen(false); }, onError: (e) => setError(e.message) });
   const setDefault = trpc.account.setDefault.useMutation({ onSuccess: invalidate, onError: (e) => setError(e.message) });
-  const close = trpc.account.close.useMutation({ onSuccess: invalidate, onError: (e) => setError(e.message) });
-  const leave = trpc.account.leave.useMutation({ onSuccess: invalidate, onError: (e) => setError(e.message) });
+  const close = trpc.account.close.useMutation({ onSuccess: () => { invalidate(); setClosing(null); }, onError: (e) => setError(e.message) });
+  const leave = trpc.account.leave.useMutation({ onSuccess: () => { invalidate(); setLeaving(null); }, onError: (e) => setError(e.message) });
   const updateCreditLimit = trpc.account.updateCreditLimit.useMutation({
-    onSuccess: () => { invalidate(); utils.forecast.getCombined.invalidate(); },
+    onSuccess: () => { invalidate(); utils.forecast.getCombined.invalidate(); setLimitFor(null); },
     onError: (e) => setError(e.message),
   });
 
@@ -128,7 +128,7 @@ export default function AccountsPage() {
             <DialogFooter>
               <Button variant="outline" disabled={create.isPending} onClick={() => setNewOpen(false)}>Cancel</Button>
               <Button disabled={create.isPending || !newName.trim()}
-                onClick={() => { setError(null); create.mutate({ name: newName.trim() }); setNewOpen(false); }}>
+                onClick={() => { setError(null); create.mutate({ name: newName.trim() }); }}>
                 {create.isPending ? "Creating..." : "Create"}
               </Button>
             </DialogFooter>
@@ -148,7 +148,7 @@ export default function AccountsPage() {
               <Button disabled={updateCreditLimit.isPending || parseCreditLimit(limitInput) === null}
                 onClick={() => {
                   const n = parseCreditLimit(limitInput);
-                  if (limitFor && n !== null) { setError(null); updateCreditLimit.mutate({ accountId: limitFor.id, creditLimit: n }); setLimitFor(null); }
+                  if (limitFor && n !== null) { setError(null); updateCreditLimit.mutate({ accountId: limitFor.id, creditLimit: n }); }
                 }}>
                 {updateCreditLimit.isPending ? "Saving..." : "Save"}
               </Button>
@@ -174,7 +174,7 @@ export default function AccountsPage() {
             <DialogFooter>
               <Button variant="outline" disabled={close.isPending} onClick={() => setClosing(null)}>Cancel</Button>
               <Button variant="destructive" disabled={close.isPending}
-                onClick={() => { if (closing) { setError(null); close.mutate({ accountId: closing.id }); setClosing(null); } }}>
+                onClick={() => { if (closing) { setError(null); close.mutate({ accountId: closing.id }); } }}>
                 {close.isPending ? "Closing..." : "Close account"}
               </Button>
             </DialogFooter>
@@ -191,7 +191,7 @@ export default function AccountsPage() {
             <DialogFooter>
               <Button variant="outline" disabled={leave.isPending} onClick={() => setLeaving(null)}>Cancel</Button>
               <Button variant="destructive" disabled={leave.isPending}
-                onClick={() => { if (leaving) { setError(null); leave.mutate({ accountId: leaving.id }); setLeaving(null); } }}>
+                onClick={() => { if (leaving) { setError(null); leave.mutate({ accountId: leaving.id }); } }}>
                 {leave.isPending ? "Leaving..." : "Leave account"}
               </Button>
             </DialogFooter>
