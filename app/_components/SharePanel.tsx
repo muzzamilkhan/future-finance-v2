@@ -13,8 +13,9 @@ type Perms = Record<PermKey, boolean>;
 
 const permLabel = (k: PermKey) => k.replace("can", "").replace(/([A-Z])/g, " $1").trim();
 
-export function SharePanel() {
-  const { accountId } = useActiveAccount();
+export function SharePanel({ accountId: accountIdProp }: { accountId?: string } = {}) {
+  const { accountId: activeId } = useActiveAccount();
+  const accountId = accountIdProp ?? activeId;
   const [perms, setPerms] = useState<Perms>({
     canEditItems: false,
     canEditOverrides: false,
