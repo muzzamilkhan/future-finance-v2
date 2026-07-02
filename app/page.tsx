@@ -97,6 +97,14 @@ export default function DashboardPage() {
   const current = result.days[0]?.openingBalance ?? 0;
   const thisMonth = result.months[0];
 
+  // Sum of the per-account shortfalls shown in the footer: each account's figure at
+  // its own first-exhaustion day (available credit for CREDIT, cash balance otherwise).
+  // These are negative when short; 0 means no account is ever exhausted.
+  const combinedShortfall = result.exhaustions.reduce(
+    (sum, ex) => sum + (ex.type === "CREDIT" ? (ex.availableCredit ?? 0) : ex.balance),
+    0,
+  );
+
   const openOverride = (particularId: string, originalDate?: Date, currentAmount?: number, currentDate?: Date, overrideId?: string) => {
     if (!canEditOverrides) return;
     if (!originalDate || currentAmount === undefined || !currentDate) return;
@@ -153,7 +161,9 @@ export default function DashboardPage() {
                   onSelect={(date) => scrollToDay(date)}
                 />
               } />
-            <MetricCard title="Combined Shortfall" value={result.firstNegative?.closingBalance ?? 0} type="warning"
+            <MetricCard title="Combined Shortfall" value={combinedShortfall}
+              valueDisplay={combinedShortfall < 0 ? formatCurrency(combinedShortfall) : "None"}
+              type={combinedShortfall < 0 ? "expense" : "income"}
               subtitle={result.firstNegative ? formatUtcWeekdayMonthDay(result.firstNegative.date) : undefined}
               onClick={result.firstNegative ? () => scrollToDay(result.firstNegative!.date) : undefined}
               footer={

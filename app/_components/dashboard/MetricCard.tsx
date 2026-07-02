@@ -7,10 +7,12 @@ import { Input } from "@/app/_components/ui/input";
 import { formatCurrency } from "@/lib/design-system";
 
 export function MetricCard(
-  { title, value, subtitle, type, onClick, editable, onSave, footer }:
+  { title, value, valueDisplay, subtitle, type, onClick, editable, onSave, footer }:
   {
     title: string;
     value: number;
+    /** Overrides the rendered value text (e.g. "None"); value is still used for editing. */
+    valueDisplay?: ReactNode;
     subtitle?: string;
     type: "income" | "expense" | "warning";
     onClick?: () => void;
@@ -59,7 +61,7 @@ export function MetricCard(
           </div>
         ) : (
           <>
-            <div className={`text-xl font-bold sm:text-2xl ${color}`}>{formatCurrency(value)}</div>
+            <div className={`text-xl font-bold sm:text-2xl ${color}`}>{valueDisplay ?? formatCurrency(value)}</div>
             {subtitle && <div className="text-xs text-muted-foreground">{subtitle}</div>}
           </>
         )}
