@@ -6,9 +6,11 @@ import { Layout } from "@/app/_components/Layout";
 import { Button } from "@/app/_components/ui/button";
 import { Input } from "@/app/_components/ui/input";
 import { Checkbox } from "@/app/_components/ui/checkbox";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/app/_components/ui/dialog";
 import { formatUtcMonthDayYear, inputValueToDate } from "@/lib/dateInput";
 import { useActiveAccount } from "@/app/_components/AccountContext";
 import { addRow, removeRow, newTempId, isTempId } from "@/lib/optimistic";
+import { X } from "lucide-react";
 
 type HolidayItem = { id: string; name: string; date: string | Date; isRecurring: boolean; source: string };
 
@@ -16,7 +18,7 @@ function HolidaySection({ title, holidays, canEdit, onDelete }: {
   title: string;
   holidays: HolidayItem[];
   canEdit: boolean;
-  onDelete: (id: string) => void;
+  onDelete: (h: HolidayItem) => void;
 }) {
   return (
     <div className="space-y-2">
@@ -30,7 +32,9 @@ function HolidaySection({ title, holidays, canEdit, onDelete }: {
               <span>
                 {h.name} — {formatUtcMonthDayYear(new Date(h.date))}{h.isRecurring ? " (yearly)" : ""}
               </span>
-              <Button variant="ghost" size="sm" disabled={!canEdit} onClick={() => onDelete(h.id)}>Delete</Button>
+              <Button variant="ghost" size="icon-sm" aria-label="Delete holiday" disabled={!canEdit} onClick={() => onDelete(h)}>
+                <X className="size-4" />
+              </Button>
             </div>
           ))}
         </div>
@@ -82,6 +86,7 @@ export default function HolidaysPage() {
     },
     onSettled: () => { utils.holiday.list.invalidate(); utils.forecast.getData.invalidate(); utils.forecast.getCombined.invalidate(); },
   });
+  const [pendingDelete, setPendingDelete] = useState<HolidayItem | null>(null);
   const [name, setName] = useState(""); const [date, setDate] = useState(""); const [recurring, setRecurring] = useState(false);
 
   const [country, setCountry] = useState("");
@@ -156,11 +161,33 @@ export default function HolidaysPage() {
         <HolidaySection title="Imported Holidays"
           holidays={(holidays ?? []).filter((h) => h.source === "IMPORTED")}
           canEdit={canEditHolidays}
-          onDelete={(id) => del.mutate({ accountId: accountId!, id })} />
+          onDelete={setPendingDelete} />
         <HolidaySection title="Custom Holidays"
           holidays={(holidays ?? []).filter((h) => h.source !== "IMPORTED")}
           canEdit={canEditHolidays}
-          onDelete={(id) => del.mutate({ accountId: accountId!, id })} />
+          onDelete={setPendingDelete} />
+        <Dialog open={!!pendingDelete} onOpenChange={(o) => { if (!o && !del.isPending) setPendingDelete(null); }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete holiday?</DialogTitle>
+              <DialogDescription>
+                {pendingDelete
+                  ? `"${pendingDelete.name}" will be permanently removed. This cannot be undone.`
+                  : null}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" disabled={del.isPending} onClick={() => setPendingDelete(null)}>Cancel</Button>
+              <Button
+                variant="destructive"
+                disabled={del.isPending}
+                onClick={() => { if (pendingDelete) { del.mutate({ accountId: accountId!, id: pendingDelete.id }); setPendingDelete(null); } }}
+              >
+                {del.isPending ? "Deleting..." : "Delete"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );

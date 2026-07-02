@@ -10,7 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { formatCurrency } from "@/lib/design-system";
 import { ParticularForm } from "./ParticularForm";
 import { TransferForm } from "./TransferForm";
-import { OverrideManagement } from "./OverrideManagement";
 import { QuickAddRow } from "./QuickAddRow";
 import { CategoryPill } from "./CategoryPill";
 import { frequencyLabel } from "./frequencyLabel";
@@ -19,7 +18,7 @@ import type { AppRouter } from "@/server/routers/_app";
 import { useActiveAccount } from "@/app/_components/AccountContext";
 import { isTempId } from "@/lib/optimistic";
 import { AccountBadge } from "@/app/_components/dashboard/AccountBadge";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ArrowRightLeft, X } from "lucide-react";
 
 type Particular = inferRouterOutputs<AppRouter>["particular"]["listAll"][number];
 
@@ -73,7 +72,6 @@ export default function ParticularsPage() {
   const [editing, setEditing] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
-  const [expanded, setExpanded] = useState<string | null>(null);
 
   const all = particulars ?? [];
   const recurringTransfers = all
@@ -92,14 +90,27 @@ export default function ParticularsPage() {
     const signed = p.type === "EXPENSE" ? -Math.abs(Number(p.amount)) : Math.abs(Number(p.amount));
     const amountText = isTransfer ? formatCurrency(Math.abs(Number(p.amount))) : formatCurrency(signed);
     const amountClass = isTransfer ? "text-blue-600 dark:text-blue-400" : (signed < 0 ? "text-finance-expense" : "text-finance-income");
+    const openEdit = () => {
+      if (!p.canEditItems || isTempId(p.id)) return;
+      setEditing(p.id);
+      if (p.type === "TRANSFER") setTransferOpen(true); else setFormOpen(true);
+    };
+    const canMove = p.type !== "TRANSFER" && (accountList ?? []).some((a) => a.id !== accountId);
     return (
-      <div key={p.id} className={`rounded-md border p-3${isTempId(p.id) ? " opacity-60 animate-pulse" : ""}`}>
+      <div
+        key={p.id}
+        role="button"
+        tabIndex={0}
+        onClick={openEdit}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEdit(); } }}
+        className={`rounded-md border p-3${isTempId(p.id) ? " opacity-60 animate-pulse" : " cursor-pointer hover:bg-muted/50"}`}
+      >
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center justify-between gap-2 sm:justify-start">
-            <button className="min-w-0 text-left" onClick={() => setExpanded(expanded === p.id ? null : p.id)}>
+            <div className="min-w-0 text-left">
               <span className="font-medium">{isTransfer ? "Transfer" : p.name}</span>
               <span className="ml-2 text-xs text-muted-foreground">{frequencyLabel(p, today)}</span>
-            </button>
+            </div>
             {isTransfer ? (
               <span className="ml-2 inline-flex flex-wrap items-center gap-1">
                 <AccountBadge accountId={p.accountId} accountNames={accountNames} orderedIds={accountIds} />
@@ -118,16 +129,20 @@ export default function ParticularsPage() {
             <span className={`hidden sm:inline ${amountClass}`}>
               {amountText}
             </span>
-            <Button variant="ghost" size="sm" disabled={!p.canEditItems || isTempId(p.id)}
-              onClick={() => { setEditing(p.id); if (p.type === "TRANSFER") setTransferOpen(true); else setFormOpen(true); }}>Edit</Button>
-            {p.type !== "TRANSFER" && (accountList ?? []).some((a) => a.id !== accountId) && (
-              <Button variant="ghost" size="sm" disabled={!p.canEditItems || isTempId(p.id)}
-                onClick={() => { setMoveDest(""); setPendingMove(p); }}>Move</Button>
+            {canMove && (
+              <Button variant="ghost" size="icon-sm" aria-label="Move to another account"
+                disabled={!p.canEditItems || isTempId(p.id)}
+                onClick={(e) => { e.stopPropagation(); setMoveDest(""); setPendingMove(p); }}>
+                <ArrowRightLeft className="size-4" />
+              </Button>
             )}
-            <Button variant="ghost" size="sm" disabled={!p.canEditItems || isTempId(p.id)} onClick={() => setPendingDelete(p)}>Delete</Button>
+            <Button variant="ghost" size="icon-sm" aria-label="Delete item"
+              disabled={!p.canEditItems || isTempId(p.id)}
+              onClick={(e) => { e.stopPropagation(); setPendingDelete(p); }}>
+              <X className="size-4" />
+            </Button>
           </div>
         </div>
-        {expanded === p.id && <div className="mt-2"><OverrideManagement particularId={p.id} /></div>}
       </div>
     );
   };
