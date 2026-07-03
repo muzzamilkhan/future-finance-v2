@@ -10,11 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/app/_components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/app/_components/ui/dialog";
 import { formatUtcMonthDayYear, inputValueToDate } from "@/lib/dateInput";
-import { useActiveAccount } from "@/app/_components/AccountContext";
 import { addRow, removeRow, newTempId, isTempId } from "@/lib/optimistic";
 import { X } from "lucide-react";
 
-type HolidayItem = { id: string; name: string; date: string | Date; isRecurring: boolean; source: string };
+type HolidayItem = { id: string; userId: string; name: string; date: string | Date; isRecurring: boolean; source: string };
 
 function HolidaySection({ title, holidays, canEdit, onDelete }: {
   title: string;
@@ -46,22 +45,18 @@ function HolidaySection({ title, holidays, canEdit, onDelete }: {
 }
 
 export default function HolidaysPage() {
-  const { accountId, activeMembership } = useActiveAccount();
-  const canEditHolidays = !activeMembership || activeMembership.role === "OWNER" || activeMembership.canEditHolidays;
+  const canEditHolidays = true;
   const utils = trpc.useUtils();
-  const { data: holidays } = trpc.holiday.list.useQuery(
-    { accountId: accountId! },
-    { enabled: !!accountId },
-  );
+  const { data: holidays } = trpc.holiday.list.useQuery();
   const create = trpc.holiday.create.useMutation({
     onMutate: async (vars) => {
-      const key = { accountId: vars.accountId };
+      const key = undefined;
       await utils.holiday.list.cancel(key);
       const prev = utils.holiday.list.getData(key);
       utils.holiday.list.setData(key, (old) =>
         addRow(old, {
           id: newTempId(),
-          accountId: vars.accountId,
+          userId: "",
           name: vars.name,
           date: vars.date as Date,
           isRecurring: vars.isRecurring ?? false,
@@ -77,7 +72,7 @@ export default function HolidaysPage() {
   });
   const del = trpc.holiday.delete.useMutation({
     onMutate: async (vars) => {
-      const key = { accountId: vars.accountId };
+      const key = undefined;
       await utils.holiday.list.cancel(key);
       const prev = utils.holiday.list.getData(key);
       utils.holiday.list.setData(key, (old) => removeRow(old, vars.id));
@@ -95,12 +90,10 @@ export default function HolidaysPage() {
   const [stateCode, setStateCode] = useState("");
   const [importMsg, setImportMsg] = useState<string | null>(null);
 
-  const { data: countries } = trpc.holiday.availableCountries.useQuery(
-    { accountId: accountId! }, { enabled: !!accountId },
-  );
+  const { data: countries } = trpc.holiday.availableCountries.useQuery();
   const { data: subdivisions } = trpc.holiday.subdivisions.useQuery(
-    { accountId: accountId!, countryCode: country },
-    { enabled: !!accountId && country.length === 2 },
+    { countryCode: country },
+    { enabled: country.length === 2 },
   );
   const importHolidays = trpc.holiday.import.useMutation({
     onSuccess: (r) => {
@@ -146,13 +139,13 @@ export default function HolidaysPage() {
           <div className="mt-auto flex items-center justify-end gap-2">
             {importMsg && <span className="text-sm text-muted-foreground">{importMsg}</span>}
             <Button size="sm" disabled={!canEditHolidays || country.length !== 2 || importHolidays.isPending}
-              onClick={() => { setImportMsg(null); importHolidays.mutate({ accountId: accountId!, countryCode: country, stateCode: stateCode || undefined }); }}>
+              onClick={() => { setImportMsg(null); importHolidays.mutate({ countryCode: country, stateCode: stateCode || undefined }); }}>
               {importHolidays.isPending ? "Importing…" : "Import holidays"}
             </Button>
           </div>
         </div>
         <form className="flex flex-col gap-3 rounded-md border p-3"
-          onSubmit={(e) => { e.preventDefault(); const parsed = inputValueToDate(date); if (!parsed) return; create.mutate({ accountId: accountId!, name, date: parsed, isRecurring: recurring }); setName(""); setDate(""); setRecurring(true); }}>
+          onSubmit={(e) => { e.preventDefault(); const parsed = inputValueToDate(date); if (!parsed) return; create.mutate({ name, date: parsed, isRecurring: recurring }); setName(""); setDate(""); setRecurring(true); }}>
           <div className="flex gap-2">
             <div className="flex flex-1 flex-col gap-1">
               <Label>Name</Label>
@@ -194,7 +187,7 @@ export default function HolidaysPage() {
               <Button
                 variant="destructive"
                 disabled={del.isPending}
-                onClick={() => { if (pendingDelete) { del.mutate({ accountId: accountId!, id: pendingDelete.id }); setPendingDelete(null); } }}
+                onClick={() => { if (pendingDelete) { del.mutate({ id: pendingDelete.id }); setPendingDelete(null); } }}
               >
                 {del.isPending ? "Deleting..." : "Delete"}
               </Button>
