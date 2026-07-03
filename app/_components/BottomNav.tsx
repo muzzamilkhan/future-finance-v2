@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
 import { LayoutDashboard, ListOrdered, CalendarDays, PieChart, Sun, Moon, TrendingDown, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { AccountPicker } from "./AccountPicker";
 
 const items = [
   { to: "/", label: "Home", icon: LayoutDashboard },
@@ -30,7 +29,6 @@ export function BottomNav() {
           <Icon className="h-5 w-5" />{label}
         </Link>
       ))}
-      <AccountPicker variant="compact" />
       <button
         type="button"
         onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
