@@ -102,9 +102,15 @@ export const forecastRouter = router({
         orderBy: { startDate: "asc" },
       });
 
+      const ownerMemberships = await ctx.prisma.accountMembership.findMany({
+        where: { accountId: { in: accountIds }, role: "OWNER" },
+        select: { userId: true, role: true },
+      });
+      const ownerIds = ownerUserIds(ownerMemberships);
+
       const holidays = await ctx.prisma.holiday.findMany({
         where: {
-          accountId: { in: accountIds },
+          userId: { in: ownerIds },
           OR: [
             { isRecurring: false, date: { gte: windowStart, lte: input.viewEnd } },
             { isRecurring: true },
