@@ -25,6 +25,13 @@ export function toAccountPayload(a: {
   };
 }
 
+/** Distinct userIds of the OWNER membership across the given membership rows. Pure, testable. */
+export function ownerUserIds(
+  memberships: { userId: string; role: "OWNER" | "MEMBER" }[],
+): string[] {
+  return [...new Set(memberships.filter((m) => m.role === "OWNER").map((m) => m.userId))];
+}
+
 export const forecastRouter = router({
   // Returns raw data for the FULL replay window [balanceUpdatedAt .. viewEnd].
   getData: accountProcedure
