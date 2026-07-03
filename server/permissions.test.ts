@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { hasCapability, assertCan } from "./permissions";
 
-const owner = { role: "OWNER", canEditItems: false, canEditOverrides: false, canEditHolidays: false, canUpdateBalance: false } as const;
-const viewer = { role: "MEMBER", canEditItems: false, canEditOverrides: false, canEditHolidays: false, canUpdateBalance: false } as const;
-const editor = { role: "MEMBER", canEditItems: true, canEditOverrides: false, canEditHolidays: false, canUpdateBalance: false } as const;
+const owner = { role: "OWNER", canEditItems: false, canEditOverrides: false, canUpdateBalance: false } as const;
+const viewer = { role: "MEMBER", canEditItems: false, canEditOverrides: false, canUpdateBalance: false } as const;
+const editor = { role: "MEMBER", canEditItems: true, canEditOverrides: false, canUpdateBalance: false } as const;
 
 describe("hasCapability", () => {
   it("owner has every capability regardless of flags", () => {
