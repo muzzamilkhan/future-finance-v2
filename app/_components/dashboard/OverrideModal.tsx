@@ -14,7 +14,7 @@ export function OverrideModal(
   { isOpen, particularId, originalDate, isFixed, isCritical, currentAmount, currentDate, overrideId, onClose }:
   { isOpen: boolean; particularId: string; originalDate: Date; isFixed: boolean; isCritical: boolean; currentAmount: number; currentDate: Date; overrideId?: string; onClose: () => void },
 ) {
-  const { accountId } = useActiveAccount();
+  const { defaultAccountId: accountId } = useActiveAccount();
   const utils = trpc.useUtils();
   // Pre-populate with the occurrence's current values. Amount is stored signed in
   // the engine but overrides expect a positive magnitude (sign is applied from type).

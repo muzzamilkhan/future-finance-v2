@@ -3,18 +3,15 @@ import { use } from "react";
 import { useRouter } from "next/navigation";
 import { trpc } from "@/trpc/client";
 import { Button } from "@/app/_components/ui/button";
-import { useActiveAccount } from "@/app/_components/AccountContext";
 
 export default function InvitePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params);
   const router = useRouter();
-  const { setAccountId } = useActiveAccount();
   const utils = trpc.useUtils();
   const { data, error, isLoading } = trpc.invite.get.useQuery({ token }, { retry: false });
   const accept = trpc.invite.accept.useMutation({
-    onSuccess: (r) => {
+    onSuccess: () => {
       utils.account.list.invalidate();
-      setAccountId(r.accountId);
       router.push("/");
     },
   });
