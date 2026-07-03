@@ -60,7 +60,7 @@ export async function ensureBootstrapAccount(userId: string) {
     const membership = await prisma.accountMembership.create({
       data: {
         userId, accountId: account.id, role: "OWNER", isDefault: true,
-        canEditItems: true, canEditOverrides: true, canEditHolidays: true, canUpdateBalance: true,
+        canEditItems: true, canEditOverrides: true, canUpdateBalance: true,
       },
     });
     return { account, membership };
