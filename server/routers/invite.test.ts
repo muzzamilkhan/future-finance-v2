@@ -6,10 +6,10 @@ import { permsFromInvite } from "./invite";
 describe("permsFromInvite", () => {
   it("copies role + perm flags from invite to membership data", () => {
     const data = permsFromInvite({
-      role: "MEMBER", canEditItems: true, canEditOverrides: false, canEditHolidays: true, canUpdateBalance: false,
+      role: "MEMBER", canEditItems: true, canEditOverrides: false, canUpdateBalance: false,
     } as any);
     expect(data).toEqual({
-      role: "MEMBER", canEditItems: true, canEditOverrides: false, canEditHolidays: true, canUpdateBalance: false,
+      role: "MEMBER", canEditItems: true, canEditOverrides: false, canUpdateBalance: false,
     });
   });
 });

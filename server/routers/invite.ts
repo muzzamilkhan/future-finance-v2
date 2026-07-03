@@ -7,7 +7,6 @@ const permInput = z.object({
   role: z.enum(["MEMBER"]).default("MEMBER"),
   canEditItems: z.boolean().default(false),
   canEditOverrides: z.boolean().default(false),
-  canEditHolidays: z.boolean().default(false),
   canUpdateBalance: z.boolean().default(false),
   expiresAt: z.coerce.date().optional(),
 });
@@ -16,14 +15,12 @@ export function permsFromInvite(i: {
   role: "OWNER" | "MEMBER";
   canEditItems: boolean;
   canEditOverrides: boolean;
-  canEditHolidays: boolean;
   canUpdateBalance: boolean;
 }) {
   return {
     role: i.role,
     canEditItems: i.canEditItems,
     canEditOverrides: i.canEditOverrides,
-    canEditHolidays: i.canEditHolidays,
     canUpdateBalance: i.canUpdateBalance,
   };
 }
@@ -42,7 +39,6 @@ export const inviteRouter = router({
         role: "MEMBER",
         canEditItems: input.canEditItems,
         canEditOverrides: input.canEditOverrides,
-        canEditHolidays: input.canEditHolidays,
         canUpdateBalance: input.canUpdateBalance,
         expiresAt: input.expiresAt,
       },

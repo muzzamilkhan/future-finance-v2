@@ -18,7 +18,7 @@ export function creditAccountCreateData(input: { name: string; creditLimit: numb
 
 export function mapMembershipToListItem(m: {
   role: "OWNER" | "MEMBER"; isDefault: boolean;
-  canEditItems: boolean; canEditOverrides: boolean; canEditHolidays: boolean; canUpdateBalance: boolean;
+  canEditItems: boolean; canEditOverrides: boolean; canUpdateBalance: boolean;
   account: { id: string; name: string; currentBalance: unknown; balanceUpdatedAt: Date; type: "DEBIT" | "CREDIT"; creditLimit: unknown };
 }) {
   return {
@@ -28,7 +28,7 @@ export function mapMembershipToListItem(m: {
     creditLimit: m.account.creditLimit === null ? null : Number(m.account.creditLimit),
     role: m.role, isDefault: m.isDefault,
     canEditItems: m.canEditItems, canEditOverrides: m.canEditOverrides,
-    canEditHolidays: m.canEditHolidays, canUpdateBalance: m.canUpdateBalance,
+    canUpdateBalance: m.canUpdateBalance,
   };
 }
 
@@ -50,7 +50,7 @@ export const accountRouter = router({
       await ctx.prisma.accountMembership.create({
         data: {
           userId: ctx.user.id, accountId: account.id, role: "OWNER", isDefault: count === 0,
-          canEditItems: true, canEditOverrides: true, canEditHolidays: true, canUpdateBalance: true,
+          canEditItems: true, canEditOverrides: true, canUpdateBalance: true,
         },
       });
       return { id: account.id };
@@ -115,7 +115,7 @@ export const accountRouter = router({
     return ms.map((m) => ({
       userId: m.userId, name: m.user.name, email: m.user.email, role: m.role,
       canEditItems: m.canEditItems, canEditOverrides: m.canEditOverrides,
-      canEditHolidays: m.canEditHolidays, canUpdateBalance: m.canUpdateBalance,
+      canUpdateBalance: m.canUpdateBalance,
     }));
   }),
 
@@ -123,7 +123,6 @@ export const accountRouter = router({
     userId: z.string(),
     canEditItems: z.boolean(),
     canEditOverrides: z.boolean(),
-    canEditHolidays: z.boolean(),
     canUpdateBalance: z.boolean(),
   })).mutation(async ({ ctx, input }) => {
     if (ctx.membership.role !== "OWNER") throw new TRPCError({ code: "FORBIDDEN" });
@@ -132,7 +131,7 @@ export const accountRouter = router({
       where: { userId_accountId: { userId: input.userId, accountId: ctx.account.id } },
       data: {
         canEditItems: input.canEditItems, canEditOverrides: input.canEditOverrides,
-        canEditHolidays: input.canEditHolidays, canUpdateBalance: input.canUpdateBalance,
+        canUpdateBalance: input.canUpdateBalance,
       },
     });
     return { ok: true };
@@ -154,7 +153,7 @@ export const accountRouter = router({
     await ctx.prisma.accountMembership.create({
       data: {
         userId: ctx.user.id, accountId: account.id, role: "OWNER", isDefault: false,
-        canEditItems: true, canEditOverrides: true, canEditHolidays: true, canUpdateBalance: true,
+        canEditItems: true, canEditOverrides: true, canUpdateBalance: true,
       },
     });
     return { id: account.id };
