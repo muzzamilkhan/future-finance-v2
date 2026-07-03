@@ -33,7 +33,7 @@ type ParticularFormValues = z.input<typeof particularInput>;
 export function ParticularForm(
   { isOpen, particularId, onClose }: { isOpen: boolean; particularId: string | null; onClose: () => void },
 ) {
-  const { accountId, accounts } = useActiveAccount();
+  const { defaultAccountId, accounts } = useActiveAccount();
   const [step, setStep] = useState(0);
   const utils = trpc.useUtils();
   const { data: existing } = trpc.particular.listAll.useQuery(undefined, {
@@ -52,7 +52,7 @@ export function ParticularForm(
       isFixed: existing?.isFixed ?? true,
       businessDayAdjustment: (existing?.businessDayAdjustment as ParticularInput["businessDayAdjustment"]) ?? "NONE",
       category: existing?.category ?? "",
-      accountId: accountId ?? undefined,
+      accountId: defaultAccountId ?? undefined,
     },
     values: existing ? toParticularInput(existing) : undefined,
   });
@@ -113,9 +113,9 @@ export function ParticularForm(
     (values) => {
       if (particularId) {
         // Account is not editable on update; keep the item on its existing account.
-        update.mutate({ ...values, accountId: existing?.accountId ?? accountId!, id: particularId });
+        update.mutate({ ...values, accountId: existing?.accountId ?? defaultAccountId!, id: particularId });
       } else {
-        create.mutate({ ...values, accountId: (values.accountId as string | undefined) || accountId! });
+        create.mutate({ ...values, accountId: (values.accountId as string | undefined) || defaultAccountId! });
       }
       close();
     },
@@ -146,7 +146,7 @@ export function ParticularForm(
                   <Input value={accounts.find((a) => a.id === existing?.accountId)?.name ?? ""} disabled readOnly />
                 ) : (
                   <Select
-                    value={(form.watch("accountId") as string | undefined) ?? accountId ?? ""}
+                    value={(form.watch("accountId") as string | undefined) ?? defaultAccountId ?? ""}
                     onValueChange={(v) => form.setValue("accountId", v)}
                   >
                     <SelectTrigger><SelectValue placeholder="Select account" /></SelectTrigger>

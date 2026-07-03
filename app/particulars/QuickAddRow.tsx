@@ -31,9 +31,9 @@ const defaults = (): QuickAddValues => ({
 });
 
 export function QuickAddRow({ disabled }: { disabled?: boolean }) {
-  const { accountId, accounts } = useActiveAccount();
+  const { defaultAccountId, accounts } = useActiveAccount();
   const [selectedAccount, setSelectedAccount] = useState<string>("");
-  useEffect(() => { if (accountId && !selectedAccount) setSelectedAccount(accountId); }, [accountId, selectedAccount]);
+  useEffect(() => { if (defaultAccountId && !selectedAccount) setSelectedAccount(defaultAccountId); }, [defaultAccountId, selectedAccount]);
 
   const utils = trpc.useUtils();
   const form = useForm<QuickAddValues>({
@@ -74,10 +74,10 @@ export function QuickAddRow({ disabled }: { disabled?: boolean }) {
   // server. The mutation fires in the background; the list/forecast refresh
   // when it lands. Concurrent submissions are independent and safe.
   const submit = form.handleSubmit((values) => {
-    create.mutate({ accountId: selectedAccount || accountId!, ...values });
+    create.mutate({ accountId: selectedAccount || defaultAccountId!, ...values });
     form.reset(defaults());
     form.setFocus("name");
-    setSelectedAccount(accountId!);
+    setSelectedAccount(defaultAccountId!);
   });
 
   return (

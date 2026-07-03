@@ -18,11 +18,11 @@ import { Star, Share2, Archive, LogOut } from "lucide-react";
 import { groupAccounts, parseCreditLimit } from "./accountsPageHelpers";
 
 export default function AccountsPage() {
-  const { accounts, accountId, setAccountId } = useActiveAccount();
+  const { accounts } = useActiveAccount();
   const utils = trpc.useUtils();
   const invalidate = () => utils.account.list.invalidate();
 
-  const create = trpc.account.create.useMutation({ onSuccess: (r) => { invalidate(); setAccountId(r.id); setNewOpen(false); }, onError: (e) => setError(e.message) });
+  const create = trpc.account.create.useMutation({ onSuccess: () => { invalidate(); setNewOpen(false); }, onError: (e) => setError(e.message) });
   const setDefault = trpc.account.setDefault.useMutation({ onSuccess: invalidate, onError: (e) => setError(e.message) });
   const close = trpc.account.close.useMutation({ onSuccess: () => { invalidate(); setClosing(null); }, onError: (e) => setError(e.message) });
   const leave = trpc.account.leave.useMutation({ onSuccess: () => { invalidate(); setLeaving(null); }, onError: (e) => setError(e.message) });
@@ -212,7 +212,7 @@ export default function AccountsPage() {
           </DialogContent>
         </Dialog>
 
-        <AddCreditAccountDialog isOpen={addCreditOpen} onClose={() => setAddCreditOpen(false)} onCreated={(id) => setAccountId(id)} />
+        <AddCreditAccountDialog isOpen={addCreditOpen} onClose={() => setAddCreditOpen(false)} />
       </div>
     </Layout>
   );
