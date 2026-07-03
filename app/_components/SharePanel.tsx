@@ -7,7 +7,7 @@ import { Button } from "./ui/button";
 import { Checkbox } from "./ui/checkbox";
 import { Label } from "./ui/label";
 
-const PERM_KEYS = ["canEditItems", "canEditOverrides", "canEditHolidays", "canUpdateBalance"] as const;
+const PERM_KEYS = ["canEditItems", "canEditOverrides", "canUpdateBalance"] as const;
 type PermKey = (typeof PERM_KEYS)[number];
 type Perms = Record<PermKey, boolean>;
 
@@ -19,7 +19,6 @@ export function SharePanel({ accountId: accountIdProp }: { accountId?: string } 
   const [perms, setPerms] = useState<Perms>({
     canEditItems: false,
     canEditOverrides: false,
-    canEditHolidays: false,
     canUpdateBalance: false,
   });
   const [url, setUrl] = useState<string | null>(null);
@@ -29,7 +28,6 @@ export function SharePanel({ accountId: accountIdProp }: { accountId?: string } 
     setPerms({
       canEditItems: false,
       canEditOverrides: false,
-      canEditHolidays: false,
       canUpdateBalance: false,
     });
   const members = trpc.account.members.useQuery(
@@ -63,7 +61,6 @@ export function SharePanel({ accountId: accountIdProp }: { accountId?: string } 
       userId: m.userId,
       canEditItems: m.canEditItems,
       canEditOverrides: m.canEditOverrides,
-      canEditHolidays: m.canEditHolidays,
       canUpdateBalance: m.canUpdateBalance,
       [k]: !m[k],
     });

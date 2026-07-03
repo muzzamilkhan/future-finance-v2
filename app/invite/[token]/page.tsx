@@ -28,9 +28,8 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
       <ul className="text-sm text-muted-foreground list-disc pl-5">
         {data!.perms.canEditItems && <li>Can edit items</li>}
         {data!.perms.canEditOverrides && <li>Can edit overrides</li>}
-        {data!.perms.canEditHolidays && <li>Can edit holidays</li>}
         {data!.perms.canUpdateBalance && <li>Can update balance</li>}
-        {!data!.perms.canEditItems && !data!.perms.canEditOverrides && !data!.perms.canEditHolidays && !data!.perms.canUpdateBalance && <li>View only</li>}
+        {!data!.perms.canEditItems && !data!.perms.canEditOverrides && !data!.perms.canUpdateBalance && <li>View only</li>}
       </ul>
       <div className="flex gap-2">
         <Button onClick={() => accept.mutate({ token })} disabled={accept.isPending}>Accept</Button>
