@@ -20,6 +20,7 @@ import {
 import { Checkbox } from "@/app/_components/ui/checkbox";
 import { Label } from "@/app/_components/ui/label";
 import { FormTabs, FormRow } from "./FormTabs";
+import { transferName } from "./transferName";
 import { addRow, updateRow, newTempId } from "@/lib/optimistic";
 
 // See ParticularForm for why form values are typed by the schema's *input* side.
@@ -101,7 +102,7 @@ export function TransferForm(
 
   // Which tab each field lives on, so submit can jump to the first tab with an error.
   const fieldTab: Partial<Record<keyof TransferFormValues, number>> = {
-    accountId: 0, toAccountId: 0, amount: 0, frequency: 0, startDate: 0,
+    name: 0, accountId: 0, toAccountId: 0, amount: 0, frequency: 0, startDate: 0,
     businessDayAdjustment: 1, endDate: 1, isCritical: 1, isFixed: 1,
   };
 
@@ -109,14 +110,20 @@ export function TransferForm(
     (values) => {
       if (particularId) {
         // Accounts are not editable on update; keep the transfer's existing from/to.
+        const toAccountId = existing?.toAccountId ?? (values.toAccountId as string | undefined);
         update.mutate({
           ...values,
+          name: transferName(nameOf(toAccountId ?? undefined)),
           accountId: existing?.accountId ?? defaultAccountId!,
-          toAccountId: existing?.toAccountId ?? (values.toAccountId as string | undefined),
+          toAccountId,
           id: particularId,
         });
       } else {
-        create.mutate({ ...values, accountId: (values.accountId as string | undefined) || defaultAccountId! });
+        create.mutate({
+          ...values,
+          name: transferName(nameOf(values.toAccountId as string | undefined)),
+          accountId: (values.accountId as string | undefined) || defaultAccountId!,
+        });
       }
       close();
     },
@@ -166,7 +173,10 @@ export function TransferForm(
                 ) : (
                   <Select
                     value={(form.watch("toAccountId") as string | undefined) ?? ""}
-                    onValueChange={(v) => form.setValue("toAccountId", v)}
+                    onValueChange={(v) => {
+                      form.setValue("toAccountId", v, { shouldValidate: true });
+                      form.setValue("name", transferName(nameOf(v)), { shouldValidate: true });
+                    }}
                   >
                     <SelectTrigger><SelectValue placeholder="Select destination" /></SelectTrigger>
                     <SelectContent>
@@ -177,6 +187,7 @@ export function TransferForm(
                   </Select>
                 )}
                 <FieldError name="toAccountId" />
+                <FieldError name="name" />
               </div>
             </FormRow>
             <FormRow>
