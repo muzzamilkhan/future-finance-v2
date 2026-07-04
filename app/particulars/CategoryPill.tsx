@@ -17,7 +17,7 @@ type CategoryPillParticular = StoredParticular & { id: string };
  * forecast.getData.
  */
 export function CategoryPill({ particular }: { particular: CategoryPillParticular }) {
-  const { accountId } = useActiveAccount();
+  const { defaultAccountId: accountId } = useActiveAccount();
   const utils = trpc.useUtils();
   const update = trpc.particular.update.useMutation({
     onMutate: async (vars) => {

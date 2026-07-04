@@ -28,7 +28,7 @@ type TransferFormValues = z.input<typeof particularInput>;
 export function TransferForm(
   { isOpen, particularId, onClose }: { isOpen: boolean; particularId: string | null; onClose: () => void },
 ) {
-  const { accountId, accounts } = useActiveAccount();
+  const { defaultAccountId, accounts } = useActiveAccount();
   const [step, setStep] = useState(0);
   const utils = trpc.useUtils();
   const { data: existing } = trpc.particular.listAll.useQuery(undefined, {
@@ -47,7 +47,7 @@ export function TransferForm(
       isFixed: true,
       businessDayAdjustment: "NONE",
       category: "",
-      accountId: accountId ?? undefined,
+      accountId: defaultAccountId ?? undefined,
       toAccountId: undefined,
     },
     values: existing ? toParticularInput(existing) : undefined,
@@ -111,12 +111,12 @@ export function TransferForm(
         // Accounts are not editable on update; keep the transfer's existing from/to.
         update.mutate({
           ...values,
-          accountId: existing?.accountId ?? accountId!,
+          accountId: existing?.accountId ?? defaultAccountId!,
           toAccountId: existing?.toAccountId ?? (values.toAccountId as string | undefined),
           id: particularId,
         });
       } else {
-        create.mutate({ ...values, accountId: (values.accountId as string | undefined) || accountId! });
+        create.mutate({ ...values, accountId: (values.accountId as string | undefined) || defaultAccountId! });
       }
       close();
     },
@@ -133,7 +133,7 @@ export function TransferForm(
     errors[name] ? <p className="text-xs text-destructive">{errors[name]?.message}</p> : null;
 
   const nameOf = (id: string | undefined) => accounts.find((a) => a.id === id)?.name ?? "";
-  const fromId = (form.watch("accountId") as string | undefined) ?? accountId;
+  const fromId = (form.watch("accountId") as string | undefined) ?? defaultAccountId;
 
   return (
     <Dialog open={isOpen} onOpenChange={(o) => !o && close()}>

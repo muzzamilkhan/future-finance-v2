@@ -25,6 +25,13 @@ export function toAccountPayload(a: {
   };
 }
 
+/** Distinct userIds of the OWNER membership across the given membership rows. Pure, testable. */
+export function ownerUserIds(
+  memberships: { userId: string; role: "OWNER" | "MEMBER" }[],
+): string[] {
+  return [...new Set(memberships.filter((m) => m.role === "OWNER").map((m) => m.userId))];
+}
+
 export const forecastRouter = router({
   // Returns raw data for the FULL replay window [balanceUpdatedAt .. viewEnd].
   getData: accountProcedure
@@ -46,9 +53,15 @@ export const forecastRouter = router({
         orderBy: { startDate: "asc" },
       });
 
+      const ownerMemberships = await ctx.prisma.accountMembership.findMany({
+        where: { accountId: a.id, role: "OWNER" },
+        select: { userId: true, role: true },
+      });
+      const ownerIds = ownerUserIds(ownerMemberships);
+
       const holidays = await ctx.prisma.holiday.findMany({
         where: {
-          accountId: a.id,
+          userId: { in: ownerIds },
           OR: [
             { isRecurring: false, date: { gte: windowStart, lte: input.viewEnd } },
             { isRecurring: true },
@@ -89,9 +102,15 @@ export const forecastRouter = router({
         orderBy: { startDate: "asc" },
       });
 
+      const ownerMemberships = await ctx.prisma.accountMembership.findMany({
+        where: { accountId: { in: accountIds }, role: "OWNER" },
+        select: { userId: true, role: true },
+      });
+      const ownerIds = ownerUserIds(ownerMemberships);
+
       const holidays = await ctx.prisma.holiday.findMany({
         where: {
-          accountId: { in: accountIds },
+          userId: { in: ownerIds },
           OR: [
             { isRecurring: false, date: { gte: windowStart, lte: input.viewEnd } },
             { isRecurring: true },

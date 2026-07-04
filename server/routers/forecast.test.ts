@@ -6,7 +6,7 @@ import { describe, it, expect, vi } from "vitest";
 vi.mock("../db", () => ({ prisma: {} }));
 vi.mock("../auth", () => ({ auth: vi.fn().mockResolvedValue(null) }));
 
-import { combinedWindowStart, toAccountPayload } from "./forecast";
+import { combinedWindowStart, toAccountPayload, ownerUserIds } from "./forecast";
 
 const d = (s: string) => new Date(s + "T00:00:00Z");
 
@@ -40,5 +40,22 @@ describe("toAccountPayload", () => {
       balanceUpdatedAt: d("2026-06-01"), creditLimit: { toString: () => "1000.00" } as unknown as number,
     });
     expect(out).toMatchObject({ id: "c", type: "CREDIT", currentBalance: -200, creditLimit: 1000 });
+  });
+});
+
+describe("ownerUserIds", () => {
+  it("returns distinct owner userIds across accounts", () => {
+    const rows = [
+      { accountId: "a1", userId: "u1", role: "OWNER" as const },
+      { accountId: "a1", userId: "u2", role: "MEMBER" as const },
+      { accountId: "a2", userId: "u3", role: "OWNER" as const },
+      { accountId: "a3", userId: "u1", role: "OWNER" as const }, // u1 owns two accounts
+    ];
+    expect(ownerUserIds(rows).sort()).toEqual(["u1", "u3"]);
+  });
+
+  it("ignores non-owner rows", () => {
+    const rows = [{ accountId: "a1", userId: "m", role: "MEMBER" as const }];
+    expect(ownerUserIds(rows)).toEqual([]);
   });
 });

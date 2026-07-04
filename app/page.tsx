@@ -45,7 +45,8 @@ export default function DashboardPage() {
     today.getUTCFullYear(), today.getUTCMonth() + monthsAhead, today.getUTCDate(),
   ));
 
-  const { accountId, accounts, activeMembership } = useActiveAccount();
+  const { defaultAccountId, accounts } = useActiveAccount();
+  const activeMembership = accounts.find((a) => a.id === defaultAccountId) ?? null;
   const canUpdateBalance = !activeMembership || activeMembership.role === "OWNER" || activeMembership.canUpdateBalance;
   const canEditOverrides = !activeMembership || activeMembership.role === "OWNER" || activeMembership.canEditOverrides;
   const utils = trpc.useUtils();
@@ -54,8 +55,8 @@ export default function DashboardPage() {
     { placeholderData: keepPreviousData },
   );
   const { data: particulars } = trpc.particular.list.useQuery(
-    { accountId: accountId! },
-    { enabled: !!accountId },
+    { accountId: defaultAccountId! },
+    { enabled: !!defaultAccountId },
   );
   const updateBalance = trpc.account.updateBalance.useMutation({
     onMutate: async (vars) => {
@@ -143,7 +144,7 @@ export default function DashboardPage() {
           <div className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-4">
             <MetricCard title="Current Balance" value={current} type={current >= 0 ? "income" : "expense"}
               editable={canUpdateBalance && accounts.length <= 1}
-              onSave={(balance) => updateBalance.mutate({ accountId: accountId!, balance })}
+              onSave={(balance) => updateBalance.mutate({ accountId: defaultAccountId!, balance })}
               footer={
                 <AccountBalanceList
                   accounts={accounts}

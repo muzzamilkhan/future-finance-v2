@@ -3,18 +3,15 @@ import { use } from "react";
 import { useRouter } from "next/navigation";
 import { trpc } from "@/trpc/client";
 import { Button } from "@/app/_components/ui/button";
-import { useActiveAccount } from "@/app/_components/AccountContext";
 
 export default function InvitePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params);
   const router = useRouter();
-  const { setAccountId } = useActiveAccount();
   const utils = trpc.useUtils();
   const { data, error, isLoading } = trpc.invite.get.useQuery({ token }, { retry: false });
   const accept = trpc.invite.accept.useMutation({
-    onSuccess: (r) => {
+    onSuccess: () => {
       utils.account.list.invalidate();
-      setAccountId(r.accountId);
       router.push("/");
     },
   });
@@ -28,9 +25,8 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
       <ul className="text-sm text-muted-foreground list-disc pl-5">
         {data!.perms.canEditItems && <li>Can edit items</li>}
         {data!.perms.canEditOverrides && <li>Can edit overrides</li>}
-        {data!.perms.canEditHolidays && <li>Can edit holidays</li>}
         {data!.perms.canUpdateBalance && <li>Can update balance</li>}
-        {!data!.perms.canEditItems && !data!.perms.canEditOverrides && !data!.perms.canEditHolidays && !data!.perms.canUpdateBalance && <li>View only</li>}
+        {!data!.perms.canEditItems && !data!.perms.canEditOverrides && !data!.perms.canUpdateBalance && <li>View only</li>}
       </ul>
       <div className="flex gap-2">
         <Button onClick={() => accept.mutate({ token })} disabled={accept.isPending}>Accept</Button>

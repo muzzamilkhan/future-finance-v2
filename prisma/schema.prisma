@@ -16,6 +16,7 @@ model User {
   sessions      Session[]
   memberships   AccountMembership[]
   debts         Debt[]
+  holidays      Holiday[]
 }
 
 model Account {
@@ -63,7 +64,6 @@ model FinanceAccount {
   creditLimit      Decimal?            @db.Decimal(15, 2)
   particulars      Particular[]        @relation("ParticularSource")
   transfersIn      Particular[]        @relation("TransferDestination")
-  holidays         Holiday[]
   memberships      AccountMembership[]
   invites          ShareInvite[]
   createdAt        DateTime            @default(now())
@@ -78,7 +78,6 @@ model AccountMembership {
   isDefault        Boolean        @default(false)
   canEditItems     Boolean        @default(false)
   canEditOverrides Boolean        @default(false)
-  canEditHolidays  Boolean        @default(false)
   canUpdateBalance Boolean        @default(false)
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
@@ -102,7 +101,6 @@ model ShareInvite {
   role             MembershipRole @default(MEMBER)
   canEditItems     Boolean        @default(false)
   canEditOverrides Boolean        @default(false)
-  canEditHolidays  Boolean        @default(false)
   canUpdateBalance Boolean        @default(false)
   acceptedAt       DateTime?
   expiresAt        DateTime?
@@ -156,15 +154,15 @@ enum HolidaySource {
 }
 
 model Holiday {
-  id          String         @id @default(cuid())
-  accountId   String
+  id          String        @id @default(cuid())
+  userId      String
   name        String
-  date        DateTime       @db.Date
-  isRecurring Boolean        @default(false)
-  source      HolidaySource  @default(CUSTOM)
-  account     FinanceAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  date        DateTime      @db.Date
+  isRecurring Boolean       @default(false)
+  source      HolidaySource @default(CUSTOM)
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([accountId, name, source])
+  @@unique([userId, name, source])
 }
 
 enum AccountType {

@@ -27,7 +27,7 @@ async function main() {
     await prisma.accountMembership.create({
       data: {
         userId: row.ownerId, accountId: row.id, role: "OWNER", isDefault: true,
-        canEditItems: true, canEditOverrides: true, canEditHolidays: true, canUpdateBalance: true,
+        canEditItems: true, canEditOverrides: true, canUpdateBalance: true,
       },
     });
     await prisma.financeAccount.update({

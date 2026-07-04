@@ -23,7 +23,7 @@ export function CategoryCombobox(
   { value, onChange, disabled = false, allAccounts = false }:
   { value: string; onChange: (next: string) => void; disabled?: boolean; allAccounts?: boolean },
 ) {
-  const { accountId } = useActiveAccount();
+  const { defaultAccountId: accountId } = useActiveAccount();
   const scoped = trpc.category.list.useQuery(
     { accountId: accountId! },
     { enabled: !allAccounts && !!accountId },

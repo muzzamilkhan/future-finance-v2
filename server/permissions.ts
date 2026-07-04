@@ -1,14 +1,14 @@
 import { TRPCError } from "@trpc/server";
 
-export type Capability = "editItems" | "editOverrides" | "editHolidays" | "updateBalance";
+export type Capability = "editItems" | "editOverrides" | "updateBalance";
 export type MembershipPerms = {
   role: "OWNER" | "MEMBER";
-  canEditItems: boolean; canEditOverrides: boolean; canEditHolidays: boolean; canUpdateBalance: boolean;
+  canEditItems: boolean; canEditOverrides: boolean; canUpdateBalance: boolean;
 };
 
 const FLAG: Record<Capability, keyof MembershipPerms> = {
   editItems: "canEditItems", editOverrides: "canEditOverrides",
-  editHolidays: "canEditHolidays", updateBalance: "canUpdateBalance",
+  updateBalance: "canUpdateBalance",
 };
 
 export function hasCapability(m: MembershipPerms, cap: Capability): boolean {

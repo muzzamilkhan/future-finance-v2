@@ -8,7 +8,7 @@ import { formatUtcMonthDay, formatUtcMonthDayYear } from "@/lib/dateInput";
 import { removeRow, isTempId } from "@/lib/optimistic";
 
 export function OverrideManagement({ particularId }: { particularId: string }) {
-  const { accountId } = useActiveAccount();
+  const { defaultAccountId: accountId } = useActiveAccount();
   const utils = trpc.useUtils();
   const { data: overrides } = trpc.particular.listOverrides.useQuery(
     { accountId: accountId!, particularId },

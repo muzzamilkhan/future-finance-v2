@@ -27,8 +27,9 @@ function byDate(a: Particular, b: Particular) {
 }
 
 export default function ParticularsPage() {
-  const { accountId, activeMembership } = useActiveAccount();
-  const canEditItems = !activeMembership || activeMembership.role === "OWNER" || activeMembership.canEditItems;
+  const { accounts, defaultAccountId } = useActiveAccount();
+  const defaultAccount = accounts.find((a) => a.id === defaultAccountId);
+  const canEditItems = !defaultAccount || defaultAccount.role === "OWNER" || defaultAccount.canEditItems;
   const utils = trpc.useUtils();
   const today = todayAsUtcDate();
   const { data: particulars, isLoading } = trpc.particular.listAll.useQuery();
@@ -95,7 +96,7 @@ export default function ParticularsPage() {
       setEditing(p.id);
       if (p.type === "TRANSFER") setTransferOpen(true); else setFormOpen(true);
     };
-    const canMove = p.type !== "TRANSFER" && (accountList ?? []).some((a) => a.id !== accountId);
+    const canMove = p.type !== "TRANSFER" && (accountList ?? []).some((a) => a.id !== defaultAccountId);
     return (
       <div
         key={p.id}
@@ -218,7 +219,7 @@ export default function ParticularsPage() {
                 <SelectTrigger><SelectValue placeholder="Select destination account" /></SelectTrigger>
                 <SelectContent>
                   {(accountList ?? [])
-                    .filter((a) => a.id !== accountId)
+                    .filter((a) => a.id !== defaultAccountId)
                     .map((a) => (
                       <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
                     ))}
