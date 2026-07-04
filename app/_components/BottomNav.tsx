@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
-import { LayoutDashboard, ListOrdered, CalendarDays, PieChart, Sun, Moon, TrendingDown, Wallet } from "lucide-react";
+import { signOut } from "next-auth/react";
+import { LayoutDashboard, ListOrdered, CalendarDays, PieChart, Sun, Moon, TrendingDown, Wallet, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const items = [
@@ -38,6 +39,15 @@ export function BottomNav() {
         <Sun className="h-5 w-5 dark:hidden" />
         <Moon className="hidden h-5 w-5 dark:block" />
         Theme
+      </button>
+      <button
+        type="button"
+        onClick={() => signOut({ callbackUrl: "/login" })}
+        className={cn(itemClass, "text-muted-foreground")}
+        aria-label="Log out"
+      >
+        <LogOut className="h-5 w-5" />
+        Logout
       </button>
     </nav>
   );
