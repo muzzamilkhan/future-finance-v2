@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
 import { LayoutDashboard, ListOrdered, CalendarDays, PieChart, Sun, Moon, TrendingDown, Wallet, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { signOutAction } from "@/app/_actions/auth";
 
 const items = [
   { to: "/", label: "Home", icon: LayoutDashboard },
@@ -39,10 +40,11 @@ export function BottomNav() {
         <Moon className="hidden h-5 w-5 dark:block" />
         Theme
       </button>
-      <a href="/api/auth/signout?callbackUrl=/login"
-        className={cn(itemClass, "text-muted-foreground")}>
-        <LogOut className="h-5 w-5" />Log out
-      </a>
+      <form action={signOutAction}>
+        <button type="submit" className={cn(itemClass, "text-muted-foreground")}>
+          <LogOut className="h-5 w-5" />Log out
+        </button>
+      </form>
     </nav>
   );
 }

@@ -11,14 +11,17 @@ export function proxy(req: NextRequest) {
   const hasSession = SESSION_COOKIES.some((name) => req.cookies.has(name));
   if (hasSession) return NextResponse.next();
 
-  const loginUrl = new URL("/login", req.url);
-  loginUrl.searchParams.set("callbackUrl", req.nextUrl.pathname + req.nextUrl.search);
-  return NextResponse.redirect(loginUrl);
+  // The root path serves the public marketing home page to logged-out visitors;
+  // `app/page.tsx` renders the dashboard only when a session is present. Everything
+  // else is authed-only and redirects to sign-in.
+  if (req.nextUrl.pathname === "/") return NextResponse.next();
+
+  return NextResponse.redirect(new URL("/api/auth/signin?callbackUrl=/", req.url));
 }
 
 export const config = {
-  // Run on all routes except the login page, auth/trpc API, and Next internals/static assets.
+  // Run on all routes except auth/trpc API and Next internals/static assets.
   matcher: [
-    "/((?!login|api/auth|api/trpc|_next/static|_next/image|favicon.ico).*)",
+    "/((?!api/auth|api/trpc|_next/static|_next/image|favicon.ico).*)",
   ],
 };
