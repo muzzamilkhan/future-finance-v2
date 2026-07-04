@@ -56,6 +56,15 @@ Next.js 16 (App Router) · React 19 · Vitest · tRPC 11 · Prisma 7 · PostgreS
 NextAuth v5 (`5.0.0-beta.31`) · Tailwind v4 · Radix/shadcn UI · Zod 4 · React Query 5 ·
 date-fns. NextAuth v5 is beta by design (no stable v5 exists).
 
+## Working style (hobby project — keep it simple and quick)
+
+- **Work directly on `main`.** Never create a branch or worktree. This is a hobby
+  project; optimize for speed and simplicity.
+- **Don't run scripts to verify.** Just make the fix and tell me it's done and live on
+  `main`. localhost is usually running, so I'll test manually.
+- **Keep tests lean — pure-function tests only.** Cover `lib/engine/` logic; skip
+  integration/UI test scaffolding.
+
 ## Conventions
 
 - Test runner is **Vitest** everywhere. No Playwright in this slice.
