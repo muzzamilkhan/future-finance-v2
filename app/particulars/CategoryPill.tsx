@@ -17,7 +17,11 @@ type CategoryPillParticular = StoredParticular & { id: string };
  * forecast.getData.
  */
 export function CategoryPill({ particular }: { particular: CategoryPillParticular }) {
-  const { defaultAccountId: accountId } = useActiveAccount();
+  const { defaultAccountId } = useActiveAccount();
+  // Rows come from particular.listAll and may belong to a non-default account.
+  // Save against the particular's OWN account (mirrors app/spending/page.tsx),
+  // otherwise particular.update resolves the default account and 404s the row.
+  const accountId = particular.accountId ?? defaultAccountId;
   const utils = trpc.useUtils();
   const update = trpc.particular.update.useMutation({
     onMutate: async (vars) => {
