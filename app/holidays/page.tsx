@@ -45,7 +45,6 @@ function HolidaySection({ title, holidays, canEdit, onDelete }: {
 }
 
 export default function HolidaysPage() {
-  const canEditHolidays = true;
   const utils = trpc.useUtils();
   const { data: holidays } = trpc.holiday.list.useQuery();
   const create = trpc.holiday.create.useMutation({
@@ -138,7 +137,7 @@ export default function HolidaysPage() {
           </div>
           <div className="mt-auto flex items-center justify-end gap-2">
             {importMsg && <span className="text-sm text-muted-foreground">{importMsg}</span>}
-            <Button size="sm" disabled={!canEditHolidays || country.length !== 2 || importHolidays.isPending}
+            <Button size="sm" disabled={country.length !== 2 || importHolidays.isPending}
               onClick={() => { setImportMsg(null); importHolidays.mutate({ countryCode: country, stateCode: stateCode || undefined }); }}>
               {importHolidays.isPending ? "Importing…" : "Import holidays"}
             </Button>
@@ -160,17 +159,17 @@ export default function HolidaysPage() {
             <label className="flex h-9 items-center gap-1 text-sm">
               <Checkbox checked={recurring} onCheckedChange={(c) => setRecurring(!!c)} /> Recurring
             </label>
-            <Button type="submit" size="sm" disabled={!canEditHolidays}>Add</Button>
+            <Button type="submit" size="sm">Add</Button>
           </div>
         </form>
         </div>
         <HolidaySection title="Imported Holidays"
           holidays={(holidays ?? []).filter((h) => h.source === "IMPORTED")}
-          canEdit={canEditHolidays}
+          canEdit
           onDelete={setPendingDelete} />
         <HolidaySection title="Custom Holidays"
           holidays={(holidays ?? []).filter((h) => h.source !== "IMPORTED")}
-          canEdit={canEditHolidays}
+          canEdit
           onDelete={setPendingDelete} />
         <Dialog open={!!pendingDelete} onOpenChange={(o) => { if (!o && !del.isPending) setPendingDelete(null); }}>
           <DialogContent>

@@ -14,6 +14,12 @@ ALTER TABLE "Holiday" DROP CONSTRAINT "Holiday_accountId_fkey";
 -- DropIndex
 DROP INDEX "Holiday_accountId_name_source_key";
 
+-- Holidays are re-keyed from account to user. The old account->owner mapping is not
+-- available in this migration, so existing rows cannot be re-keyed and are cleared
+-- (data wipe is approved, pre-production). Explicit so the NOT NULL add below is safe
+-- whether this runs via `migrate reset` or `migrate deploy` on a non-empty table.
+DELETE FROM "Holiday";
+
 -- AlterTable
 ALTER TABLE "Holiday" DROP COLUMN "accountId",
 ADD COLUMN "userId" TEXT NOT NULL;
