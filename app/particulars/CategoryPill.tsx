@@ -12,9 +12,11 @@ type CategoryPillParticular = StoredParticular & { id: string };
 
 /**
  * Inline category editor for an expense row — a CategoryCombobox that saves
- * the picked/created category immediately. Category changes are expense-only
- * and feed the spending view, so we invalidate both particular.list and
- * forecast.getData.
+ * the picked/created category immediately. The particulars page renders from
+ * particular.listAll (all accounts), so we optimistically patch and invalidate
+ * listAll — not the single-account particular.list, which nothing here reads.
+ * Category changes are expense-only and feed the spending view, so we also
+ * invalidate forecast.getData.
  */
 export function CategoryPill({ particular }: { particular: CategoryPillParticular }) {
   const { defaultAccountId } = useActiveAccount();
@@ -25,20 +27,19 @@ export function CategoryPill({ particular }: { particular: CategoryPillParticula
   const utils = trpc.useUtils();
   const update = trpc.particular.update.useMutation({
     onMutate: async (vars) => {
-      const key = { accountId: vars.accountId };
-      await utils.particular.list.cancel(key);
-      const prev = utils.particular.list.getData(key);
-      utils.particular.list.setData(key, (old) =>
+      await utils.particular.listAll.cancel();
+      const prev = utils.particular.listAll.getData();
+      utils.particular.listAll.setData(undefined, (old) =>
         updateRow(old, vars.id, { category: vars.category ?? null } as never),
       );
-      return { prev, key };
+      return { prev };
     },
     onError: (error, _vars, ctx) => {
-      if (ctx) utils.particular.list.setData(ctx.key, ctx.prev);
+      if (ctx) utils.particular.listAll.setData(undefined, ctx.prev);
       toast.error("Couldn't save category", { description: error.message });
     },
     onSettled: () => {
-      utils.particular.list.invalidate();
+      utils.particular.listAll.invalidate();
       utils.forecast.getData.invalidate();
     },
   });
