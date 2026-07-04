@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, ListOrdered, CalendarDays, PieChart, TrendingDown, Wallet } from "lucide-react";
+import { LayoutDashboard, ListOrdered, CalendarDays, PieChart, TrendingDown, Wallet, LogOut } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
 import { cn } from "@/lib/utils";
 
@@ -32,6 +32,10 @@ export function Sidebar() {
           </Link>
         ))}
       </nav>
+      <a href="/api/auth/signout?callbackUrl=/login"
+        className="mt-auto flex items-center gap-2 rounded-md px-3 py-2 m-2 text-sm hover:bg-sidebar-accent/50">
+        <LogOut className="h-4 w-4" />Log out
+      </a>
     </aside>
   );
 }

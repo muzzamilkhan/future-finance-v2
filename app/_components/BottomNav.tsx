@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
-import { LayoutDashboard, ListOrdered, CalendarDays, PieChart, Sun, Moon, TrendingDown, Wallet } from "lucide-react";
+import { LayoutDashboard, ListOrdered, CalendarDays, PieChart, Sun, Moon, TrendingDown, Wallet, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const items = [
@@ -39,6 +39,10 @@ export function BottomNav() {
         <Moon className="hidden h-5 w-5 dark:block" />
         Theme
       </button>
+      <a href="/api/auth/signout?callbackUrl=/login"
+        className={cn(itemClass, "text-muted-foreground")}>
+        <LogOut className="h-5 w-5" />Log out
+      </a>
     </nav>
   );
 }
