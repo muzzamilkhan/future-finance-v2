@@ -23,7 +23,11 @@ export const particularInput = z.object({
   ).transform((v) => (v === "" ? undefined : v)),
   accountId: z.string().optional(),
   toAccountId: z.preprocess(emptyToUndefined, z.string().optional()),
-}).refine((v) => !v.endDate || v.endDate >= v.startDate, {
+}).transform((v) => (
+  // Categories are strictly for recurring expenses; drop any stray category
+  // left on income, transfers, or once-off items (e.g. after switching type).
+  v.type === "EXPENSE" && v.frequency !== "ONCE_OFF" ? v : { ...v, category: undefined }
+)).refine((v) => !v.endDate || v.endDate >= v.startDate, {
   message: "End date must be on or after start date", path: ["endDate"],
 }).refine((v) => v.type !== "TRANSFER" || (!!v.toAccountId && v.toAccountId !== v.accountId), {
   message: "Transfers need a different destination account", path: ["toAccountId"],

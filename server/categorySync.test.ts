@@ -20,7 +20,7 @@ describe("syncAccountCategories", () => {
     } as any;
     await syncAccountCategories(prisma, "acc1");
     expect(prisma.particular.findMany).toHaveBeenCalledWith({
-      where: { accountId: "acc1", type: "EXPENSE" }, select: { category: true },
+      where: { accountId: "acc1", type: "EXPENSE", frequency: { not: "ONCE_OFF" } }, select: { category: true },
     });
     expect(update).toHaveBeenCalledWith({
       where: { id: "acc1" }, data: { categories: computeUserCategories(["Food", "Rent", null]) },

@@ -67,6 +67,7 @@ export function QuickAddRow({ disabled }: { disabled?: boolean }) {
     onSettled: () => {
       utils.particular.listAll.invalidate();
       utils.forecast.getData.invalidate();
+      utils.category.invalidate();
     },
   });
 

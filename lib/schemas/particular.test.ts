@@ -82,4 +82,12 @@ describe("particularInput category", () => {
     const parsed = particularInput.parse(base);
     expect(parsed.category).toBeUndefined();
   });
+  it("strips category from a once-off expense", () => {
+    const parsed = particularInput.parse({ ...base, frequency: "ONCE_OFF", category: "Power" });
+    expect(parsed.category).toBeUndefined();
+  });
+  it("strips category from income", () => {
+    const parsed = particularInput.parse({ ...base, type: "INCOME", category: "Power" });
+    expect(parsed.category).toBeUndefined();
+  });
 });

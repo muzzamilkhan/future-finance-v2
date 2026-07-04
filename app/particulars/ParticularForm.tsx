@@ -61,7 +61,7 @@ export function ParticularForm(
     if (ctx) utils.particular.listAll.setData(undefined, ctx.prev as never);
     toast.error(particularId ? "Couldn't save changes" : "Couldn't add item", { description: error.message });
   };
-  const onSettled = () => { utils.particular.listAll.invalidate(); utils.forecast.getData.invalidate(); };
+  const onSettled = () => { utils.particular.listAll.invalidate(); utils.forecast.getData.invalidate(); utils.category.invalidate(); };
 
   const create = trpc.particular.create.useMutation({
     onMutate: async (vars) => {
@@ -240,16 +240,19 @@ export function ParticularForm(
                 <span>Fixed <span className="text-muted-foreground">(amount cannot be overridden)</span></span>
               </label>
             </FormRow>
-            <FormRow>
-              <div className="space-y-1">
-                <Label>Category</Label>
-                <CategoryCombobox
-                  value={(form.watch("category") as string | undefined) ?? ""}
-                  onChange={(v) => form.setValue("category", v)}
-                />
-              </div>
-              <div />
-            </FormRow>
+            {form.watch("type") === "EXPENSE" && form.watch("frequency") !== "ONCE_OFF" && (
+              <FormRow>
+                <div className="space-y-1">
+                  <Label>Category</Label>
+                  <CategoryCombobox
+                    allAccounts
+                    value={(form.watch("category") as string | undefined) ?? ""}
+                    onChange={(v) => form.setValue("category", v)}
+                  />
+                </div>
+                <div />
+              </FormRow>
+            )}
           </div>
           </div>
 

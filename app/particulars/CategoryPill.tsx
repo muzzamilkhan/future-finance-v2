@@ -41,6 +41,7 @@ export function CategoryPill({ particular }: { particular: CategoryPillParticula
     onSettled: () => {
       utils.particular.listAll.invalidate();
       utils.forecast.getData.invalidate();
+      utils.category.invalidate();
     },
   });
 
@@ -51,7 +52,7 @@ export function CategoryPill({ particular }: { particular: CategoryPillParticula
 
   return (
     <span onClick={(e) => e.stopPropagation()}>
-      <CategoryCombobox value={particular.category ?? ""} onChange={onPick} />
+      <CategoryCombobox allAccounts value={particular.category ?? ""} onChange={onPick} />
     </span>
   );
 }

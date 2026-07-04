@@ -121,7 +121,7 @@ export default function ParticularsPage() {
             ) : (
               <AccountBadge accountId={p.accountId} accountNames={accountNames} orderedIds={accountIds} className="ml-2" />
             )}
-            {p.type === "EXPENSE" && <CategoryPill particular={p} />}
+            {p.type === "EXPENSE" && p.frequency !== "ONCE_OFF" && <CategoryPill particular={p} />}
             <span className={`ml-auto shrink-0 sm:hidden ${amountClass}`}>
               {amountText}
             </span>
