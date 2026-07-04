@@ -64,6 +64,9 @@ date-fns. NextAuth v5 is beta by design (no stable v5 exists).
   `main`. localhost is usually running, so I'll test manually.
 - **Keep tests lean — pure-function tests only.** Cover `lib/engine/` logic; skip
   integration/UI test scaffolding.
+- **Always commit when the work is done.** Once a change is finished, commit it to
+  `main` without waiting to be asked. Stage only the files you changed; leave
+  unrelated uncommitted work alone.
 
 ## Conventions
 
