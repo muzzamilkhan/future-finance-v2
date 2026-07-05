@@ -4,73 +4,122 @@ Guidance for Claude Code working in this repo.
 
 ## What this repo is
 
-A clean rebuild of Future Finance, narrowed to its core feature: **forecasting future
-financial position**. It is **seeded but not yet implemented** — the design and a
-task-by-task implementation plan exist; the application code does not yet.
+Future Finance is a personal cash-flow forecaster: you record recurring/one-off income
+and expenses ("particulars") against one or more accounts, and it replays them forward
+to show your projected daily/monthly balance, when an account runs dry, and where your
+low points are. It is a **single Next.js (App Router) app** at the repo root and is
+**fully implemented** — engine, tRPC API, Prisma/Postgres, Google auth, and all pages.
 
-- **Design (read first):** `docs/superpowers/specs/2026-06-28-future-finance-v2-core-forecast-design.md`
-- **Implementation plan:** `docs/superpowers/plans/2026-06-28-future-finance-v2-core-forecast.md`
-- **UI/theme baseline (v1, portable):** `baseline/`
+Design specs and plans live in `docs/superpowers/` for reference, and `baseline/` holds
+the portable v1 UI/theme source. Neither is the source of truth for current behavior —
+the code is.
 
-## How to work here
+## Architecture
 
-- To implement, **follow the plan task-by-task** via the `superpowers:executing-plans`
-  or `superpowers:subagent-driven-development` skill. Each task is TDD: write the
-  failing test, see it fail, implement minimally, see it pass, commit.
-- The plan scaffolds a single **Next.js** app at the repo root. Use the `baseline/`
-  files as the source for the plan's theme-port steps — copy them in; don't re-derive.
-- Don't expand scope. Multiple accounts, collaboration, debt-as-account, and the full
-  UX redesign are **deferred** — see the spec's "Follow-ups". Capture new ideas there
-  rather than building them.
-
-## Architecture (per the design)
-
-- **One Next.js (App Router) app** at the repo root serves UI and API from one
-  origin — no separate server process, no dev proxy, no CORS.
-- **Pure engine** (`lib/engine/`) — no React, no DB, deterministic. "Today" / "skip
-  today" are passed in as params, never read from the clock. Imported by both the
-  dashboard client component (instant recompute) and the server. This is the testable
-  heart; cover it exhaustively with Vitest.
-- **Server layer** (`server/`) — tRPC 11 routers + Prisma + NextAuth, mounted via App
-  Router route handlers (`app/api/trpc/[trpc]`, `app/api/auth/[...nextauth]`).
+- **One Next.js app** serves UI and API from one origin — no separate server, no dev
+  proxy, no CORS.
+- **Pure engine** (`lib/engine/`) — no React, no DB, deterministic. "Today" and
+  "skip today" are passed in as params, never read from the clock. Imported by both
+  the dashboard client (instant recompute) and the server. This is the testable heart;
+  cover it exhaustively with Vitest.
+- **Server layer** (`server/`) — tRPC 11 routers + Prisma 7 + NextAuth v5, mounted via
+  App Router route handlers (`app/api/trpc/[trpc]`, `app/api/auth/[...nextauth]`).
   Server-only; client components never touch Prisma — all data flows through tRPC.
+- **Pure helpers** for testable UI/domain logic live next to their feature as
+  `*.ts` + `*.test.ts` (e.g. `app/spending/spendingChartData.ts`, `lib/optimistic.ts`).
+  Keep logic out of `.tsx` where it's worth testing.
+
+### Routers (`server/routers/_app.ts`)
+
+`account`, `particular`, `forecast`, `category`, `holiday`, `invite`, `debt`.
+
+### Pages (`app/`)
+
+`/` (dashboard when signed in, else pre-login home) · `/accounts` · `/particulars` ·
+`/spending` · `/debts` · `/holidays` · `/login` · `/invite/[token]`.
+
+## The forecast engine (`lib/engine/`)
+
+`computeForecast` is multi-account aware. Given accounts, particulars, holidays, a view
+window, `today`, and `skipToday`, it walks one UTC day at a time from the **replay start**
+(earliest account anchor, clamped to `viewStart`) through `viewEnd`, then slices for display.
+
+- **Per-account running balance.** Each account seeds to its `anchorBalance` on the exact
+  UTC day it activates (its `anchorDate`), *before* that day's opening snapshot. Before its
+  anchor an account is **inactive** and contributes nothing. A leg (income/expense/transfer)
+  only applies if *its* account is active that day.
+- **Transfers** move money between two accounts of the same owner: the source leg is
+  `-amount`, the destination leg is `+amount`, each gated by its own account's activation.
+- **Credit accounts** (`type: "CREDIT"`) store a negative outstanding `balance`;
+  `availableCredit = creditLimit + balance`. A credit account is "exhausted" when
+  `availableCredit < 0`; a debit account when `balance < 0`.
+- **Combined line** = Σ debit balances + Σ available credit across active accounts.
+- Outputs: `days`, monthly `months`, `firstNegative`, `lowest`/`highest` (on combined),
+  `exhaustions` (first exhaustion per account), and `lowestByAccount` (lowest on the
+  displayed figure — available credit for CREDIT, cash for DEBIT; earliest day wins ties).
+
+Instance generation (`instances.ts`) expands a particular into dated occurrences over the
+window, applies business-day adjustment and holidays, and folds in overrides.
 
 ## Key invariants (don't break these)
 
-- `Particular.amount` is stored **positive**; the sign is applied from `type`
-  (INCOME +, EXPENSE −) inside the engine.
-- The forecast **always replays from the account's `balanceUpdatedAt`** (seeded with
-  `currentBalance`) forward to the visible window, then slices for display. Future
-  months must reflect every prior event since the last balance update — never a
-  floating window start.
-- Overrides are matched to instances by `(particularId, originalDate)` with a UTC
-  year/month/day compare.
-- One `FinanceAccount` per user (`ownerId @unique`), auto-created on first
-  authenticated request (`resolveAccount`).
-- Override rules: amount override requires `!isFixed`; date/skip requires
-  `!isCritical`. Enforced server-side; mirrored client-side.
+- **`Particular.amount` is stored positive**; the sign is applied from `type` inside the
+  engine (INCOME +, EXPENSE/TRANSFER −). Overridden amounts are also stored/consumed as
+  absolute values.
+- **The forecast always replays from each account's `balanceUpdatedAt`** (seeded with
+  `currentBalance`) forward to the visible window, then slices for display. Future months
+  reflect every prior event since that account's last balance update — never a floating
+  window start.
+- **Overrides are matched to instances by `(particularId, originalDate)`** with a UTC
+  year/month/day compare (`ParticularOverride` has `@@unique([particularId, originalDate])`).
+- **Override rules:** amount override requires `!isFixed`; date/skip requires `!isCritical`.
+  Enforced server-side in the particular router (`assertOverrideAllowed`) and mirrored
+  client-side.
+- **Engine/schema layers stay pure:** keep `lib/engine/` and `lib/schemas/` free of React,
+  Prisma, and Next imports.
+- Currency is **NZD** via `Intl.NumberFormat('en-NZ', …)`. Dates use `date-fns`; stored
+  date columns are `@db.Date` and compared in UTC.
+
+## Accounts, membership & sharing (multi-account model)
+
+There is **no longer one account per user.** Ownership and access run through
+`AccountMembership`:
+
+- A user reaches an account only via an `AccountMembership` row (`@@unique([userId, accountId])`).
+  On first authenticated use, `ensureBootstrapAccount` creates a fresh `FinanceAccount` +
+  an `OWNER` membership (marked `isDefault`) if the user has no open account.
+- **Capabilities** gate mutations: `canEditItems`, `canEditOverrides`, `canUpdateBalance`.
+  `OWNER` implicitly has all three (`server/permissions.ts` → `hasCapability` / `assertCan`).
+- `accountProcedure` takes an `accountId`, resolves the caller's membership
+  (`resolveMembership`), and rejects with `FORBIDDEN` (no membership) or `NOT_FOUND`
+  (account closed). Account-scoped mutations assert the relevant capability.
+- **Sharing:** an owner mints a `ShareInvite` (token + preset capabilities); accepting it
+  creates a membership. `forecast.getCombined` and the dashboard aggregate all of a user's
+  open-account memberships into one combined line.
+- Accounts are **closed** (`closedAt`), not hard-deleted; closing reassigns the user's
+  default to another open account (`pickNextDefault`).
+- **Categories** are a normalized comma-string on `FinanceAccount.categories`, kept in sync
+  from expense particulars (`server/categorySync.ts`); `parseCategories`/`serializeCategories`
+  handle dedupe + title-case.
+- **Holidays** are **user-level** (`Holiday` on `User`, imported via Nager or custom). In
+  the forecast they apply via the account's **owner(s)** holidays.
+- **Debts** (`Debt` on `User`) power the standalone Debt Buster payoff simulator
+  (`lib/engine/debt.ts`: snowball/avalanche/custom). This is a separate planning tool — it
+  is **not** modeled as a `FinanceAccount` and does not feed the cash-flow forecast.
 
 ## Stack
 
-Next.js 16 (App Router) · React 19 · Vitest · tRPC 11 · Prisma 7 · PostgreSQL ·
-NextAuth v5 (`5.0.0-beta.31`) · Tailwind v4 · Radix/shadcn UI · Zod 4 · React Query 5 ·
-date-fns. NextAuth v5 is beta by design (no stable v5 exists).
+Next.js 16 (App Router) · React 19 · Vitest 4 · tRPC 11 · Prisma 7 · PostgreSQL ·
+NextAuth v5 (`5.0.0-beta.31`, Google provider, database sessions) · Tailwind v4 ·
+Radix/shadcn UI · Zod 4 · React Query 5 · Recharts · date-fns · Sonner · next-themes.
+NextAuth v5 is beta by design (no stable v5 exists).
 
 ## Working style (hobby project — keep it simple and quick)
 
-- **Work directly on `main`.** Never create a branch or worktree. This is a hobby
-  project; optimize for speed and simplicity.
-- **Don't run scripts to verify.** Just make the fix and tell me it's done and live on
-  `main`. localhost is usually running, so I'll test manually.
-- **Keep tests lean — pure-function tests only.** Cover `lib/engine/` logic; skip
-  integration/UI test scaffolding.
-- **Always commit when the work is done.** Once a change is finished, commit it to
-  `main` without waiting to be asked. Stage only the files you changed; leave
-  unrelated uncommitted work alone.
-
-## Conventions
-
-- Test runner is **Vitest** everywhere. No Playwright in this slice.
-- Currency: NZD via `Intl.NumberFormat('en-NZ', …)`.
-- Keep `lib/engine/` and `lib/schemas/` free of React/Prisma/Next imports.
-- Commit frequently — one commit per completed plan task.
+- **Work directly on `main`.** Never create a branch or worktree; optimize for speed.
+- **Keep tests lean — pure-function tests only.** Cover `lib/engine/` and the co-located
+  `*.test.ts` helpers; skip integration/UI test scaffolding. Vitest everywhere; no Playwright.
+- **Don't run scripts to verify** unless asked — make the fix and say it's done. localhost
+  is usually running, so I'll test manually.
+- **Commit when a unit of work is done.** Stage only the files you changed; leave unrelated
+  uncommitted work alone.
