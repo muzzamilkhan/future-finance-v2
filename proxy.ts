@@ -20,8 +20,8 @@ export function proxy(req: NextRequest) {
 }
 
 export const config = {
-  // Run on all routes except auth/trpc API and Next internals/static assets.
+  // Run on all routes except auth/trpc API, the Sentry tunnel, and Next internals/static assets.
   matcher: [
-    "/((?!api/auth|api/trpc|_next/static|_next/image|favicon.ico).*)",
+    "/((?!api/auth|api/trpc|monitoring|_next/static|_next/image|favicon.ico).*)",
   ],
 };
