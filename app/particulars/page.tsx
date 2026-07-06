@@ -5,6 +5,7 @@ import { trpc } from "@/trpc/client";
 import { todayAsUtcDate } from "@/lib/dateInput";
 import { Layout } from "@/app/_components/Layout";
 import { Button } from "@/app/_components/ui/button";
+import { Badge } from "@/app/_components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/app/_components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/_components/ui/select";
 import { formatCurrency } from "@/lib/design-system";
@@ -97,6 +98,18 @@ export default function ParticularsPage() {
       if (p.type === "TRANSFER") setTransferOpen(true); else setFormOpen(true);
     };
     const canMove = p.type !== "TRANSFER" && (accountList ?? []).some((a) => a.id !== defaultAccountId);
+    // Fixed + critical items get no badge. Otherwise flag the flexible dimension:
+    // !isCritical → the date can shift/skip ("Flexible"); !isFixed → the amount can vary ("Variable").
+    const badges = (!p.isCritical || !p.isFixed) ? (
+      <>
+        {!p.isCritical && (
+          <Badge variant="outline" className="border-amber-500/40 text-amber-700 dark:text-amber-400">Flexible</Badge>
+        )}
+        {!p.isFixed && (
+          <Badge variant="outline" className="border-sky-500/40 text-sky-700 dark:text-sky-400">Variable</Badge>
+        )}
+      </>
+    ) : null;
     return (
       <div
         key={p.id}
@@ -121,12 +134,14 @@ export default function ParticularsPage() {
             ) : (
               <AccountBadge accountId={p.accountId} accountNames={accountNames} orderedIds={accountIds} className="ml-2" />
             )}
+            {badges && <span className="hidden items-center gap-1 sm:inline-flex">{badges}</span>}
             {p.type === "EXPENSE" && p.frequency !== "ONCE_OFF" && <CategoryPill particular={p} />}
             <span className={`ml-auto shrink-0 sm:hidden ${amountClass}`}>
               {amountText}
             </span>
           </div>
           <div className="flex items-center justify-end gap-2">
+            {badges && <span className="mr-auto inline-flex items-center gap-1 sm:hidden">{badges}</span>}
             <span className={`hidden sm:inline ${amountClass}`}>
               {amountText}
             </span>
