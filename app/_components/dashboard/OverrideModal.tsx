@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { dateToInputValue, inputValueToDate } from "@/lib/dateInput";
 import { trpc } from "@/trpc/client";
-import { useActiveAccount } from "@/app/_components/AccountContext";
 import { Button } from "@/app/_components/ui/button";
 import { Input } from "@/app/_components/ui/input";
 import { Checkbox } from "@/app/_components/ui/checkbox";
@@ -11,20 +10,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/app/_compone
 import { upsertRowBy, removeRow, newTempId } from "@/lib/optimistic";
 
 export function OverrideModal(
-  { isOpen, particularId, originalDate, isFixed, isCritical, currentAmount, currentDate, overrideId, onClose }:
-  { isOpen: boolean; particularId: string; originalDate: Date; isFixed: boolean; isCritical: boolean; currentAmount: number; currentDate: Date; overrideId?: string; onClose: () => void },
+  { isOpen, accountId, particularId, originalDate, isFixed, isCritical, currentAmount, currentDate, overrideId, onClose }:
+  { isOpen: boolean; accountId: string; particularId: string; originalDate: Date; isFixed: boolean; isCritical: boolean; currentAmount: number; currentDate: Date; overrideId?: string; onClose: () => void },
 ) {
-  const { defaultAccountId: accountId } = useActiveAccount();
   const utils = trpc.useUtils();
   // Pre-populate with the occurrence's current values. Amount is stored signed in
   // the engine but overrides expect a positive magnitude (sign is applied from type).
   const [amount, setAmount] = useState(String(Math.abs(currentAmount)));
   const [date, setDate] = useState(dateToInputValue(currentDate));
   const [skip, setSkip] = useState(false);
-  const settle = () => { utils.forecast.getCombined.invalidate(); utils.particular.listOverrides.invalidate({ accountId: accountId!, particularId }); };
+  const settle = () => { utils.forecast.getCombined.invalidate(); utils.particular.listOverrides.invalidate({ accountId, particularId }); };
   const override = trpc.particular.overrideInstance.useMutation({
     onMutate: async (vars) => {
-      const key = { accountId: accountId!, particularId };
+      const key = { accountId, particularId };
       await utils.particular.listOverrides.cancel(key);
       const prev = utils.particular.listOverrides.getData(key);
       const origTime = new Date(vars.originalDate as Date).getTime();
@@ -49,7 +47,7 @@ export function OverrideModal(
   });
   const revert = trpc.particular.deleteOverride.useMutation({
     onMutate: async (vars) => {
-      const key = { accountId: accountId!, particularId };
+      const key = { accountId, particularId };
       await utils.particular.listOverrides.cancel(key);
       const prev = utils.particular.listOverrides.getData(key);
       utils.particular.listOverrides.setData(key, (old) => removeRow(old, vars.id));
@@ -67,7 +65,7 @@ export function OverrideModal(
         <form className="space-y-3" onSubmit={(e) => {
           e.preventDefault();
           override.mutate({
-            accountId: accountId!,
+            accountId,
             particularId, originalDate,
             // Only send fields the user can actually override for this particular —
             // the server rejects amount on fixed and date/skip on critical.
@@ -97,7 +95,7 @@ export function OverrideModal(
             {overrideId ? (
               <Button type="button" variant="destructive"
                 disabled={revert.isPending}
-                onClick={() => revert.mutate({ accountId: accountId!, id: overrideId })}>
+                onClick={() => revert.mutate({ accountId, id: overrideId })}>
                 Revert override
               </Button>
             ) : <span />}
