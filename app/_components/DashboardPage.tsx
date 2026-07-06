@@ -32,7 +32,7 @@ export function DashboardPage() {
   const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
   const [monthsAhead, setMonthsAhead] = useState(6);
   const [skipToday, setSkipToday] = useState(false);
-  const [override, setOverride] = useState<{ particularId: string; originalDate: Date; isFixed: boolean; isCritical: boolean; currentAmount: number; currentDate: Date; overrideId?: string } | null>(null);
+  const [override, setOverride] = useState<{ accountId: string; particularId: string; originalDate: Date; isFixed: boolean; isCritical: boolean; currentAmount: number; currentDate: Date; overrideId?: string } | null>(null);
 
   // Skip-today shifts the visible window to tomorrow (and the engine also drops
   // today's events from the running balance via skipToday). The list then starts
@@ -53,10 +53,6 @@ export function DashboardPage() {
   const { data, isLoading } = trpc.forecast.getCombined.useQuery(
     { viewStart, viewEnd },
     { placeholderData: keepPreviousData },
-  );
-  const { data: particulars } = trpc.particular.list.useQuery(
-    { accountId: defaultAccountId! },
-    { enabled: !!defaultAccountId },
   );
   const updateBalance = trpc.account.updateBalance.useMutation({
     onMutate: async (vars) => {
@@ -109,12 +105,16 @@ export function DashboardPage() {
   const openOverride = (particularId: string, originalDate?: Date, currentAmount?: number, currentDate?: Date, overrideId?: string) => {
     if (!canEditOverrides) return;
     if (!originalDate || currentAmount === undefined || !currentDate) return;
-    const p = particulars?.find((x) => x.id === particularId);
+    // Look the particular up in the combined forecast payload, which spans every
+    // account the user can see — NOT a single-account list. The dashboard is a
+    // combined view, so an event may belong to any of the user's accounts, and the
+    // override must be scoped to that particular's own account.
+    const p = data?.particulars.find((x) => x.id === particularId);
     if (!p) return;
     // Fixed + critical occurrences have nothing the user can override
     // (amount needs !isFixed; date/skip needs !isCritical). Don't open the modal.
     if (p.isFixed && p.isCritical) return;
-    setOverride({ particularId, originalDate, isFixed: p.isFixed, isCritical: p.isCritical, currentAmount, currentDate, overrideId });
+    setOverride({ accountId: p.accountId, particularId, originalDate, isFixed: p.isFixed, isCritical: p.isCritical, currentAmount, currentDate, overrideId });
   };
 
   return (
