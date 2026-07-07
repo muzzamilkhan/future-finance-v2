@@ -258,7 +258,7 @@ export default function DebtsPage() {
                 <p className="text-xl font-bold">{monthsLabel(sims.active.payoffMonth)}</p>
                 {monthsSaved > 0 && (
                   <p className="text-xs text-muted-foreground">
-                    {sims.activeNoExtra.payoffMonth} mo − {monthsSaved} saved
+                    {monthsSaved} {monthsSaved === 1 ? "month" : "months"} sooner
                   </p>
                 )}
               </Card>
