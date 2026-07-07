@@ -13,6 +13,20 @@ import { toDebtChartData } from "./debtChartData";
 const CHART_VARS = ["--chart-1", "--chart-2", "--chart-3", "--chart-4", "--chart-5"] as const;
 const colorFor = (index: number) => `var(${CHART_VARS[index % CHART_VARS.length]})`;
 
+/** Compact axis money: 999 → 999, 12000 → 12K, 1500000 → 1.5M. Sign preserved. */
+function compactMoney(value: number): string {
+  const sign = value < 0 ? "-" : "";
+  const n = Math.abs(value);
+  if (n >= 1_000_000) return `${sign}${trim(n / 1_000_000)}M`;
+  if (n >= 1_000) return `${sign}${trim(n / 1_000)}K`;
+  return `${sign}${Math.round(n)}`;
+}
+
+/** One decimal, but drop a trailing .0 (12.0 → 12, 1.5 → 1.5). */
+function trim(n: number): string {
+  return (Math.round(n * 10) / 10).toString();
+}
+
 export function DebtForecastChart({
   result,
   debts: debtsProp,
@@ -27,9 +41,12 @@ export function DebtForecastChart({
   return (
     <div className="grid gap-3">
       <ResponsiveContainer width="100%" height={260}>
-        <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
-          <XAxis dataKey="month" tickFormatter={(m) => `${m}mo`} />
-          <YAxis tickFormatter={(v) => formatCurrency(Number(v))} width={80} />
+        <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 20, left: 8 }}>
+          <XAxis
+            dataKey="month"
+            label={{ value: "Months", position: "insideBottom", offset: -4 }}
+          />
+          <YAxis tickFormatter={(v) => compactMoney(Number(v))} width={56} />
           <Tooltip
             content={({ active, payload, label }) => {
               if (!active || !payload?.length) return null;
