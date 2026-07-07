@@ -160,6 +160,10 @@ export default function DebtsPage() {
   const totalOwed = debts.reduce((s, d) => s + d.balance, 0);
   const totalMin = debts.reduce((s, d) => s + d.minPayment, 0);
   const interestSaved = Math.max(0, sims.activeNoExtra.totalInterest - sims.active.totalInterest);
+  const monthsSaved =
+    sims.active.payoffMonth !== null && sims.activeNoExtra.payoffMonth !== null
+      ? Math.max(0, sims.activeNoExtra.payoffMonth - sims.active.payoffMonth)
+      : 0;
 
   const editingRow = editingId ? rows.find((d) => d.id === editingId) : undefined;
 
@@ -243,13 +247,18 @@ export default function DebtsPage() {
                 <p className="text-xl font-bold">{formatCurrency(sims.active.totalInterest)}</p>
                 {interestSaved > 0 && (
                   <p className="text-xs text-muted-foreground">
-                    {formatCurrency(interestSaved)} saved vs no extra
+                    {formatCurrency(sims.activeNoExtra.totalInterest)} − {formatCurrency(interestSaved)} saved
                   </p>
                 )}
               </Card>
               <Card className="p-4">
                 <p className="text-xs text-muted-foreground">Debt-free in</p>
                 <p className="text-xl font-bold">{monthsLabel(sims.active.payoffMonth)}</p>
+                {monthsSaved > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {sims.activeNoExtra.payoffMonth} mo − {monthsSaved} saved
+                  </p>
+                )}
               </Card>
             </div>
 
