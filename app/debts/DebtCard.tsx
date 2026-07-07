@@ -1,6 +1,6 @@
 "use client";
 
-import { X } from "lucide-react";
+import { ChevronDown, ChevronUp, X } from "lucide-react";
 import { Card } from "@/app/_components/ui/card";
 import { formatCurrency } from "@/lib/design-system";
 
@@ -8,10 +8,18 @@ export function DebtCard({
   debt,
   onEdit,
   onDelete,
+  onMoveUp,
+  onMoveDown,
+  canMoveUp,
+  canMoveDown,
 }: {
   debt: { id: string; name: string; balance: number; apr: number; minPayment: number };
   onEdit: () => void;
   onDelete: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
 }) {
   return (
     <Card
@@ -31,6 +39,32 @@ export function DebtCard({
         <p className="text-sm text-muted-foreground">
           {formatCurrency(debt.balance)} · {(debt.apr * 100).toFixed(2)}% · {formatCurrency(debt.minPayment)}/mo
         </p>
+      </div>
+      <div className="flex shrink-0 flex-col">
+        <button
+          type="button"
+          aria-label={`Move ${debt.name} up`}
+          disabled={!canMoveUp}
+          onClick={(e) => {
+            e.stopPropagation();
+            onMoveUp();
+          }}
+          className="rounded-md p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-ring/50 focus-visible:ring-[3px] focus-visible:outline-none disabled:pointer-events-none disabled:opacity-30"
+        >
+          <ChevronUp className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          aria-label={`Move ${debt.name} down`}
+          disabled={!canMoveDown}
+          onClick={(e) => {
+            e.stopPropagation();
+            onMoveDown();
+          }}
+          className="rounded-md p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-ring/50 focus-visible:ring-[3px] focus-visible:outline-none disabled:pointer-events-none disabled:opacity-30"
+        >
+          <ChevronDown className="h-4 w-4" />
+        </button>
       </div>
       <button
         type="button"

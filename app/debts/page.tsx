@@ -27,6 +27,7 @@ import { DebtCard } from "./DebtCard";
 import { DebtForecastChart } from "./DebtForecastChart";
 import { DebtTipsPanel } from "./DebtTipsPanel";
 import { addRow, removeRow, newTempId } from "@/lib/optimistic";
+import { moveItem } from "./moveItem";
 import { toast } from "sonner";
 
 const STRATEGIES: { value: Strategy; label: string }[] = [
@@ -82,6 +83,32 @@ export default function DebtsPage() {
   });
 
   const update = trpc.debt.update.useMutation({ onSuccess: () => { setEditingId(null); invalidate(); } });
+
+  const reorder = trpc.debt.reorder.useMutation({
+    onMutate: async (vars) => {
+      await utils.debt.list.cancel();
+      const prev = utils.debt.list.getData();
+      utils.debt.list.setData(undefined, (old) => {
+        if (!old) return old;
+        const byId = new Map(old.map((d) => [d.id, d] as const));
+        return vars.ids.map((id) => byId.get(id)!).filter(Boolean);
+      });
+      return { prev };
+    },
+    onError: (error, _vars, ctx) => {
+      if (ctx) utils.debt.list.setData(undefined, ctx.prev);
+      toast.error("Couldn't reorder debts", { description: error.message });
+    },
+    onSettled: () => invalidate(),
+  });
+
+  const move = (id: string, direction: "up" | "down") => {
+    const ids = rows.map((d) => d.id);
+    const idx = ids.indexOf(id);
+    const nextIds = moveItem(ids, idx, direction);
+    if (nextIds === ids) return;
+    reorder.mutate({ ids: nextIds });
+  };
 
   const del = trpc.debt.delete.useMutation({
     onMutate: async (vars) => {
@@ -252,7 +279,7 @@ export default function DebtsPage() {
 
               {/* Right: debt list (1/3) */}
               <div className="grid content-start gap-3 lg:col-span-1">
-                {rows.map((d) => (
+                {rows.map((d, i) => (
                   <DebtCard
                     key={d.id}
                     debt={{
@@ -264,6 +291,10 @@ export default function DebtsPage() {
                     }}
                     onEdit={() => setEditingId(d.id)}
                     onDelete={() => setPendingDelete({ id: d.id, name: d.name })}
+                    onMoveUp={() => move(d.id, "up")}
+                    onMoveDown={() => move(d.id, "down")}
+                    canMoveUp={i > 0}
+                    canMoveDown={i < rows.length - 1}
                   />
                 ))}
               </div>
