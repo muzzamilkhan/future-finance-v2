@@ -47,7 +47,11 @@ window, `today`, and `skipToday`, it walks one UTC day at a time from the **repl
 - **Per-account running balance.** Each account seeds to its `anchorBalance` on the exact
   UTC day it activates (its `anchorDate`), *before* that day's opening snapshot. Before its
   anchor an account is **inactive** and contributes nothing. A leg (income/expense/transfer)
-  only applies if *its* account is active that day.
+  only applies if *its* account is active that day. The app anchors **every account at
+  `today`** (the mapper in `lib/toEngine.ts` sets `anchorDate = today` and seeds
+  `currentBalance`), so the forecast replays forward from today using today's balances —
+  it does **not** replay history from `balanceUpdatedAt`. The engine stays generic; the
+  "anchor at today" choice lives entirely in the mapping.
 - **Transfers** move money between two accounts of the same owner: the source leg is
   `-amount`, the destination leg is `+amount`, each gated by its own account's activation.
 - **Credit accounts** (`type: "CREDIT"`) store a negative outstanding `balance`;
@@ -66,10 +70,18 @@ window, applies business-day adjustment and holidays, and folds in overrides.
 - **`Particular.amount` is stored positive**; the sign is applied from `type` inside the
   engine (INCOME +, EXPENSE/TRANSFER −). Overridden amounts are also stored/consumed as
   absolute values.
-- **The forecast always replays from each account's `balanceUpdatedAt`** (seeded with
-  `currentBalance`) forward to the visible window, then slices for display. Future months
-  reflect every prior event since that account's last balance update — never a floating
-  window start.
+- **The forecast replays from `today` using each account's `currentBalance`.** Every
+  account seeds its `currentBalance` at `today` and the engine replays events forward from
+  there — it does **not** replay history from `balanceUpdatedAt`. `currentBalance` is the
+  balance as of now, so the server only fetches particulars/overrides from `today` onward
+  (`forecast.getData`/`getCombined` window at `viewStart`). `balanceUpdatedAt` is still
+  recorded on the row but no longer drives the replay start.
+- **"Skip today" is remembered per user, and resets at their local midnight.**
+  `User.skipTodayDate` (`@db.Date`) stores the user's local calendar date (UTC-midnight)
+  they chose to skip; `forecast.setSkipToday` sets/clears it and `forecast.getCombined`
+  returns it. The dashboard treats skip as on **only while** the stored date equals the
+  user's current local date, so it survives reloads but auto-resets the next day in the
+  user's own timezone (no server cron needed).
 - **Overrides are matched to instances by `(particularId, originalDate)`** with a UTC
   year/month/day compare (`ParticularOverride` has `@@unique([particularId, originalDate])`).
 - **Override rules:** amount override requires `!isFixed`; date/skip requires `!isCritical`.

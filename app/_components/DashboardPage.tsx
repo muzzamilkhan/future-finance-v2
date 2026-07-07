@@ -30,14 +30,10 @@ export function DashboardPage() {
   // midnight of the local date keeps "today" as the first daily card.
   const now = new Date();
   const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+  const tomorrow = new Date(today.getTime() + 86_400_000);
   const [monthsAhead, setMonthsAhead] = useState(6);
-  const [skipToday, setSkipToday] = useState(false);
   const [override, setOverride] = useState<{ accountId: string; particularId: string; originalDate: Date; isFixed: boolean; isCritical: boolean; currentAmount: number; currentDate: Date; overrideId?: string } | null>(null);
 
-  // Skip-today shifts the visible window to tomorrow (and the engine also drops
-  // today's events from the running balance via skipToday). The list then starts
-  // at tomorrow instead of today.
-  const viewStart = skipToday ? new Date(today.getTime() + 86_400_000) : today;
   // Add months in UTC so the window bound can't drift across a DST boundary (date-fns
   // addMonths works on local wall-clock; on our UTC-midnight `today` that could land
   // on an adjacent UTC day when the offset changes). The engine compares in UTC.
@@ -50,10 +46,36 @@ export function DashboardPage() {
   const canUpdateBalance = !activeMembership || activeMembership.role === "OWNER" || activeMembership.canUpdateBalance;
   const canEditOverrides = !activeMembership || activeMembership.role === "OWNER" || activeMembership.canEditOverrides;
   const utils = trpc.useUtils();
+  // Query window starts at today and never shifts with skip-today, so toggling skip
+  // doesn't refetch — the skip is purely a client-side recompute.
+  const queryKey = { viewStart: today, viewEnd };
   const { data, isLoading } = trpc.forecast.getCombined.useQuery(
-    { viewStart, viewEnd },
+    queryKey,
     { placeholderData: keepPreviousData },
   );
+
+  // "Skip today" is remembered server-side as the local date the user chose to skip.
+  // It counts only while that stored date still equals the user's current local date,
+  // so it survives reloads but resets automatically at local midnight.
+  const skipToday = !!data?.skipTodayDate && new Date(data.skipTodayDate).getTime() === today.getTime();
+  const setSkipToday = trpc.forecast.setSkipToday.useMutation({
+    onMutate: async (vars) => {
+      await utils.forecast.getCombined.cancel(queryKey);
+      const prev = utils.forecast.getCombined.getData(queryKey);
+      utils.forecast.getCombined.setData(queryKey, (old) =>
+        old ? { ...old, skipTodayDate: vars.date } : old,
+      );
+      return { prev };
+    },
+    onError: (_e, _vars, ctx) => { if (ctx) utils.forecast.getCombined.setData(queryKey, ctx.prev); },
+    onSettled: () => { utils.forecast.getCombined.invalidate(); },
+  });
+  const toggleSkipToday = () => setSkipToday.mutate({ date: skipToday ? null : today });
+
+  // Skip-today shifts the visible window to tomorrow; the engine also drops today's
+  // events from the running balance via skipToday. The daily list then starts at
+  // tomorrow instead of today.
+  const viewStart = skipToday ? tomorrow : today;
   const updateBalance = trpc.account.updateBalance.useMutation({
     onMutate: async (vars) => {
       await utils.account.list.cancel();
@@ -75,7 +97,7 @@ export function DashboardPage() {
 
   const result = useMemo(() => {
     if (!data) return null;
-    const inputs = toCombinedEngineInputs(data as never);
+    const inputs = toCombinedEngineInputs(data as never, today);
     return computeForecast({ ...inputs, viewStart, viewEnd, today, skipToday });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, monthsAhead, skipToday]);
@@ -123,7 +145,7 @@ export function DashboardPage() {
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Dashboard</h1>
           <div className="flex gap-2">
-            <SkipTodayButton skipToday={skipToday} onToggle={() => setSkipToday((s) => !s)} />
+            <SkipTodayButton skipToday={skipToday} onToggle={toggleSkipToday} />
           </div>
         </div>
 
