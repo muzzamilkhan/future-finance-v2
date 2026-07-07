@@ -49,7 +49,7 @@ export function DebtForecastChart({
   return (
     <div className="grid gap-3">
       <ResponsiveContainer width="100%" height={260}>
-        <ComposedChart data={data} margin={{ top: 8, right: 8, bottom: 20, left: 8 }}>
+        <ComposedChart data={data} margin={{ top: 28, right: 44, bottom: 20, left: 8 }}>
           <XAxis
             dataKey="month"
             ticks={ticks}
