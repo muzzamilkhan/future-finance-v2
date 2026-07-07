@@ -159,6 +159,7 @@ export default function DebtsPage() {
 
   const totalOwed = debts.reduce((s, d) => s + d.balance, 0);
   const totalMin = debts.reduce((s, d) => s + d.minPayment, 0);
+  const interestSaved = Math.max(0, sims.activeNoExtra.totalInterest - sims.active.totalInterest);
 
   const editingRow = editingId ? rows.find((d) => d.id === editingId) : undefined;
 
@@ -225,14 +226,26 @@ export default function DebtsPage() {
         ) : (
           <>
             {/* Summary widgets: own full-width row */}
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <Card className="p-4">
                 <p className="text-xs text-muted-foreground">Total owed</p>
                 <p className="text-xl font-bold">{formatCurrency(totalOwed)}</p>
               </Card>
               <Card className="p-4">
-                <p className="text-xs text-muted-foreground">Minimums / mo</p>
-                <p className="text-xl font-bold">{formatCurrency(totalMin)}</p>
+                <p className="text-xs text-muted-foreground">Monthly payment</p>
+                <p className="text-xl font-bold">{formatCurrency(totalMin + extraPayment)}</p>
+                <p className="text-xs text-muted-foreground">
+                  {formatCurrency(totalMin)} min + {formatCurrency(extraPayment)} extra
+                </p>
+              </Card>
+              <Card className="p-4">
+                <p className="text-xs text-muted-foreground">Total interest</p>
+                <p className="text-xl font-bold">{formatCurrency(sims.active.totalInterest)}</p>
+                {interestSaved > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {formatCurrency(interestSaved)} saved vs no extra
+                  </p>
+                )}
               </Card>
               <Card className="p-4">
                 <p className="text-xs text-muted-foreground">Debt-free in</p>
