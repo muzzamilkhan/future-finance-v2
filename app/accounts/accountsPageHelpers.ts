@@ -25,3 +25,11 @@ export function parseBalance(input: string): number | null {
   const n = Number(trimmed);
   return Number.isFinite(n) ? n : null;
 }
+
+/** Parse a credit account's amount owed. Must be a non-negative finite number; blank means 0. */
+export function parseOutstanding(input: string): number | null {
+  const trimmed = input.trim();
+  if (trimmed === "") return 0;
+  const n = Number(trimmed);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}

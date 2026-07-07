@@ -164,7 +164,6 @@ export const accountRouter = router({
   update: accountProcedure.input(updateAccountInput).mutation(async ({ ctx, input }) => {
     if (ctx.membership.role !== "OWNER") throw new TRPCError({ code: "FORBIDDEN", message: "Only the owner can edit an account" });
     if (input.creditLimit !== undefined && ctx.account.type !== "CREDIT") throw new TRPCError({ code: "BAD_REQUEST", message: "Not a credit account" });
-    if (input.balance !== undefined && ctx.account.type !== "DEBIT") throw new TRPCError({ code: "BAD_REQUEST", message: "Balance is set via amount owed on credit accounts" });
     return ctx.prisma.financeAccount.update({
       where: { id: ctx.account.id },
       data: {

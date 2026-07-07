@@ -15,7 +15,7 @@ import { formatCurrency } from "@/lib/design-system";
 import { SharePanel } from "@/app/_components/SharePanel";
 import { AddCreditAccountDialog } from "@/app/_components/account/AddCreditAccountDialog";
 import { Star, Share2, Archive, LogOut } from "lucide-react";
-import { groupAccounts, parseCreditLimit, parseBalance } from "./accountsPageHelpers";
+import { groupAccounts, parseCreditLimit, parseBalance, parseOutstanding } from "./accountsPageHelpers";
 
 export default function AccountsPage() {
   const { accounts } = useActiveAccount();
@@ -41,6 +41,7 @@ export default function AccountsPage() {
   const [editName, setEditName] = useState("");
   const [editLimit, setEditLimit] = useState("");
   const [editBalance, setEditBalance] = useState("");
+  const [editOutstanding, setEditOutstanding] = useState("");
   const [closing, setClosing] = useState<AccountListItem | null>(null);
   const [leaving, setLeaving] = useState<AccountListItem | null>(null);
 
@@ -48,7 +49,7 @@ export default function AccountsPage() {
 
   const renderCard = (a: AccountListItem) => {
     const canEdit = a.role === "OWNER";
-    const openEdit = () => { if (!canEdit) return; setEditName(a.name); setEditLimit(String(a.creditLimit ?? "")); setEditBalance(String(a.currentBalance)); setEditing(a); };
+    const openEdit = () => { if (!canEdit) return; setEditName(a.name); setEditLimit(String(a.creditLimit ?? "")); setEditBalance(String(a.currentBalance)); setEditOutstanding(String(-a.currentBalance)); setEditing(a); };
     return (
       <div
         key={a.id}
@@ -158,10 +159,16 @@ export default function AccountsPage() {
               <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
             </div>
             {editing?.type === "CREDIT" && (
-              <div className="space-y-1">
-                <Label>Credit limit</Label>
-                <Input value={editLimit} onChange={(e) => setEditLimit(e.target.value)} inputMode="decimal" />
-              </div>
+              <>
+                <div className="space-y-1">
+                  <Label>Credit limit</Label>
+                  <Input value={editLimit} onChange={(e) => setEditLimit(e.target.value)} inputMode="decimal" />
+                </div>
+                <div className="space-y-1">
+                  <Label>Current amount owed</Label>
+                  <Input value={editOutstanding} onChange={(e) => setEditOutstanding(e.target.value)} inputMode="decimal" />
+                </div>
+              </>
             )}
             {editing?.type === "DEBIT" && (
               <div className="space-y-1">
@@ -171,11 +178,16 @@ export default function AccountsPage() {
             )}
             <DialogFooter>
               <Button variant="outline" disabled={update.isPending} onClick={() => setEditing(null)}>Cancel</Button>
-              <Button disabled={update.isPending || !editName.trim() || (editing?.type === "CREDIT" && parseCreditLimit(editLimit) === null) || (editing?.type === "DEBIT" && parseBalance(editBalance) === null)}
+              <Button disabled={update.isPending || !editName.trim() || (editing?.type === "CREDIT" && (parseCreditLimit(editLimit) === null || parseOutstanding(editOutstanding) === null)) || (editing?.type === "DEBIT" && parseBalance(editBalance) === null)}
                 onClick={() => {
                   if (!editing) return;
                   const creditLimit = editing.type === "CREDIT" ? parseCreditLimit(editLimit) ?? undefined : undefined;
-                  const balance = editing.type === "DEBIT" ? parseBalance(editBalance) ?? undefined : undefined;
+                  let balance: number | undefined;
+                  if (editing.type === "DEBIT") balance = parseBalance(editBalance) ?? undefined;
+                  else {
+                    const owed = parseOutstanding(editOutstanding);
+                    balance = owed === null ? undefined : -owed;
+                  }
                   setError(null);
                   update.mutate({ accountId: editing.id, name: editName.trim(), creditLimit, balance });
                 }}>
