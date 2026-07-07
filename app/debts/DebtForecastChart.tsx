@@ -48,6 +48,28 @@ export function DebtForecastChart({
 
   return (
     <div className="grid gap-3">
+      {debts.length >= 1 && (
+        <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          {debts.map((d, i) => (
+            <span key={d.id} className="flex items-center gap-1.5">
+              <span
+                className="inline-block h-2 w-2 rounded-full"
+                style={{ backgroundColor: colorFor(i) }}
+              />
+              {d.name}
+            </span>
+          ))}
+          {baseline && (
+            <span className="flex items-center gap-1.5">
+              <span
+                className="inline-block h-0 w-4 border-t border-dashed"
+                style={{ borderColor: "var(--muted-foreground)" }}
+              />
+              Without extra
+            </span>
+          )}
+        </div>
+      )}
       <ResponsiveContainer width="100%" height={260}>
         <ComposedChart data={data} margin={{ top: 28, right: 44, bottom: 8, left: 8 }}>
           <XAxis dataKey="month" ticks={ticks} />
@@ -127,29 +149,6 @@ export function DebtForecastChart({
           )}
         </ComposedChart>
       </ResponsiveContainer>
-
-      {debts.length >= 1 && (
-        <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-          {debts.map((d, i) => (
-            <span key={d.id} className="flex items-center gap-1.5">
-              <span
-                className="inline-block h-2 w-2 rounded-full"
-                style={{ backgroundColor: colorFor(i) }}
-              />
-              {d.name}
-            </span>
-          ))}
-          {baseline && (
-            <span className="flex items-center gap-1.5">
-              <span
-                className="inline-block h-0 w-4 border-t border-dashed"
-                style={{ borderColor: "var(--muted-foreground)" }}
-              />
-              Without extra
-            </span>
-          )}
-        </div>
-      )}
     </div>
   );
 }
