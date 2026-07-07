@@ -3,7 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { router, protectedProcedure, accountProcedure, ensureBootstrapAccount } from "../trpc";
 import { assertCan } from "../permissions";
 import { pickNextDefault } from "../defaultAccount";
-import { updateBalanceInput, createCreditAccountInput, updateAccountInput } from "@/lib/schemas";
+import { updateBalanceInput, createAccountInput, createCreditAccountInput, updateAccountInput } from "@/lib/schemas";
 
 /** Prisma `data` for creating a credit account. Outstanding is entered positive (amount owed); stored negative. */
 export function creditAccountCreateData(input: { name: string; creditLimit: number; outstanding: number }) {
@@ -43,10 +43,12 @@ export const accountRouter = router({
     return memberships.map(mapMembershipToListItem);
   }),
 
-  create: protectedProcedure.input(z.object({ name: z.string().min(1).max(80) }))
+  create: protectedProcedure.input(createAccountInput)
     .mutation(async ({ ctx, input }) => {
       const count = await ctx.prisma.accountMembership.count({ where: { userId: ctx.user.id } });
-      const account = await ctx.prisma.financeAccount.create({ data: { name: input.name } });
+      const account = await ctx.prisma.financeAccount.create({
+        data: { name: input.name, currentBalance: input.initialBalance, balanceUpdatedAt: new Date() },
+      });
       await ctx.prisma.accountMembership.create({
         data: {
           userId: ctx.user.id, accountId: account.id, role: "OWNER", isDefault: count === 0,
@@ -167,6 +169,7 @@ export const accountRouter = router({
       data: {
         name: input.name,
         ...(input.creditLimit !== undefined ? { creditLimit: input.creditLimit } : {}),
+        ...(input.balance !== undefined ? { currentBalance: input.balance, balanceUpdatedAt: new Date() } : {}),
       },
     });
   }),
