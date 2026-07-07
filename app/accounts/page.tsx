@@ -15,7 +15,7 @@ import { formatCurrency } from "@/lib/design-system";
 import { SharePanel } from "@/app/_components/SharePanel";
 import { AddCreditAccountDialog } from "@/app/_components/account/AddCreditAccountDialog";
 import { Star, Share2, Archive, LogOut } from "lucide-react";
-import { groupAccounts, parseCreditLimit } from "./accountsPageHelpers";
+import { groupAccounts, parseCreditLimit, parseBalance } from "./accountsPageHelpers";
 
 export default function AccountsPage() {
   const { accounts } = useActiveAccount();
@@ -34,11 +34,13 @@ export default function AccountsPage() {
   const [error, setError] = useState<string | null>(null);
   const [newOpen, setNewOpen] = useState(false);
   const [newName, setNewName] = useState("New Account");
+  const [newBalance, setNewBalance] = useState("0");
   const [addCreditOpen, setAddCreditOpen] = useState(false);
   const [sharing, setSharing] = useState<AccountListItem | null>(null);
   const [editing, setEditing] = useState<AccountListItem | null>(null);
   const [editName, setEditName] = useState("");
   const [editLimit, setEditLimit] = useState("");
+  const [editBalance, setEditBalance] = useState("");
   const [closing, setClosing] = useState<AccountListItem | null>(null);
   const [leaving, setLeaving] = useState<AccountListItem | null>(null);
 
@@ -46,7 +48,7 @@ export default function AccountsPage() {
 
   const renderCard = (a: AccountListItem) => {
     const canEdit = a.role === "OWNER";
-    const openEdit = () => { if (!canEdit) return; setEditName(a.name); setEditLimit(String(a.creditLimit ?? "")); setEditing(a); };
+    const openEdit = () => { if (!canEdit) return; setEditName(a.name); setEditLimit(String(a.creditLimit ?? "")); setEditBalance(String(a.currentBalance)); setEditing(a); };
     return (
       <div
         key={a.id}
@@ -63,11 +65,12 @@ export default function AccountsPage() {
             <Badge variant="secondary">{a.type === "CREDIT" ? "Credit" : "Debit"}</Badge>
             {a.role === "MEMBER" && <Badge variant="secondary">shared</Badge>}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between gap-2 sm:justify-start">
             <span className="text-sm text-muted-foreground">
               {formatCurrency(a.currentBalance)}
               {a.type === "CREDIT" && a.creditLimit != null ? ` / ${formatCurrency(a.creditLimit)}` : ""}
             </span>
+            <div className="flex items-center gap-2">
             {!a.isDefault && (
               <Button variant="ghost" size="icon-sm" aria-label="Set as default"
                 onClick={(e) => { e.stopPropagation(); setDefault.mutate({ accountId: a.id }); }}>
@@ -92,6 +95,7 @@ export default function AccountsPage() {
                 <LogOut className="size-4" />
               </Button>
             )}
+            </div>
           </div>
         </div>
       </div>
@@ -104,7 +108,7 @@ export default function AccountsPage() {
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Accounts</h1>
           <div className="flex items-center gap-2">
-            <Button size="sm" onClick={() => { setNewName("New Account"); setNewOpen(true); }}>New account</Button>
+            <Button size="sm" onClick={() => { setNewName("New Account"); setNewBalance("0"); setNewOpen(true); }}>New account</Button>
             <Button size="sm" variant="outline" onClick={() => setAddCreditOpen(true)}>Add credit account</Button>
           </div>
         </div>
@@ -131,10 +135,14 @@ export default function AccountsPage() {
               <Label>Name</Label>
               <Input value={newName} onChange={(e) => setNewName(e.target.value)} />
             </div>
+            <div className="space-y-1">
+              <Label>Initial balance</Label>
+              <Input value={newBalance} onChange={(e) => setNewBalance(e.target.value)} inputMode="decimal" />
+            </div>
             <DialogFooter>
               <Button variant="outline" disabled={create.isPending} onClick={() => setNewOpen(false)}>Cancel</Button>
-              <Button disabled={create.isPending || !newName.trim()}
-                onClick={() => { setError(null); create.mutate({ name: newName.trim() }); }}>
+              <Button disabled={create.isPending || !newName.trim() || parseBalance(newBalance) === null}
+                onClick={() => { setError(null); create.mutate({ name: newName.trim(), initialBalance: parseBalance(newBalance) ?? 0 }); }}>
                 {create.isPending ? "Creating..." : "Create"}
               </Button>
             </DialogFooter>
@@ -155,14 +163,21 @@ export default function AccountsPage() {
                 <Input value={editLimit} onChange={(e) => setEditLimit(e.target.value)} inputMode="decimal" />
               </div>
             )}
+            {editing?.type === "DEBIT" && (
+              <div className="space-y-1">
+                <Label>Balance</Label>
+                <Input value={editBalance} onChange={(e) => setEditBalance(e.target.value)} inputMode="decimal" />
+              </div>
+            )}
             <DialogFooter>
               <Button variant="outline" disabled={update.isPending} onClick={() => setEditing(null)}>Cancel</Button>
-              <Button disabled={update.isPending || !editName.trim() || (editing?.type === "CREDIT" && parseCreditLimit(editLimit) === null)}
+              <Button disabled={update.isPending || !editName.trim() || (editing?.type === "CREDIT" && parseCreditLimit(editLimit) === null) || (editing?.type === "DEBIT" && parseBalance(editBalance) === null)}
                 onClick={() => {
                   if (!editing) return;
                   const creditLimit = editing.type === "CREDIT" ? parseCreditLimit(editLimit) ?? undefined : undefined;
+                  const balance = editing.type === "DEBIT" ? parseBalance(editBalance) ?? undefined : undefined;
                   setError(null);
-                  update.mutate({ accountId: editing.id, name: editName.trim(), creditLimit });
+                  update.mutate({ accountId: editing.id, name: editName.trim(), creditLimit, balance });
                 }}>
                 {update.isPending ? "Saving..." : "Save"}
               </Button>

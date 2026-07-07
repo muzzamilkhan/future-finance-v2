@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { groupAccounts, parseCreditLimit } from "./accountsPageHelpers";
+import { groupAccounts, parseCreditLimit, parseBalance } from "./accountsPageHelpers";
 import type { AccountListItem } from "@/app/_components/AccountContext";
 
 const base: Omit<AccountListItem, "id" | "role"> = {
@@ -32,5 +32,20 @@ describe("parseCreditLimit", () => {
     expect(parseCreditLimit("-5")).toBeNull();
     expect(parseCreditLimit("abc")).toBeNull();
     expect(parseCreditLimit("")).toBeNull();
+  });
+});
+
+describe("parseBalance", () => {
+  it("accepts positive, negative, and zero numbers", () => {
+    expect(parseBalance("1200.50")).toBe(1200.5);
+    expect(parseBalance("  -300 ")).toBe(-300);
+    expect(parseBalance("0")).toBe(0);
+  });
+  it("treats blank as zero", () => {
+    expect(parseBalance("")).toBe(0);
+    expect(parseBalance("   ")).toBe(0);
+  });
+  it("rejects non-numeric input", () => {
+    expect(parseBalance("abc")).toBeNull();
   });
 });
