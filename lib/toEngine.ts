@@ -29,10 +29,13 @@ type CombinedRow = {
   holidays: Array<{ date: Date; isRecurring: boolean }>;
 };
 
-export function toCombinedEngineInputs(data: CombinedRow) {
+export function toCombinedEngineInputs(data: CombinedRow, today: Date) {
+  // Each account seeds its current balance at `today` and the engine replays events
+  // forward from there — we no longer replay historically from balanceUpdatedAt.
+  // currentBalance is treated as the balance as of today.
   const accounts: EngineAccount[] = data.accounts.map((a) => ({
     id: a.id, type: a.type,
-    anchorBalance: a.currentBalance, anchorDate: new Date(a.balanceUpdatedAt),
+    anchorBalance: a.currentBalance, anchorDate: today,
     creditLimit: a.creditLimit,
   }));
   const particulars: EngineParticular[] = data.particulars.map((p) => ({
@@ -51,7 +54,7 @@ export function toCombinedEngineInputs(data: CombinedRow) {
   return { accounts, particulars, holidays };
 }
 
-export function toEngineInputs(data: Row) {
+export function toEngineInputs(data: Row, today: Date) {
   const particulars: EngineParticular[] = data.particulars.map((p) => ({
     id: p.id, name: p.name, type: p.type,
     accountId: p.accountId ?? data.account.id, toAccountId: p.toAccountId ?? null,
@@ -68,7 +71,7 @@ export function toEngineInputs(data: Row) {
   const holidays: EngineHoliday[] = data.holidays.map((h) => ({ date: new Date(h.date), isRecurring: h.isRecurring }));
   return {
     anchorBalance: data.account.currentBalance,
-    anchorDate: new Date(data.account.balanceUpdatedAt),
+    anchorDate: today,
     particulars, holidays,
   };
 }

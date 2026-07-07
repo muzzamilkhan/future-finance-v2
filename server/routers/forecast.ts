@@ -1,18 +1,6 @@
 import { z } from "zod";
 import { router, accountProcedure, protectedProcedure, ensureBootstrapAccount } from "../trpc";
 
-/** The replay window start: earliest account anchor, clamped to viewStart. */
-export function combinedWindowStart(
-  accounts: { balanceUpdatedAt: Date }[],
-  viewStart: Date,
-): Date {
-  const earliest = accounts.reduce(
-    (min, a) => (a.balanceUpdatedAt < min ? a.balanceUpdatedAt : min),
-    viewStart,
-  );
-  return earliest < viewStart ? earliest : viewStart;
-}
-
 /** Map a FinanceAccount row to the engine-account payload shape. */
 export function toAccountPayload(a: {
   id: string; name: string; type: "DEBIT" | "CREDIT";
@@ -33,12 +21,14 @@ export function ownerUserIds(
 }
 
 export const forecastRouter = router({
-  // Returns raw data for the FULL replay window [balanceUpdatedAt .. viewEnd].
+  // Returns raw data for the replay window [viewStart .. viewEnd]. The forecast now
+  // seeds each account's current balance at today and replays forward, so we only
+  // need data from viewStart (today) onward — no historical replay.
   getData: accountProcedure
     .input(z.object({ viewStart: z.coerce.date(), viewEnd: z.coerce.date() }))
     .query(async ({ ctx, input }) => {
       const a = ctx.account;
-      const windowStart = a.balanceUpdatedAt < input.viewStart ? a.balanceUpdatedAt : input.viewStart;
+      const windowStart = input.viewStart;
 
       const particulars = await ctx.prisma.particular.findMany({
         where: {
@@ -87,7 +77,7 @@ export const forecastRouter = router({
       });
       const accounts = memberships.map((m) => m.account);
       const accountIds = accounts.map((a) => a.id);
-      const windowStart = combinedWindowStart(accounts, input.viewStart);
+      const windowStart = input.viewStart;
 
       const particulars = await ctx.prisma.particular.findMany({
         where: {
@@ -119,6 +109,29 @@ export const forecastRouter = router({
         orderBy: { date: "asc" },
       });
 
-      return { accounts: accounts.map(toAccountPayload), particulars, holidays };
+      const user = await ctx.prisma.user.findUnique({
+        where: { id: ctx.user.id },
+        select: { skipTodayDate: true },
+      });
+
+      return {
+        accounts: accounts.map(toAccountPayload),
+        particulars, holidays,
+        skipTodayDate: user?.skipTodayDate ?? null,
+      };
+    }),
+
+  // Persist (or clear) the user's "skip today" choice. `date` is the user's local
+  // calendar date (UTC-midnight) they chose to skip, or null to un-skip. The client
+  // compares it to the current local date so the skip survives reloads but resets
+  // automatically the next day in the user's own timezone.
+  setSkipToday: protectedProcedure
+    .input(z.object({ date: z.date().nullable() }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.prisma.user.update({
+        where: { id: ctx.user.id },
+        data: { skipTodayDate: input.date },
+      });
+      return { skipTodayDate: input.date };
     }),
 });

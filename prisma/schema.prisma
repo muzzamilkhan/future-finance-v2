@@ -12,6 +12,10 @@ model User {
   email         String?             @unique
   emailVerified DateTime?
   image         String?
+  // The user's local calendar date (UTC-midnight) on which they chose to "skip
+  // today" on the dashboard. Compared against the user's current local date so the
+  // skip is remembered across reloads but resets automatically the next local day.
+  skipTodayDate DateTime?           @db.Date
   accounts      Account[]
   sessions      Session[]
   memberships   AccountMembership[]

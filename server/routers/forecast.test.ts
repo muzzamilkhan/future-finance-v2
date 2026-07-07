@@ -6,23 +6,9 @@ import { describe, it, expect, vi } from "vitest";
 vi.mock("../db", () => ({ prisma: {} }));
 vi.mock("../auth", () => ({ auth: vi.fn().mockResolvedValue(null) }));
 
-import { combinedWindowStart, toAccountPayload, ownerUserIds } from "./forecast";
+import { toAccountPayload, ownerUserIds } from "./forecast";
 
 const d = (s: string) => new Date(s + "T00:00:00Z");
-
-describe("combinedWindowStart", () => {
-  it("clamps to the earliest account anchor when it predates viewStart", () => {
-    const accounts = [{ balanceUpdatedAt: d("2026-05-01") }, { balanceUpdatedAt: d("2026-06-15") }];
-    expect(combinedWindowStart(accounts, d("2026-06-01")).getTime()).toBe(d("2026-05-01").getTime());
-  });
-  it("uses viewStart when all anchors are on/after it", () => {
-    const accounts = [{ balanceUpdatedAt: d("2026-06-10") }];
-    expect(combinedWindowStart(accounts, d("2026-06-01")).getTime()).toBe(d("2026-06-01").getTime());
-  });
-  it("returns viewStart for no accounts", () => {
-    expect(combinedWindowStart([], d("2026-06-01")).getTime()).toBe(d("2026-06-01").getTime());
-  });
-});
 
 describe("toAccountPayload", () => {
   it("coerces Decimal-like balances to numbers and keeps null creditLimit for debit", () => {

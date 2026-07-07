@@ -2,7 +2,8 @@ import { describe, it, expect } from "vitest";
 import { toEngineInputs, toCombinedEngineInputs } from "./toEngine";
 
 describe("toEngineInputs", () => {
-  it("maps forecast.getData rows to engine inputs with positive amounts", () => {
+  it("maps forecast.getData rows to engine inputs, anchoring at today", () => {
+    const today = new Date("2026-07-07T00:00:00Z");
     const out = toEngineInputs({
       account: { currentBalance: 1000, balanceUpdatedAt: new Date("2026-07-01") },
       particulars: [{
@@ -11,8 +12,10 @@ describe("toEngineInputs", () => {
         businessDayAdjustment: "NONE", overrides: [],
       }],
       holidays: [{ date: new Date("2026-12-25"), isRecurring: true }],
-    } as never);
+    } as never, today);
     expect(out.anchorBalance).toBe(1000);
+    // Anchored at today, not the account's balanceUpdatedAt.
+    expect(out.anchorDate.getTime()).toBe(today.getTime());
     expect(out.particulars[0]!.amount).toBe(1500);
     expect(out.holidays[0]!.isRecurring).toBe(true);
   });
@@ -32,10 +35,14 @@ const combinedPayload = {
 };
 
 describe("toCombinedEngineInputs", () => {
-  it("maps accounts and transfer routing", () => {
-    const out = toCombinedEngineInputs(combinedPayload);
+  it("maps accounts and transfer routing, anchoring every account at today", () => {
+    const today = new Date("2026-07-07T00:00:00Z");
+    const out = toCombinedEngineInputs(combinedPayload, today);
     expect(out.accounts).toHaveLength(2);
     expect(out.accounts[1]).toMatchObject({ id: "credit", type: "CREDIT", anchorBalance: -200, creditLimit: 1000 });
+    // Both accounts anchor at today regardless of their balanceUpdatedAt.
+    expect(out.accounts[0]!.anchorDate.getTime()).toBe(today.getTime());
+    expect(out.accounts[1]!.anchorDate.getTime()).toBe(today.getTime());
     expect(out.particulars[0]).toMatchObject({ accountId: "debit", toAccountId: "credit", type: "TRANSFER", amount: 100 });
   });
 });
