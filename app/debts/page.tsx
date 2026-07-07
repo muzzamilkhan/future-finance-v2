@@ -6,6 +6,7 @@ import { Layout } from "@/app/_components/Layout";
 import {
   simulateDebtPayoff,
   deriveTips,
+  orderDebts,
   type DebtInput,
   type Strategy,
 } from "@/lib/engine";
@@ -102,10 +103,12 @@ export default function DebtsPage() {
   });
 
   const move = (id: string, direction: "up" | "down") => {
-    const ids = rows.map((d) => d.id);
-    const idx = ids.indexOf(id);
-    const nextIds = moveItem(ids, idx, direction);
-    if (nextIds === ids) return;
+    // Move within the *displayed* order (which may be a Snowball/Avalanche view),
+    // persist it, and drop into Custom so the user can keep hand-editing.
+    const idx = displayedIds.indexOf(id);
+    const nextIds = moveItem(displayedIds, idx, direction);
+    if (nextIds === displayedIds) return;
+    setStrategy("CUSTOM");
     reorder.mutate({ ids: nextIds });
   };
 
@@ -134,7 +137,19 @@ export default function DebtsPage() {
     })),
     [rows],
   );
-  const customOrder = useMemo(() => debts.map((d) => d.id), [debts]);
+  // Saved manual order (Custom) — the DB sortOrder as returned by list.
+  const savedOrder = useMemo(() => debts.map((d) => d.id), [debts]);
+  // Order shown in the list + used by the active sim: Custom uses the saved
+  // order; Snowball/Avalanche are computed views (sorted by the engine).
+  const displayedIds = useMemo(
+    () => orderDebts(debts, strategy, savedOrder).map((d) => d.id),
+    [debts, strategy, savedOrder],
+  );
+  const displayedRows = useMemo(() => {
+    const byId = new Map(rows.map((r) => [r.id, r] as const));
+    return displayedIds.map((id) => byId.get(id)!).filter(Boolean);
+  }, [rows, displayedIds]);
+  const customOrder = savedOrder;
   const extraPayment = Math.max(0, Number(extraStr) || 0);
   const stepExtra = (delta: number) => setExtraStr(String(Math.max(0, extraPayment + delta)));
 
@@ -329,7 +344,7 @@ export default function DebtsPage() {
 
               {/* Right: debt list (1/3) */}
               <div className="grid content-start gap-3 lg:col-span-1">
-                {rows.map((d, i) => (
+                {displayedRows.map((d, i) => (
                   <DebtCard
                     key={d.id}
                     debt={{
@@ -344,7 +359,7 @@ export default function DebtsPage() {
                     onMoveUp={() => move(d.id, "up")}
                     onMoveDown={() => move(d.id, "down")}
                     canMoveUp={i > 0}
-                    canMoveDown={i < rows.length - 1}
+                    canMoveDown={i < displayedRows.length - 1}
                   />
                 ))}
               </div>
