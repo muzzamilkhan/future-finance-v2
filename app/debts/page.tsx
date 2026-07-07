@@ -244,7 +244,7 @@ export default function DebtsPage() {
                       onChange={(e) => setExtraStr(e.target.value)}
                     />
                   </div>
-                  <DebtForecastChart result={sims.active} />
+                  <DebtForecastChart result={sims.active} debts={debts} />
                 </Card>
 
                 <DebtTipsPanel tips={tips} extraPayment={extraPayment} />
