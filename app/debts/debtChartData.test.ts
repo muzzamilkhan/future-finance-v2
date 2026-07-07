@@ -51,4 +51,38 @@ describe("toDebtChartData", () => {
     const rows = toDebtChartData(r, ["a", "b"]);
     expect(rows[0]).toEqual({ month: 0, a: 100, b: 0 });
   });
+
+  it("adds a baseline total from the comparison sim when provided", () => {
+    const active = result([
+      month(0, [{ id: "a", endBalance: 100 }]),
+      month(1, [{ id: "a", endBalance: 40 }]),
+    ]);
+    const baseline = result([
+      month(0, [{ id: "a", endBalance: 120 }]),
+      month(1, [{ id: "a", endBalance: 90 }]),
+    ]);
+    const rows = toDebtChartData(active, ["a"], baseline);
+    expect(rows[0]).toEqual({ month: 0, a: 100, baseline: 120 });
+    expect(rows[1]).toEqual({ month: 1, a: 40, baseline: 90 });
+  });
+
+  it("extends rows over the longer baseline timeline", () => {
+    const active = result([month(0, [{ id: "a", endBalance: 100 }])]);
+    const baseline = result([
+      month(0, [{ id: "a", endBalance: 120 }]),
+      month(1, [{ id: "a", endBalance: 60 }]),
+      month(2, [{ id: "a", endBalance: 0 }]),
+    ]);
+    const rows = toDebtChartData(active, ["a"], baseline);
+    expect(rows.map((r) => r.month)).toEqual([0, 1, 2]);
+    // active finished at month 0, so its debt bands are 0 past its end
+    expect(rows[1]).toEqual({ month: 1, a: 0, baseline: 60 });
+    expect(rows[2]).toEqual({ month: 2, a: 0, baseline: 0 });
+  });
+
+  it("omits the baseline key entirely when no comparison sim is given", () => {
+    const r = result([month(0, [{ id: "a", endBalance: 100 }])]);
+    const rows = toDebtChartData(r, ["a"]);
+    expect("baseline" in rows[0]!).toBe(false);
+  });
 });

@@ -13,7 +13,6 @@ import { formatCurrency } from "@/lib/design-system";
 import { Card } from "@/app/_components/ui/card";
 import { Button } from "@/app/_components/ui/button";
 import { Input } from "@/app/_components/ui/input";
-import { Label } from "@/app/_components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -46,7 +45,7 @@ export default function DebtsPage() {
   const { data: rows = [], isLoading } = trpc.debt.list.useQuery();
 
   const [strategy, setStrategy] = useState<Strategy>("AVALANCHE");
-  const [extraStr, setExtraStr] = useState("0");
+  const [extraStr, setExtraStr] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null);
@@ -245,7 +244,15 @@ export default function DebtsPage() {
               {/* Left: forecast + strategy + tips (2/3) */}
               <div className="grid content-start gap-6 lg:col-span-2">
                 <Card className="grid gap-4 p-4">
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="grid items-end gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                    <Input
+                      id="extra"
+                      inputMode="decimal"
+                      placeholder="Extra payment / mo"
+                      value={extraStr}
+                      onChange={(e) => setExtraStr(e.target.value)}
+                      className="h-8"
+                    />
                     {STRATEGIES.map((s) => (
                       <Button
                         key={s.value}
@@ -253,6 +260,7 @@ export default function DebtsPage() {
                         variant={strategy === s.value ? "default" : "outline"}
                         size="sm"
                         onClick={() => setStrategy(s.value)}
+                        className="w-full"
                       >
                         {s.label} · {monthsLabel(
                           s.value === "SNOWBALL" ? sims.snowball.payoffMonth
@@ -262,16 +270,11 @@ export default function DebtsPage() {
                       </Button>
                     ))}
                   </div>
-                  <div className="grid max-w-xs gap-1">
-                    <Label htmlFor="extra">Extra payment / mo</Label>
-                    <Input
-                      id="extra"
-                      inputMode="decimal"
-                      value={extraStr}
-                      onChange={(e) => setExtraStr(e.target.value)}
-                    />
-                  </div>
-                  <DebtForecastChart result={sims.active} debts={debts} />
+                  <DebtForecastChart
+                    result={sims.active}
+                    debts={debts}
+                    baseline={extraPayment > 0 ? sims.activeNoExtra : undefined}
+                  />
                 </Card>
 
                 <DebtTipsPanel tips={tips} extraPayment={extraPayment} />
