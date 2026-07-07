@@ -38,12 +38,18 @@ export function DebtForecastChart({
   const data = toDebtChartData(result, debts.map((d) => d.id));
   const nameById = new Map(debts.map((d) => [d.id, d.name] as const));
 
+  // Tick every 3rd month to avoid a crowded axis; always include the last month.
+  const ticks = data
+    .map((d) => d.month)
+    .filter((m, i) => m % 3 === 0 || i === data.length - 1);
+
   return (
     <div className="grid gap-3">
       <ResponsiveContainer width="100%" height={260}>
         <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 20, left: 8 }}>
           <XAxis
             dataKey="month"
+            ticks={ticks}
             label={{ value: "Months", position: "insideBottom", offset: -4 }}
           />
           <YAxis tickFormatter={(v) => compactMoney(Number(v))} width={56} />
