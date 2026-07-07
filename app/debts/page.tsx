@@ -136,6 +136,7 @@ export default function DebtsPage() {
   );
   const customOrder = useMemo(() => debts.map((d) => d.id), [debts]);
   const extraPayment = Math.max(0, Number(extraStr) || 0);
+  const stepExtra = (delta: number) => setExtraStr(String(Math.max(0, extraPayment + delta)));
 
   const sims = useMemo(() => {
     const run = (s: Strategy, extra: number) =>
@@ -269,14 +270,36 @@ export default function DebtsPage() {
               <div className="grid content-start gap-6 lg:col-span-2">
                 <Card className="grid gap-4 p-4">
                   <div className="grid items-end gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                    <Input
-                      id="extra"
-                      inputMode="decimal"
-                      placeholder="Extra payment / mo"
-                      value={extraStr}
-                      onChange={(e) => setExtraStr(e.target.value)}
-                      className="h-8"
-                    />
+                    <div className="flex items-stretch gap-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        aria-label="Decrease extra payment by 100"
+                        onClick={() => stepExtra(-100)}
+                        className="shrink-0"
+                      >
+                        −
+                      </Button>
+                      <Input
+                        id="extra"
+                        inputMode="decimal"
+                        placeholder="Extra payment / mo"
+                        value={extraStr}
+                        onChange={(e) => setExtraStr(e.target.value)}
+                        className="h-8 min-w-0 flex-1 text-center"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        aria-label="Increase extra payment by 100"
+                        onClick={() => stepExtra(100)}
+                        className="shrink-0"
+                      >
+                        +
+                      </Button>
+                    </div>
                     {STRATEGIES.map((s) => (
                       <Button
                         key={s.value}
