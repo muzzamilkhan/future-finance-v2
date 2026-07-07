@@ -238,9 +238,11 @@ export default function DebtsPage() {
               <Card className="p-4">
                 <p className="text-xs text-muted-foreground">Monthly payment</p>
                 <p className="text-xl font-bold">{formatCurrency(totalMin + extraPayment)}</p>
-                <p className="text-xs text-muted-foreground">
-                  {formatCurrency(totalMin)} min + {formatCurrency(extraPayment)} extra
-                </p>
+                {extraPayment > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {formatCurrency(totalMin)} min + {formatCurrency(extraPayment)} extra
+                  </p>
+                )}
               </Card>
               <Card className="p-4">
                 <p className="text-xs text-muted-foreground">Total interest</p>
