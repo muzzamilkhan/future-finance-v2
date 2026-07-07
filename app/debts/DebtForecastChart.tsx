@@ -49,7 +49,7 @@ export function DebtForecastChart({
   return (
     <div className="grid gap-3">
       {debts.length >= 1 && (
-        <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 pt-2 text-xs text-muted-foreground">
           {debts.map((d, i) => (
             <span key={d.id} className="flex items-center gap-1.5">
               <span
@@ -71,7 +71,7 @@ export function DebtForecastChart({
         </div>
       )}
       <ResponsiveContainer width="100%" height={260}>
-        <ComposedChart data={data} margin={{ top: 28, right: 44, bottom: 8, left: 8 }}>
+        <ComposedChart data={data} margin={{ top: 8, right: 44, bottom: 8, left: 8 }}>
           <XAxis dataKey="month" ticks={ticks} />
           <YAxis tickFormatter={(v) => compactMoney(Number(v))} width={56} />
           <Tooltip
