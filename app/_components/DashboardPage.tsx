@@ -7,6 +7,7 @@ import { keepPreviousData } from "@tanstack/react-query";
 import { trpc } from "@/trpc/client";
 import { computeForecast } from "@/lib/engine";
 import { toCombinedEngineInputs } from "@/lib/toEngine";
+import { computeThisMonthSummary } from "@/app/_components/dashboard/thisMonthSummary";
 import { Layout } from "@/app/_components/Layout";
 import { Button } from "@/app/_components/ui/button";
 import { formatCurrency } from "@/lib/design-system";
@@ -102,6 +103,16 @@ export function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, monthsAhead, skipToday]);
 
+  // Full-calendar-month view for the "This Month" widget: reverse-replay events
+  // already applied earlier this month to recover the start-of-month balance, and
+  // forward-replay the rest to project the end-of-month balance.
+  const thisMonth = useMemo(() => {
+    if (!data) return null;
+    const inputs = toCombinedEngineInputs(data as never, today);
+    return computeThisMonthSummary({ ...inputs, today, skipToday });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, skipToday]);
+
   const accountNames = useMemo(
     () => new Map((data?.accounts ?? []).map((a) => [a.id, a.name] as const)),
     [data],
@@ -114,7 +125,6 @@ export function DashboardPage() {
   if (isLoading || !result) return <Layout><p className="text-muted-foreground">Loading…</p></Layout>;
 
   const current = result.days[0]?.openingBalance ?? 0;
-  const thisMonth = result.months[0];
 
   // Sum of the per-account shortfalls shown in the footer: each account's figure at
   // its own first-exhaustion day (available credit for CREDIT, cash balance otherwise).
@@ -214,7 +224,23 @@ export function DashboardPage() {
               } />
             <MetricCard title="This Month" value={thisMonth?.netChange ?? 0}
               subtitle={`${formatCurrency(thisMonth?.totalIncome ?? 0)} in, ${formatCurrency(thisMonth?.totalExpenses ?? 0)} out`}
-              type={(thisMonth?.netChange ?? 0) >= 0 ? "income" : "expense"} />
+              type={(thisMonth?.netChange ?? 0) >= 0 ? "income" : "expense"}
+              footer={
+                thisMonth ? (
+                  <dl className="mt-1 space-y-0.5 text-xs">
+                    <div className="flex items-center justify-between">
+                      <dt className="text-muted-foreground">Start</dt>
+                      <dd>{formatCurrency(thisMonth.startBalance)}</dd>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <dt className="text-muted-foreground">Projected end</dt>
+                      <dd className={thisMonth.endBalance >= 0 ? "text-finance-income" : "text-finance-expense"}>
+                        {formatCurrency(thisMonth.endBalance)}
+                      </dd>
+                    </div>
+                  </dl>
+                ) : undefined
+              } />
           </div>
 
           <div className="mt-4 text-foreground">
