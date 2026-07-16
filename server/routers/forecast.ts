@@ -77,7 +77,14 @@ export const forecastRouter = router({
       });
       const accounts = memberships.map((m) => m.account);
       const accountIds = accounts.map((a) => a.id);
-      const windowStart = input.viewStart;
+      // Widen the fetch back to the start of viewStart's calendar month so the
+      // dashboard's "This Month" widget can reverse-replay the events that already
+      // happened earlier this month (the main forecast still replays from today —
+      // these earlier occurrences fall before the replay start and are ignored there).
+      const monthStart = new Date(Date.UTC(
+        input.viewStart.getUTCFullYear(), input.viewStart.getUTCMonth(), 1,
+      ));
+      const windowStart = monthStart < input.viewStart ? monthStart : input.viewStart;
 
       const particulars = await ctx.prisma.particular.findMany({
         where: {
