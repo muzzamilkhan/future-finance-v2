@@ -1,5 +1,9 @@
+"use client";
+
+import { useState } from "react";
 import type { DailyBalance } from "@/lib/engine";
 import { Card, CardContent } from "@/app/_components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/app/_components/ui/dialog";
 import { formatCurrency } from "@/lib/design-system";
 import { dateToInputValue, formatUtcWeekdayMonthDay } from "@/lib/dateInput";
 import { ArrowRight } from "lucide-react";
@@ -7,15 +11,20 @@ import { sortDailyEvents } from "./sortEvents";
 import { AccountBadge } from "./AccountBadge";
 
 export function DailyCard({ day, onEventClick, interactive = true, accountNames, accountIds = [] }: { day: DailyBalance; onEventClick?: (particularId: string, originalDate?: Date, currentAmount?: number, currentDate?: Date, overrideId?: string) => void; interactive?: boolean; accountNames?: Map<string, string>; accountIds?: string[] }) {
+  const [showAccounts, setShowAccounts] = useState(false);
   return (
     <Card id={`day-${dateToInputValue(day.date)}`} className={day.isNegative || day.hasExhaustedAccount ? "border-finance-expense" : undefined}>
       <CardContent className="p-3">
-        <div className="flex items-center justify-between">
+        <button
+          type="button"
+          className="flex w-full items-center justify-between text-left"
+          onClick={() => setShowAccounts(true)}
+        >
           <span className="font-medium">{formatUtcWeekdayMonthDay(day.date)}</span>
           <span className={day.closingBalance < 0 ? "text-finance-expense" : "text-foreground"}>
             {formatCurrency(day.closingBalance)}
           </span>
-        </div>
+        </button>
         {day.hasExhaustedAccount && (
           <ul className="mt-1 space-y-0.5">
             {day.accounts.filter((a) => a.isExhausted).map((a) => (
@@ -65,6 +74,39 @@ export function DailyCard({ day, onEventClick, interactive = true, accountNames,
           </ul>
         )}
       </CardContent>
+
+      <Dialog open={showAccounts} onOpenChange={setShowAccounts}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{formatUtcWeekdayMonthDay(day.date)}</DialogTitle>
+          </DialogHeader>
+          <ul className="space-y-2">
+            {day.accounts.map((a) => {
+              // Credit accounts show available credit (a positive figure); debit
+              // accounts show their cash balance.
+              const figure = a.type === "CREDIT" ? (a.availableCredit ?? 0) : a.balance;
+              return (
+                <li key={a.accountId} className="flex items-center justify-between gap-2 text-sm">
+                  <span className="flex items-center gap-1">
+                    <AccountBadge accountId={a.accountId} accountNames={accountNames} orderedIds={accountIds} className="px-1.5 py-0 text-[10px]" />
+                    {a.type === "CREDIT" && <span className="text-xs text-muted-foreground">available</span>}
+                    {a.isExhausted && <span className="text-xs text-finance-expense">overdrawn</span>}
+                  </span>
+                  <span className={`shrink-0 font-medium ${figure < 0 ? "text-finance-expense" : "text-foreground"}`}>
+                    {formatCurrency(figure)}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="flex items-center justify-between border-t pt-3 text-sm font-semibold">
+            <span>Combined</span>
+            <span className={day.combined < 0 ? "text-finance-expense" : "text-foreground"}>
+              {formatCurrency(day.combined)}
+            </span>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
