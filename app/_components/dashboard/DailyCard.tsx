@@ -12,19 +12,31 @@ import { AccountBadge } from "./AccountBadge";
 
 export function DailyCard({ day, onEventClick, interactive = true, accountNames, accountIds = [] }: { day: DailyBalance; onEventClick?: (particularId: string, originalDate?: Date, currentAmount?: number, currentDate?: Date, overrideId?: string) => void; interactive?: boolean; accountNames?: Map<string, string>; accountIds?: string[] }) {
   const [showAccounts, setShowAccounts] = useState(false);
+  // The per-account popup is only meaningful with more than one account — with a
+  // single account the breakdown just repeats the closing balance.
+  const hasMultipleAccounts = accountIds.length > 1;
   return (
     <Card id={`day-${dateToInputValue(day.date)}`} className={day.isNegative || day.hasExhaustedAccount ? "border-finance-expense" : undefined}>
       <CardContent className="p-3">
-        <button
-          type="button"
-          className="flex w-full items-center justify-between text-left"
-          onClick={() => setShowAccounts(true)}
-        >
-          <span className="font-medium">{formatUtcWeekdayMonthDay(day.date)}</span>
-          <span className={day.closingBalance < 0 ? "text-finance-expense" : "text-foreground"}>
-            {formatCurrency(day.closingBalance)}
-          </span>
-        </button>
+        {hasMultipleAccounts ? (
+          <button
+            type="button"
+            className="flex w-full items-center justify-between text-left"
+            onClick={() => setShowAccounts(true)}
+          >
+            <span className="font-medium">{formatUtcWeekdayMonthDay(day.date)}</span>
+            <span className={day.closingBalance < 0 ? "text-finance-expense" : "text-foreground"}>
+              {formatCurrency(day.closingBalance)}
+            </span>
+          </button>
+        ) : (
+          <div className="flex items-center justify-between">
+            <span className="font-medium">{formatUtcWeekdayMonthDay(day.date)}</span>
+            <span className={day.closingBalance < 0 ? "text-finance-expense" : "text-foreground"}>
+              {formatCurrency(day.closingBalance)}
+            </span>
+          </div>
+        )}
         {day.hasExhaustedAccount && (
           <ul className="mt-1 space-y-0.5">
             {day.accounts.filter((a) => a.isExhausted).map((a) => (
@@ -75,6 +87,7 @@ export function DailyCard({ day, onEventClick, interactive = true, accountNames,
         )}
       </CardContent>
 
+      {hasMultipleAccounts && (
       <Dialog open={showAccounts} onOpenChange={setShowAccounts}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
@@ -107,6 +120,7 @@ export function DailyCard({ day, onEventClick, interactive = true, accountNames,
           </div>
         </DialogContent>
       </Dialog>
+      )}
     </Card>
   );
 }
