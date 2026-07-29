@@ -212,7 +212,7 @@ export default function ParticularsPage() {
               <Button
                 variant="destructive"
                 disabled={del.isPending}
-                onClick={() => { if (pendingDelete) del.mutate({ accountId: pendingDelete.accountId, id: pendingDelete.id }); }}
+                onClick={() => { if (pendingDelete) { del.mutate({ accountId: pendingDelete.accountId, id: pendingDelete.id }); setPendingDelete(null); } }}
               >
                 {del.isPending ? "Deleting..." : "Delete"}
               </Button>
