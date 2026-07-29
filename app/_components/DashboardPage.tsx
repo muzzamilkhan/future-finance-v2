@@ -253,7 +253,6 @@ export function DashboardPage() {
           {result.days
             .filter((day) =>
               day.events.length > 0 ||
-              day.hasExhaustedAccount ||
               (result.lowest && isSameDay(day.date, result.lowest.date)) ||
               (result.firstNegative && isSameDay(day.date, result.firstNegative.date)),
             )
