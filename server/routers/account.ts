@@ -4,14 +4,15 @@ import { router, protectedProcedure, accountProcedure, ensureBootstrapAccount } 
 import { assertCan } from "../permissions";
 import { pickNextDefault } from "../defaultAccount";
 import { updateBalanceInput, createAccountInput, createCreditAccountInput, updateAccountInput } from "@/lib/schemas";
+import { money } from "../encryption/fields";
 
 /** Prisma `data` for creating a credit account. Outstanding is entered positive (amount owed); stored negative. */
 export function creditAccountCreateData(input: { name: string; creditLimit: number; outstanding: number }) {
   return {
     name: input.name,
     type: "CREDIT" as const,
-    creditLimit: input.creditLimit,
-    currentBalance: -input.outstanding,
+    creditLimit: money(input.creditLimit),
+    currentBalance: money(-input.outstanding),
     balanceUpdatedAt: new Date(),
   };
 }
@@ -47,7 +48,7 @@ export const accountRouter = router({
     .mutation(async ({ ctx, input }) => {
       const count = await ctx.prisma.accountMembership.count({ where: { userId: ctx.user.id } });
       const account = await ctx.prisma.financeAccount.create({
-        data: { name: input.name, currentBalance: input.initialBalance, balanceUpdatedAt: new Date() },
+        data: { name: input.name, currentBalance: money(input.initialBalance), balanceUpdatedAt: new Date() },
       });
       await ctx.prisma.accountMembership.create({
         data: {
@@ -103,7 +104,7 @@ export const accountRouter = router({
   updateBalance: accountProcedure.input(updateBalanceInput).mutation(async ({ ctx, input }) => {
     assertCan(ctx.membership, "updateBalance");
     return ctx.prisma.financeAccount.update({
-      where: { id: ctx.account.id }, data: { currentBalance: input.balance, balanceUpdatedAt: new Date() },
+      where: { id: ctx.account.id }, data: { currentBalance: money(input.balance), balanceUpdatedAt: new Date() },
     });
   }),
 
@@ -168,8 +169,8 @@ export const accountRouter = router({
       where: { id: ctx.account.id },
       data: {
         name: input.name,
-        ...(input.creditLimit !== undefined ? { creditLimit: input.creditLimit } : {}),
-        ...(input.balance !== undefined ? { currentBalance: input.balance, balanceUpdatedAt: new Date() } : {}),
+        ...(input.creditLimit !== undefined ? { creditLimit: money(input.creditLimit) } : {}),
+        ...(input.balance !== undefined ? { currentBalance: money(input.balance), balanceUpdatedAt: new Date() } : {}),
       },
     });
   }),

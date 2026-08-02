@@ -57,15 +57,20 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
+// Columns marked "encrypted" below are AES-256-GCM ciphertext at rest, handled
+// transparently by the Prisma extension in server/encryption/. They are TEXT rather
+// than DECIMAL because ciphertext is not a number; the old DECIMAL scale is applied
+// in server/encryption/fields.ts before encrypting. Never filter/sort/aggregate on
+// them in SQL — the ciphertext is randomized, so those queries cannot work.
 model FinanceAccount {
   id               String              @id @default(cuid())
   name             String              @default("My Account")
-  currentBalance   Decimal             @default(0) @db.Decimal(15, 2)
+  currentBalance   String              @default("0")
   balanceUpdatedAt DateTime            @default(now())
   categories       String              @default("")
   closedAt         DateTime?
   type             AccountType         @default(DEBIT)
-  creditLimit      Decimal?            @db.Decimal(15, 2)
+  creditLimit      String?
   particulars      Particular[]        @relation("ParticularSource")
   transfersIn      Particular[]        @relation("TransferDestination")
   memberships      AccountMembership[]
@@ -121,7 +126,7 @@ model Particular {
   name                  String
   category              String?
   type                  ParticularType
-  amount                Decimal               @db.Decimal(15, 2)
+  amount                String
   frequency             RecurrenceFrequency   @default(ONCE_OFF)
   startDate             DateTime              @db.Date
   endDate               DateTime?             @db.Date
@@ -143,7 +148,7 @@ model ParticularOverride {
   particularId     String
   originalDate     DateTime   @db.Date
   overriddenDate   DateTime?  @db.Date
-  overriddenAmount Decimal?   @db.Decimal(15, 2)
+  overriddenAmount String?
   isSkipped        Boolean    @default(false)
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
@@ -198,9 +203,9 @@ model Debt {
   id         String   @id @default(cuid())
   userId     String
   name       String
-  balance    Decimal  @db.Decimal(15, 2)   // outstanding, stored positive
-  apr        Decimal  @db.Decimal(6, 4)    // annual rate as a fraction, e.g. 0.1999
-  minPayment Decimal  @db.Decimal(15, 2)   // required monthly installment
+  balance    String   // encrypted; outstanding, stored positive
+  apr        String   // encrypted; annual rate as a fraction, e.g. 0.1999
+  minPayment String   // encrypted; required monthly installment
   sortOrder  Int      @default(0)          // user's custom payoff priority
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt

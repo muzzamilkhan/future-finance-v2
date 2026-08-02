@@ -2,6 +2,11 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, protectedProcedure } from "../trpc";
 import { debtInputSchema } from "@/lib/schemas";
+import { money, rate } from "../encryption/fields";
+
+/** Money/rate columns are encrypted TEXT, so scale them to strings on write. */
+const toRow = (d: { name: string; balance: number; apr: number; minPayment: number }) =>
+  ({ name: d.name, balance: money(d.balance), apr: rate(d.apr), minPayment: money(d.minPayment) });
 
 /** Throws unless `requested` is exactly a permutation of `current` (no missing/extra/dupes). */
 export function assertReorderIds(current: string[], requested: string[]): void {
@@ -31,7 +36,7 @@ export const debtRouter = router({
       _max: { sortOrder: true },
     });
     return ctx.prisma.debt.create({
-      data: { ...input, userId: ctx.user.id, sortOrder: (max._max.sortOrder ?? -1) + 1 },
+      data: { ...toRow(input), userId: ctx.user.id, sortOrder: (max._max.sortOrder ?? -1) + 1 },
     });
   }),
 
@@ -41,7 +46,7 @@ export const debtRouter = router({
       const { id, ...data } = input;
       const owned = await ctx.prisma.debt.findFirst({ where: { id, userId: ctx.user.id } });
       if (!owned) throw new TRPCError({ code: "NOT_FOUND" });
-      return ctx.prisma.debt.update({ where: { id }, data });
+      return ctx.prisma.debt.update({ where: { id }, data: toRow(data) });
     }),
 
   delete: protectedProcedure.input(z.object({ id: z.string() })).mutation(({ ctx, input }) =>

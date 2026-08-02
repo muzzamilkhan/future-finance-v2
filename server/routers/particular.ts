@@ -5,7 +5,21 @@ import { assertCan } from "../permissions";
 import { particularInput, overrideInstanceInput } from "@/lib/schemas";
 import { syncAccountCategories } from "../categorySync";
 import { assertTransferShape } from "../transfers";
-import type { PrismaClient, Prisma } from "@prisma/client";
+import { money } from "../encryption/fields";
+import type { Prisma } from "@prisma/client";
+
+/**
+ * Structural subset of the Prisma client — see the note in server/categorySync.ts on
+ * why this isn't typed as `PrismaClient`.
+ */
+type MembershipReader = {
+  accountMembership: {
+    findMany(args: {
+      where: { userId: string; account: { closedAt: null } };
+      select: { accountId: true };
+    }): Promise<{ accountId: string }[]>;
+  };
+};
 
 export function assertOverrideAllowed(
   rule: { isFixed: boolean; isCritical: boolean },
@@ -18,7 +32,7 @@ export function assertOverrideAllowed(
 }
 
 export async function ownedAccountIds(
-  prisma: Pick<PrismaClient, "accountMembership">,
+  prisma: MembershipReader,
   userId: string,
 ): Promise<Set<string>> {
   const ms = await prisma.accountMembership.findMany({
@@ -111,7 +125,7 @@ export const particularRouter = router({
     assertTransferShape({ type: input.type, accountId: ctx.account.id, toAccountId: toAccountId ?? null }, owned);
     const created = await ctx.prisma.particular.create({
       data: {
-        ...rest, category: rest.category ?? null, accountId: ctx.account.id,
+        ...rest, amount: money(rest.amount), category: rest.category ?? null, accountId: ctx.account.id,
         toAccountId: input.type === "TRANSFER" ? toAccountId! : null,
       },
     });
@@ -129,7 +143,7 @@ export const particularRouter = router({
       assertTransferShape({ type: input.type, accountId: ctx.account.id, toAccountId: toAccountId ?? null }, ownedIds);
       const updated = await ctx.prisma.particular.update({
         where: { id },
-        data: { ...data, category: data.category ?? null, toAccountId: input.type === "TRANSFER" ? toAccountId! : null },
+        data: { ...data, amount: money(data.amount), category: data.category ?? null, toAccountId: input.type === "TRANSFER" ? toAccountId! : null },
       });
       await syncAccountCategories(ctx.prisma, ctx.account.id);
       return updated;
@@ -167,11 +181,11 @@ export const particularRouter = router({
       where: { particularId_originalDate: { particularId: input.particularId, originalDate: input.originalDate } },
       create: {
         particularId: input.particularId, originalDate: input.originalDate,
-        overriddenAmount: input.overriddenAmount ?? null,
+        overriddenAmount: input.overriddenAmount === undefined ? null : money(input.overriddenAmount),
         overriddenDate: input.overriddenDate ?? null, isSkipped: input.isSkipped,
       },
       update: {
-        overriddenAmount: input.overriddenAmount ?? null,
+        overriddenAmount: input.overriddenAmount === undefined ? null : money(input.overriddenAmount),
         overriddenDate: input.overriddenDate ?? null, isSkipped: input.isSkipped,
       },
     });

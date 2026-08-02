@@ -18,7 +18,8 @@ describe("mapMembershipToListItem", () => {
 describe("creditAccountCreateData", () => {
   it("stores outstanding as a negative currentBalance and sets type CREDIT", () => {
     const data = creditAccountCreateData({ name: "Visa", creditLimit: 5000, outstanding: 450 });
-    expect(data).toMatchObject({ name: "Visa", type: "CREDIT", creditLimit: 5000, currentBalance: -450 });
+    // Money columns are encrypted TEXT, so they're written as scaled strings.
+    expect(data).toMatchObject({ name: "Visa", type: "CREDIT", creditLimit: "5000.00", currentBalance: "-450.00" });
     expect(data.balanceUpdatedAt).toBeInstanceOf(Date);
   });
 });
