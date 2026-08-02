@@ -3,12 +3,23 @@ import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {};
 
+// Releases and source map upload need org + project + auth token. Without them the
+// Sentry plugin warns on every build, so turn that half off unless it's configured.
+const uploadConfigured = Boolean(
+  process.env.SENTRY_ORG &&
+    process.env.SENTRY_PROJECT &&
+    process.env.SENTRY_AUTH_TOKEN,
+);
+
 export default withSentryConfig(nextConfig, {
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,
 
   // Source map upload auth token (build-time secret, not the DSN)
   authToken: process.env.SENTRY_AUTH_TOKEN,
+
+  sourcemaps: { disable: !uploadConfigured },
+  release: { create: uploadConfigured },
 
   // Upload wider set of client source files for better stack trace resolution
   widenClientFileUpload: true,
