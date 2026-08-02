@@ -61,8 +61,27 @@ describe("loadKeyFromEnv", () => {
     expect(loadKeyFromEnv(env)?.equals(key)).toBe(true);
   });
 
+  it("decodes the same key from 64-char hex", () => {
+    const env = { DATA_ENCRYPTION_KEY: key.toString("hex") } as unknown as NodeJS.ProcessEnv;
+    expect(loadKeyFromEnv(env)?.equals(key)).toBe(true);
+  });
+
+  it("hex and base64 of the same bytes load identically", () => {
+    const asHex = loadKeyFromEnv({ DATA_ENCRYPTION_KEY: key.toString("hex") } as unknown as NodeJS.ProcessEnv);
+    const asB64 = loadKeyFromEnv({ DATA_ENCRYPTION_KEY: key.toString("base64") } as unknown as NodeJS.ProcessEnv);
+    expect(asHex!.equals(asB64!)).toBe(true);
+  });
+
   it("throws on a wrong-length key", () => {
     const env = { DATA_ENCRYPTION_KEY: Buffer.alloc(16, 1).toString("base64") } as unknown as NodeJS.ProcessEnv;
-    expect(() => loadKeyFromEnv(env)).toThrow(/32 bytes/);
+    expect(() => loadKeyFromEnv(env)).toThrow(/decoded to 16 bytes/);
+  });
+
+  it("reports the short length when base64 '+' characters were stripped in transit", () => {
+    // The real failure mode: a hosting dashboard drops '+' from a base64 value,
+    // which decodes to a short key instead of failing outright.
+    const b64 = "L8co++JHMQaNTnpxdHhlh74L1JjgtwOhATJtMPdMYDQ=";
+    const env = { DATA_ENCRYPTION_KEY: b64.replace(/\+/g, "") } as unknown as NodeJS.ProcessEnv;
+    expect(() => loadKeyFromEnv(env)).toThrow(/decoded to 30 bytes.*hex/s);
   });
 });

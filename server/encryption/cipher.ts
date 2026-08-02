@@ -57,14 +57,28 @@ function assertKey(key: Buffer): void {
 }
 
 /**
- * Load the key from DATA_ENCRYPTION_KEY (base64, 32 bytes). Returns null when unset so
- * the app still boots un-encrypted in a fresh checkout; `db.ts` decides whether that's
- * acceptable for the current environment.
+ * Load the key from DATA_ENCRYPTION_KEY. Accepts 64-char hex or 32-byte base64 —
+ * prefer hex when setting it in a hosting dashboard, since base64's `+` and `/` are
+ * easy for an env-var pipeline to mangle (that silently yields a short key, which is
+ * why the length check below is worth its noise).
+ *
+ * Returns null when unset so the app still boots un-encrypted in a fresh checkout;
+ * `db.ts` decides whether that's acceptable for the current environment.
  */
 export function loadKeyFromEnv(env: NodeJS.ProcessEnv = process.env): Buffer | null {
   const raw = env.DATA_ENCRYPTION_KEY?.trim();
   if (!raw) return null;
-  const key = Buffer.from(raw, "base64");
-  assertKey(key);
+
+  const key = /^[0-9a-fA-F]{64}$/.test(raw)
+    ? Buffer.from(raw, "hex")
+    : Buffer.from(raw, "base64");
+
+  if (key.length !== KEY_BYTES) {
+    throw new Error(
+      `DATA_ENCRYPTION_KEY decoded to ${key.length} bytes, expected ${KEY_BYTES}. ` +
+      "If it was pasted as base64, the +, / or = characters may have been mangled — " +
+      "set the same key as 64-character hex instead.",
+    );
+  }
   return key;
 }
