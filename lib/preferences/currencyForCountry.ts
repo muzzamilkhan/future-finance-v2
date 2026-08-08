@@ -1,7 +1,7 @@
 import { DEFAULT_CURRENCY } from "./defaults";
 
 // Curated rather than exhaustive. Currency is derived from the browser locale's
-// REGION subtag (en-AU -> AU), which needs ~40 entries; deriving it from the IANA
+// REGION subtag (en-AU -> AU), which needs ~50 entries; deriving it from the IANA
 // timezone instead would need a ~400-entry table for no extra accuracy.
 const BY_COUNTRY: Record<string, string> = {
   AU: "AUD", NZ: "NZD", US: "USD", CA: "CAD", GB: "GBP", IE: "EUR",

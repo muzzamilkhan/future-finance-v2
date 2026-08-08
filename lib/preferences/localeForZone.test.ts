@@ -21,4 +21,20 @@ describe("localeForZone", () => {
     expect(localeForZone("Not/AZone")).toBe("en-AU");
     expect(localeForZone("")).toBe("en-AU");
   });
+
+  it("overrides US zones under the Pacific/ IANA prefix", () => {
+    expect(localeForZone("Pacific/Honolulu")).toBe("en-US");
+    expect(localeForZone("Pacific/Guam")).toBe("en-US");
+    expect(localeForZone("Pacific/Pago_Pago")).toBe("en-US");
+  });
+
+  it("overrides Canadian zones under the America/ IANA prefix", () => {
+    expect(localeForZone("America/Toronto")).toBe("en-CA");
+    expect(localeForZone("America/Vancouver")).toBe("en-CA");
+  });
+
+  it("still falls through to the prefix default for other zones in those namespaces", () => {
+    expect(localeForZone("Pacific/Fiji")).toBe("en-AU");
+    expect(localeForZone("America/New_York")).toBe("en-US");
+  });
 });

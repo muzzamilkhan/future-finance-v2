@@ -12,6 +12,11 @@ const BY_ZONE: Record<string, string> = {
   "Asia/Tokyo": "ja-JP",
   "Asia/Kolkata": "en-IN",
   "Africa/Johannesburg": "en-ZA",
+  "Pacific/Honolulu": "en-US",
+  "Pacific/Guam": "en-US",
+  "Pacific/Pago_Pago": "en-US",
+  "America/Toronto": "en-CA",
+  "America/Vancouver": "en-CA",
 };
 
 const BY_PREFIX: Record<string, string> = {
