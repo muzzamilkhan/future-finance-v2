@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { formatCurrency, getAmountColorClass } from "./design-system";
 
 describe("formatCurrency", () => {
-  it("formats NZD with two decimals", () => {
+  it("formats AUD with two decimals", () => {
     expect(formatCurrency(1500)).toBe("$1,500.00");
   });
 });

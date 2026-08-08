@@ -89,10 +89,12 @@ window, applies business-day adjustment and holidays, and folds in overrides.
   client-side.
 - **Engine/schema layers stay pure:** keep `lib/engine/` and `lib/schemas/` free of React,
   Prisma, and Next imports.
-- Currency is **NZD** via `Intl.NumberFormat('en-NZ', …)`. Dates use `date-fns`; stored
-  date columns are `@db.Date` and compared in UTC.
-- **The local timezone is AEST/AEDT (`Australia/Sydney`), not NZ — don't infer it from the
-  NZD formatting.** Every date sits at UTC midnight and the engine compares in UTC, so all
+- Currency is **AUD** via `Intl.NumberFormat('en-AU', …)` (`formatCurrency` in
+  `lib/design-system.ts` is the single source). Dates use `date-fns`; stored date columns
+  are `@db.Date` and compared in UTC. Older plans under `docs/superpowers/` and
+  `baseline/` still say NZD — they're historical, not current behavior.
+- **The local timezone is AEST/AEDT (`Australia/Sydney`).** Every date sits at UTC
+  midnight and the engine compares in UTC, so all
   date arithmetic must be UTC-based. date-fns' `add*`/`isSameDay` helpers work in *local*
   time: across the October DST switch they shift a UTC-midnight date to 23:00 the previous
   UTC day, silently moving e.g. a fortnightly item onto the wrong weekday. Use the

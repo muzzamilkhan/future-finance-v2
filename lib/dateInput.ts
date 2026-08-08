@@ -29,7 +29,7 @@ export function inputValueToDate(value: string): Date | undefined {
 // date-fns `format`) shows the wrong day for users west of UTC. Formatting the UTC
 // wall-clock keeps the displayed day consistent with the stored/engine day everywhere.
 // en-US ordering ("Jul 15") to match the format strings these replaced; the UTC
-// timeZone is the point of this helper. (Currency uses en-NZ; that's separate.)
+// timeZone is the point of this helper. (Currency uses en-AU; that's separate.)
 const utcWeekdayMonthDay = new Intl.DateTimeFormat("en-US", {
   weekday: "short", month: "short", day: "numeric", timeZone: "UTC",
 });
