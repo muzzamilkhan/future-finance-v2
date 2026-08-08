@@ -7,6 +7,7 @@ import superjson from "superjson";
 import { ThemeProvider } from "next-themes";
 import { trpc } from "@/trpc/client";
 import { AccountProvider } from "@/app/_components/AccountContext";
+import { PreferencesProvider } from "@/app/_components/PreferencesContext";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
@@ -19,7 +20,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
-          <AccountProvider>{children}</AccountProvider>
+          <PreferencesProvider>
+            <AccountProvider>{children}</AccountProvider>
+          </PreferencesProvider>
         </ThemeProvider>
       </QueryClientProvider>
     </trpc.Provider>
