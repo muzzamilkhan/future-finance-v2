@@ -1,3 +1,5 @@
+import { calendarDateInZone, DEFAULT_LOCALE, DEFAULT_TIME_ZONE } from "@/lib/preferences";
+
 // Helpers for binding a JS `Date` to a native `<input type="date">`, which
 // renders and reports its value as a `yyyy-MM-dd` string (never a `Date`).
 // Keeping the conversion here makes it unit-testable without a DOM.
@@ -26,49 +28,61 @@ export function inputValueToDate(value: string): Date | undefined {
 
 // Human-readable formatting of a UTC-anchored date, for display. The engine and DB
 // store dates at UTC midnight, so formatting them with a local-time formatter (e.g.
-// date-fns `format`) shows the wrong day for users west of UTC. Formatting the UTC
-// wall-clock keeps the displayed day consistent with the stored/engine day everywhere.
-// en-US ordering ("Jul 15") to match the format strings these replaced; the UTC
-// timeZone is the point of this helper. (Currency uses en-AU; that's separate.)
-const utcWeekdayMonthDay = new Intl.DateTimeFormat("en-US", {
-  weekday: "short", month: "short", day: "numeric", timeZone: "UTC",
-});
-const utcMonthDayYear = new Intl.DateTimeFormat("en-US", {
-  month: "short", day: "numeric", year: "numeric", timeZone: "UTC",
-});
-const utcMonthDay = new Intl.DateTimeFormat("en-US", {
-  month: "short", day: "numeric", timeZone: "UTC",
-});
-const utcWeekday = new Intl.DateTimeFormat("en-US", {
-  weekday: "short", timeZone: "UTC",
-});
-const utcWeekdayLong = new Intl.DateTimeFormat("en-US", {
-  weekday: "long", timeZone: "UTC",
-});
+// date-fns `format`) shows the wrong day for users west of UTC. Every formatter below
+// therefore keeps timeZone: "UTC" — the LOCALE is what varies, controlling word order
+// ("15 Jul" vs "Jul 15"), never which day is shown.
+//
+// Memoised per (locale, style): constructing an Intl.DateTimeFormat is expensive and
+// the daily card list renders many of these.
+type Style = "weekdayMonthDay" | "monthDayYear" | "monthDay" | "weekday" | "weekdayLong";
 
-/** "Tue, Jul 15" — weekday, month, day in UTC. */
-export function formatUtcWeekdayMonthDay(date: Date): string {
-  return utcWeekdayMonthDay.format(date);
+const OPTIONS: Record<Style, Intl.DateTimeFormatOptions> = {
+  weekdayMonthDay: { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" },
+  monthDayYear: { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" },
+  monthDay: { month: "short", day: "numeric", timeZone: "UTC" },
+  weekday: { weekday: "short", timeZone: "UTC" },
+  weekdayLong: { weekday: "long", timeZone: "UTC" },
+};
+
+const cache = new Map<string, Intl.DateTimeFormat>();
+
+function fmt(style: Style, locale: string): Intl.DateTimeFormat {
+  const key = `${locale}:${style}`;
+  let f = cache.get(key);
+  if (!f) {
+    try {
+      f = new Intl.DateTimeFormat(locale, OPTIONS[style]);
+    } catch {
+      f = new Intl.DateTimeFormat(DEFAULT_LOCALE, OPTIONS[style]);
+    }
+    cache.set(key, f);
+  }
+  return f;
 }
 
-/** "Jul 15, 2026" — month, day, year in UTC. */
-export function formatUtcMonthDayYear(date: Date): string {
-  return utcMonthDayYear.format(date);
+/** "Wed, 15 Jul" (en-AU) / "Wed, Jul 15" (en-US) — weekday, month, day in UTC. */
+export function formatUtcWeekdayMonthDay(date: Date, locale: string = DEFAULT_LOCALE): string {
+  return fmt("weekdayMonthDay", locale).format(date);
 }
 
-/** "Jul 15" — month, day in UTC. */
-export function formatUtcMonthDay(date: Date): string {
-  return utcMonthDay.format(date);
+/** "15 Jul 2026" (en-AU) / "Jul 15, 2026" (en-US) — month, day, year in UTC. */
+export function formatUtcMonthDayYear(date: Date, locale: string = DEFAULT_LOCALE): string {
+  return fmt("monthDayYear", locale).format(date);
+}
+
+/** "15 Jul" (en-AU) / "Jul 15" (en-US) — month, day in UTC. */
+export function formatUtcMonthDay(date: Date, locale: string = DEFAULT_LOCALE): string {
+  return fmt("monthDay", locale).format(date);
 }
 
 /** "Wed" — short weekday in UTC. */
-export function formatUtcWeekday(date: Date): string {
-  return utcWeekday.format(date);
+export function formatUtcWeekday(date: Date, locale: string = DEFAULT_LOCALE): string {
+  return fmt("weekday", locale).format(date);
 }
 
-/** "Monday" — full weekday in UTC. */
-export function formatUtcWeekdayLong(date: Date): string {
-  return utcWeekdayLong.format(date);
+/** "Wednesday" — full weekday in UTC. */
+export function formatUtcWeekdayLong(date: Date, locale: string = DEFAULT_LOCALE): string {
+  return fmt("weekdayLong", locale).format(date);
 }
 
 /** "1st", "2nd", "3rd", "14th", "21st" — English ordinal for a day-of-month. */
@@ -83,11 +97,14 @@ export function ordinal(n: number): string {
   }
 }
 
-// UTC midnight of the user's *local* calendar day — i.e. the day that shows as
-// selected in a fresh `<input type="date">`. Use this for form date defaults so
-// an untouched picker submits the same instant the engine expects, rather than a
-// raw `new Date()` (which carries a local time-of-day that can land on the wrong
-// UTC day near midnight). Read the local calendar day, then re-anchor it at UTC.
-export function todayAsUtcDate(now: Date = new Date()): Date {
-  return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+/**
+ * UTC midnight of the user's current calendar day in `timeZone` — the day that shows
+ * as selected in a fresh `<input type="date">`. Use for form date defaults so an
+ * untouched picker submits the instant the engine expects.
+ */
+export function todayAsUtcDate(
+  timeZone: string = DEFAULT_TIME_ZONE,
+  now: Date = new Date(),
+): Date {
+  return calendarDateInZone(now, timeZone);
 }

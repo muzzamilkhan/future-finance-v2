@@ -74,7 +74,7 @@ describe("todayAsUtcDate", () => {
     // the UTC instant is still the 15th here — the point is the result is UTC midnight
     // of whatever local day `now` falls on, with no time-of-day component.
     const now = new Date("2026-01-15T22:30:00+13:00");
-    const d = todayAsUtcDate(now);
+    const d = todayAsUtcDate(undefined, now);
     expect(d.getUTCFullYear()).toBe(now.getFullYear());
     expect(d.getUTCMonth()).toBe(now.getMonth());
     expect(d.getUTCDate()).toBe(now.getDate());
@@ -86,6 +86,13 @@ describe("todayAsUtcDate", () => {
     const d = todayAsUtcDate();
     expect(inputValueToDate(dateToInputValue(d))?.getTime()).toBe(d.getTime());
   });
+
+  it("returns UTC midnight of the calendar date in the given zone", () => {
+    expect(todayAsUtcDate("Australia/Sydney", new Date("2026-08-09T20:00:00Z")))
+      .toEqual(new Date(Date.UTC(2026, 7, 10)));
+    expect(todayAsUtcDate("America/New_York", new Date("2026-08-09T02:00:00Z")))
+      .toEqual(new Date(Date.UTC(2026, 7, 8)));
+  });
 });
 
 describe("UTC display formatters", () => {
@@ -94,19 +101,44 @@ describe("UTC display formatters", () => {
   const d = new Date(Date.UTC(2026, 6, 15));
 
   it("formatUtcWeekdayMonthDay -> 'Wed, Jul 15'", () => {
-    expect(formatUtcWeekdayMonthDay(d)).toBe("Wed, Jul 15");
+    expect(formatUtcWeekdayMonthDay(d, "en-US")).toBe("Wed, Jul 15");
   });
 
   it("formatUtcMonthDayYear -> 'Jul 15, 2026'", () => {
-    expect(formatUtcMonthDayYear(d)).toBe("Jul 15, 2026");
+    expect(formatUtcMonthDayYear(d, "en-US")).toBe("Jul 15, 2026");
   });
 
   it("formatUtcMonthDay -> 'Jul 15'", () => {
-    expect(formatUtcMonthDay(d)).toBe("Jul 15");
+    expect(formatUtcMonthDay(d, "en-US")).toBe("Jul 15");
   });
 
   it("formatUtcWeekday -> 'Wed'", () => {
     expect(formatUtcWeekday(d)).toBe("Wed");
+  });
+});
+
+describe("locale-aware formatting", () => {
+  const d = new Date(Date.UTC(2026, 6, 15)); // Wed 15 July 2026
+
+  it("uses day-month order for en-AU (the default)", () => {
+    expect(formatUtcMonthDay(d)).toBe("15 Jul");
+    expect(formatUtcMonthDayYear(d)).toBe("15 Jul 2026");
+  });
+
+  it("uses month-day order for en-US", () => {
+    expect(formatUtcMonthDay(d, "en-US")).toBe("Jul 15");
+    expect(formatUtcMonthDayYear(d, "en-US")).toBe("Jul 15, 2026");
+  });
+
+  it("keeps weekday names locale-stable for English locales", () => {
+    expect(formatUtcWeekday(d, "en-US")).toBe("Wed");
+    expect(formatUtcWeekdayLong(d, "en-AU")).toBe("Wednesday");
+  });
+
+  it("still formats in UTC regardless of locale", () => {
+    // 23:30 UTC on the 15th is the 16th in Sydney, but these render the UTC day.
+    const late = new Date(Date.UTC(2026, 6, 15, 23, 30));
+    expect(formatUtcMonthDay(late, "en-AU")).toBe("15 Jul");
   });
 });
 
