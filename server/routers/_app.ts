@@ -6,6 +6,7 @@ import { forecastRouter } from "./forecast";
 import { categoryRouter } from "./category";
 import { inviteRouter } from "./invite";
 import { debtRouter } from "./debt";
+import { preferencesRouter } from "./preferences";
 
 export const appRouter = router({
   account: accountRouter,
@@ -15,6 +16,7 @@ export const appRouter = router({
   category: categoryRouter,
   invite: inviteRouter,
   debt: debtRouter,
+  preferences: preferencesRouter,
 });
 
 export type AppRouter = typeof appRouter;
