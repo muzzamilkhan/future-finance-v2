@@ -91,6 +91,12 @@ window, applies business-day adjustment and holidays, and folds in overrides.
   Prisma, and Next imports.
 - Currency is **NZD** via `Intl.NumberFormat('en-NZ', …)`. Dates use `date-fns`; stored
   date columns are `@db.Date` and compared in UTC.
+- **The local timezone is AEST/AEDT (`Australia/Sydney`), not NZ — don't infer it from the
+  NZD formatting.** Every date sits at UTC midnight and the engine compares in UTC, so all
+  date arithmetic must be UTC-based. date-fns' `add*`/`isSameDay` helpers work in *local*
+  time: across the October DST switch they shift a UTC-midnight date to 23:00 the previous
+  UTC day, silently moving e.g. a fortnightly item onto the wrong weekday. Use the
+  `addUtcDays`/`addUtcMonths`/`addUtcYears` helpers in `lib/engine/dates.ts` instead.
 
 ## Accounts, membership & sharing (multi-account model)
 
