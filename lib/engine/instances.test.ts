@@ -81,10 +81,10 @@ describe("generateInstances", () => {
 
 describe("recurrence across a DST transition", () => {
   // The engine compares dates in UTC, so stepping must be UTC-based. With a
-  // local-time step (date-fns addWeeks), a UTC-midnight date in a TZ like
-  // Pacific/Auckland slips back a day once DST starts (27 Sep 2026).
+  // local-time step (date-fns addWeeks), a UTC-midnight date in a TZ ahead of
+  // UTC slips back a day once DST starts (AEDT: 4 Oct 2026).
   const originalTz = process.env.TZ;
-  beforeAll(() => { process.env.TZ = "Pacific/Auckland"; });
+  beforeAll(() => { process.env.TZ = "Australia/Sydney"; });
   afterAll(() => { process.env.TZ = originalTz; });
 
   it("fortnightly stays on the same weekday across DST", () => {
