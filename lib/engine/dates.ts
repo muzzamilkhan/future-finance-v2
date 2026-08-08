@@ -14,6 +14,29 @@ function utcDay(d: Date): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
 }
 
+/**
+ * UTC-only date arithmetic. date-fns' add* helpers work in local time, which
+ * shifts a UTC-midnight date by an hour across a DST boundary and rolls it onto
+ * the previous UTC day — everything else in the engine compares in UTC, so a
+ * fortnightly item would silently change weekday. Step in UTC instead.
+ */
+export function addUtcDays(d: Date, days: number): Date {
+  return new Date(utcDay(d).getTime() + days * 86_400_000);
+}
+
+/** Adds months in UTC, clamping to the last day of a shorter target month. */
+export function addUtcMonths(d: Date, months: number): Date {
+  const year = d.getUTCFullYear();
+  const month = d.getUTCMonth() + months;
+  const day = d.getUTCDate();
+  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(year, month, Math.min(day, lastDay)));
+}
+
+export function addUtcYears(d: Date, years: number): Date {
+  return addUtcMonths(d, years * 12);
+}
+
 export function isBusinessDay(date: Date, holidays: EngineHoliday[]): boolean {
   const dow = date.getUTCDay(); // 0 = Sun, 6 = Sat
   if (dow === 0 || dow === 6) return false;

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { generateInstances } from "./instances";
 import type { EngineParticular } from "./types";
 
@@ -76,6 +76,56 @@ describe("generateInstances", () => {
     const r = generateInstances(p, d("2026-07-01"), d("2026-07-31"), []);
     expect(r[0]!.date.getTime()).toBe(d("2026-07-13").getTime()); // Mon
     expect(r[0]!.isMovedDueToHoliday).toBe(true);
+  });
+});
+
+describe("recurrence across a DST transition", () => {
+  // The engine compares dates in UTC, so stepping must be UTC-based. With a
+  // local-time step (date-fns addWeeks), a UTC-midnight date in a TZ like
+  // Pacific/Auckland slips back a day once DST starts (27 Sep 2026).
+  const originalTz = process.env.TZ;
+  beforeAll(() => { process.env.TZ = "Pacific/Auckland"; });
+  afterAll(() => { process.env.TZ = originalTz; });
+
+  it("fortnightly stays on the same weekday across DST", () => {
+    const p = { ...base, frequency: "FORTNIGHTLY" as const, startDate: d("2026-09-08") };
+    const r = generateInstances(p, d("2026-09-01"), d("2026-10-31"), []);
+    expect(r.map((i) => i.date.toISOString().slice(0, 10))).toEqual([
+      "2026-09-08", "2026-09-22", "2026-10-06", "2026-10-20",
+    ]);
+    for (const i of r) expect(i.date.getUTCDay()).toBe(2); // Tuesday
+  });
+
+  it("weekly stays on the same weekday across DST", () => {
+    const p = { ...base, frequency: "WEEKLY" as const, startDate: d("2026-09-22") };
+    const r = generateInstances(p, d("2026-09-01"), d("2026-10-13"), []);
+    expect(r.map((i) => i.date.toISOString().slice(0, 10))).toEqual([
+      "2026-09-22", "2026-09-29", "2026-10-06", "2026-10-13",
+    ]);
+  });
+
+  it("monthly keeps its day-of-month across DST", () => {
+    const p = { ...base, frequency: "MONTHLY" as const, startDate: d("2026-09-15") };
+    const r = generateInstances(p, d("2026-09-01"), d("2026-12-31"), []);
+    expect(r.map((i) => i.date.toISOString().slice(0, 10))).toEqual([
+      "2026-09-15", "2026-10-15", "2026-11-15", "2026-12-15",
+    ]);
+  });
+
+  it("monthly clamps to the last day of a shorter month", () => {
+    const p = { ...base, frequency: "MONTHLY" as const, startDate: d("2026-01-31") };
+    const r = generateInstances(p, d("2026-01-01"), d("2026-03-31"), []);
+    expect(r.map((i) => i.date.toISOString().slice(0, 10))).toEqual([
+      "2026-01-31", "2026-02-28", "2026-03-28",
+    ]);
+  });
+
+  it("annual keeps its date across DST", () => {
+    const p = { ...base, frequency: "ANNUAL" as const, startDate: d("2026-10-20") };
+    const r = generateInstances(p, d("2026-01-01"), d("2028-12-31"), []);
+    expect(r.map((i) => i.date.toISOString().slice(0, 10))).toEqual([
+      "2026-10-20", "2027-10-20", "2028-10-20",
+    ]);
   });
 });
 

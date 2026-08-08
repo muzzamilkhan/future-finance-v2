@@ -1,5 +1,4 @@
-import { addWeeks, addMonths, addYears, isSameDay } from "date-fns";
-import { adjustToBusinessDay } from "./dates";
+import { adjustToBusinessDay, addUtcDays, addUtcMonths, addUtcYears } from "./dates";
 import type { EngineParticular, EngineHoliday, EngineOverride, Instance } from "./types";
 
 function sameUtcDay(a: Date, b: Date): boolean {
@@ -20,10 +19,10 @@ function signed(type: EngineParticular["type"], amount: number): number {
 
 function step(date: Date, freq: EngineParticular["frequency"]): Date {
   switch (freq) {
-    case "WEEKLY": return addWeeks(date, 1);
-    case "FORTNIGHTLY": return addWeeks(date, 2);
-    case "MONTHLY": return addMonths(date, 1);
-    case "ANNUAL": return addYears(date, 1);
+    case "WEEKLY": return addUtcDays(date, 7);
+    case "FORTNIGHTLY": return addUtcDays(date, 14);
+    case "MONTHLY": return addUtcMonths(date, 1);
+    case "ANNUAL": return addUtcYears(date, 1);
     default: return date;
   }
 }
@@ -50,7 +49,7 @@ export function generateInstances(
     const effectiveDate = override?.overriddenDate
       ?? adjustToBusinessDay(occurrence, p.businessDayAdjustment, holidays);
     const rawAmount = override?.overriddenAmount ?? p.amount;
-    const isMoved = !override?.overriddenDate && !isSameDay(occurrence, effectiveDate);
+    const isMoved = !override?.overriddenDate && !sameUtcDay(occurrence, effectiveDate);
 
     out.push({
       date: effectiveDate,
