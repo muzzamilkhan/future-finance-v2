@@ -16,6 +16,11 @@ model User {
   // today" on the dashboard. Compared against the user's current local date so the
   // skip is remembered across reloads but resets automatically the next local day.
   skipTodayDate DateTime?           @db.Date
+  // Nullable on purpose: null means "never detected", which is what triggers the
+  // one-time browser detection. A schema default would make a brand-new user
+  // indistinguishable from one who deliberately chose Sydney/AUD.
+  timeZone      String?
+  currency      String?
   accounts      Account[]
   sessions      Session[]
   memberships   AccountMembership[]
