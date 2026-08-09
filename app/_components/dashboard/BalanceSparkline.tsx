@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import type { DailyBalance } from "@/lib/engine";
 import { useFormatCurrency, usePreferences } from "@/app/_components/PreferencesContext";
-import { formatUtcWeekdayMonthDay } from "@/lib/dateInput";
+import { formatUtcFullDate } from "@/lib/dateInput";
 import { isSameDay } from "date-fns";
 import {
   LineChart, Line, ResponsiveContainer, YAxis, XAxis, Tooltip, ReferenceDot,
@@ -25,7 +25,7 @@ export function BalanceSparkline({
   const active = activeIndex != null ? (data[activeIndex] ?? null) : null;
 
   const label = active
-    ? `${formatUtcWeekdayMonthDay(active.date, locale)} · ${fmt(active.v)}`
+    ? `${formatUtcFullDate(active.date, locale)} · ${fmt(active.v)}`
     : lowest && highest
       ? `Low ${fmt(lowest.closingBalance)} · High ${fmt(highest.closingBalance)}`
       : "";
@@ -37,7 +37,7 @@ export function BalanceSparkline({
 
   return (
     <div>
-      <div className="mb-1 h-5 text-xs text-muted-foreground tabular-nums">{label}</div>
+      <div className="mb-1 h-5 truncate text-xs text-muted-foreground tabular-nums">{label}</div>
       <ResponsiveContainer width="100%" height={64}>
         <LineChart
           data={data}

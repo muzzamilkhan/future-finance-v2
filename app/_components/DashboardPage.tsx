@@ -2,7 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { isSameDay } from "date-fns";
-import { dateToInputValue, formatUtcMonthDay, formatUtcWeekdayMonthDay } from "@/lib/dateInput";
+import {
+  dateToInputValue, formatUtcFullDate, formatUtcMonthDay, formatUtcWeekdayMonthDay, inputValueToDate,
+} from "@/lib/dateInput";
 import { keepPreviousData } from "@tanstack/react-query";
 import { trpc } from "@/trpc/client";
 import { computeForecast } from "@/lib/engine";
@@ -21,6 +23,7 @@ import { SkipTodayButton } from "@/app/_components/dashboard/SkipTodayButton";
 import { BalanceSparkline } from "@/app/_components/dashboard/BalanceSparkline";
 import { OverrideModal } from "@/app/_components/dashboard/OverrideModal";
 import { CollapsibleTopSection } from "@/app/_components/dashboard/CollapsibleTopSection";
+import { useTopmostVisibleDay } from "@/app/_components/dashboard/useTopmostVisibleDay";
 import { useActiveAccount } from "@/app/_components/AccountContext";
 import { updateRow } from "@/lib/optimistic";
 
@@ -122,6 +125,20 @@ export function DashboardPage() {
     [data],
   );
 
+  // The days that actually render a card, in order. The compact bar reports whichever
+  // of these is at the top of the viewport, so it and the list must agree on the set.
+  const dayCards = useMemo(() => {
+    if (!result) return [];
+    return result.days.filter((day) =>
+      day.events.length > 0 ||
+      (result.lowest && isSameDay(day.date, result.lowest.date)) ||
+      (result.firstNegative && isSameDay(day.date, result.firstNegative.date)),
+    );
+  }, [result]);
+  const dayKeys = useMemo(() => dayCards.map((d) => dateToInputValue(d.date)), [dayCards]);
+  const topmostDayKey = useTopmostVisibleDay(dayKeys);
+  const topmostDay = inputValueToDate(topmostDayKey ?? "");
+
   if (isLoading || !result) return <Layout><p className="text-muted-foreground">Loading…</p></Layout>;
 
   const current = result.days[0]?.openingBalance ?? 0;
@@ -163,13 +180,19 @@ export function DashboardPage() {
 
         <CollapsibleTopSection
           compact={
-            <div className="flex items-center justify-between text-sm">
-              <span className="font-medium">{fmt(current)}</span>
-              {result.lowest && (
-                <span className="text-muted-foreground">
+            <div className="flex items-center justify-between gap-2 text-sm">
+              <span className="shrink-0 font-medium">{fmt(current)}</span>
+              {/* Once the list is scrolled, the day you're reading is more useful here
+                  than the low-point summary — the metric cards already carry the low. */}
+              {topmostDay ? (
+                <span className="truncate text-muted-foreground">
+                  {formatUtcFullDate(topmostDay, locale)}
+                </span>
+              ) : result.lowest ? (
+                <span className="truncate text-muted-foreground">
                   Low {fmt(result.lowest.closingBalance)} · {formatUtcMonthDay(result.lowest.date, locale)}
                 </span>
-              )}
+              ) : null}
             </div>
           }
         >
@@ -250,15 +273,9 @@ export function DashboardPage() {
 
         <div className="space-y-2">
           <h2 className="text-lg font-semibold">Daily Transactions</h2>
-          {result.days
-            .filter((day) =>
-              day.events.length > 0 ||
-              (result.lowest && isSameDay(day.date, result.lowest.date)) ||
-              (result.firstNegative && isSameDay(day.date, result.firstNegative.date)),
-            )
-            .map((day) => (
-              <DailyCard key={day.date.toISOString()} day={day} onEventClick={openOverride} interactive={canEditOverrides} accountNames={accountNames} accountIds={accountIds} />
-            ))}
+          {dayCards.map((day) => (
+            <DailyCard key={day.date.toISOString()} day={day} onEventClick={openOverride} interactive={canEditOverrides} accountNames={accountNames} accountIds={accountIds} />
+          ))}
         </div>
 
         <div className="flex justify-center">
