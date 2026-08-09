@@ -4,13 +4,14 @@ import { useState } from "react";
 import type { DailyBalance } from "@/lib/engine";
 import { Card, CardContent } from "@/app/_components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/app/_components/ui/dialog";
-import { formatCurrency } from "@/lib/design-system";
+import { useFormatCurrency } from "@/app/_components/PreferencesContext";
 import { dateToInputValue, formatUtcWeekdayMonthDay } from "@/lib/dateInput";
 import { ArrowRight } from "lucide-react";
 import { sortDailyEvents } from "./sortEvents";
 import { AccountBadge } from "./AccountBadge";
 
 export function DailyCard({ day, onEventClick, interactive = true, accountNames, accountIds = [] }: { day: DailyBalance; onEventClick?: (particularId: string, originalDate?: Date, currentAmount?: number, currentDate?: Date, overrideId?: string) => void; interactive?: boolean; accountNames?: Map<string, string>; accountIds?: string[] }) {
+  const fmt = useFormatCurrency();
   const [showAccounts, setShowAccounts] = useState(false);
   // The per-account popup is only meaningful with more than one account — with a
   // single account the breakdown just repeats the closing balance.
@@ -26,14 +27,14 @@ export function DailyCard({ day, onEventClick, interactive = true, accountNames,
           >
             <span className="font-medium">{formatUtcWeekdayMonthDay(day.date)}</span>
             <span className={day.closingBalance < 0 ? "text-finance-expense" : "text-foreground"}>
-              {formatCurrency(day.closingBalance)}
+              {fmt(day.closingBalance)}
             </span>
           </button>
         ) : (
           <div className="flex items-center justify-between">
             <span className="font-medium">{formatUtcWeekdayMonthDay(day.date)}</span>
             <span className={day.closingBalance < 0 ? "text-finance-expense" : "text-foreground"}>
-              {formatCurrency(day.closingBalance)}
+              {fmt(day.closingBalance)}
             </span>
           </div>
         )}
@@ -46,7 +47,7 @@ export function DailyCard({ day, onEventClick, interactive = true, accountNames,
                   <span>overdrawn</span>
                 </span>
                 <span className="shrink-0">
-                  {formatCurrency(a.type === "CREDIT" ? (a.availableCredit ?? 0) : a.balance)}
+                  {fmt(a.type === "CREDIT" ? (a.availableCredit ?? 0) : a.balance)}
                 </span>
               </li>
             ))}
@@ -78,7 +79,7 @@ export function DailyCard({ day, onEventClick, interactive = true, accountNames,
                   {e.isMovedDueToHoliday && <span className="ml-1 text-xs text-muted-foreground">(moved)</span>}
                 </span>
                 <span className={`shrink-0 ${e.toAccountId ? "text-blue-600 dark:text-blue-400" : e.amount < 0 ? "text-finance-expense" : "text-finance-income"}`}>
-                  {formatCurrency(e.toAccountId ? Math.abs(e.amount) : e.amount)}
+                  {fmt(e.toAccountId ? Math.abs(e.amount) : e.amount)}
                 </span>
               </li>
               );
@@ -106,7 +107,7 @@ export function DailyCard({ day, onEventClick, interactive = true, accountNames,
                     {a.isExhausted && <span className="text-xs text-finance-expense">overdrawn</span>}
                   </span>
                   <span className={`shrink-0 font-medium ${figure < 0 ? "text-finance-expense" : "text-foreground"}`}>
-                    {formatCurrency(figure)}
+                    {fmt(figure)}
                   </span>
                 </li>
               );
@@ -115,7 +116,7 @@ export function DailyCard({ day, onEventClick, interactive = true, accountNames,
           <div className="flex items-center justify-between border-t pt-3 text-sm font-semibold">
             <span>Combined</span>
             <span className={day.combined < 0 ? "text-finance-expense" : "text-foreground"}>
-              {formatCurrency(day.combined)}
+              {fmt(day.combined)}
             </span>
           </div>
         </DialogContent>

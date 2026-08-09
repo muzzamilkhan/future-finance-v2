@@ -4,7 +4,7 @@ import { useState, type ReactNode } from "react";
 import { Check, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/app/_components/ui/card";
 import { Input } from "@/app/_components/ui/input";
-import { formatCurrency } from "@/lib/design-system";
+import { useFormatCurrency } from "@/app/_components/PreferencesContext";
 
 export function MetricCard(
   { title, value, valueDisplay, subtitle, type, onClick, editable, onSave, footer }:
@@ -21,6 +21,7 @@ export function MetricCard(
     footer?: ReactNode;
   },
 ) {
+  const fmt = useFormatCurrency();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(String(value));
 
@@ -61,7 +62,7 @@ export function MetricCard(
           </div>
         ) : (
           <>
-            <div className={`text-xl font-bold sm:text-2xl ${color}`}>{valueDisplay ?? formatCurrency(value)}</div>
+            <div className={`text-xl font-bold sm:text-2xl ${color}`}>{valueDisplay ?? fmt(value)}</div>
             {subtitle && <div className="text-xs text-muted-foreground">{subtitle}</div>}
           </>
         )}

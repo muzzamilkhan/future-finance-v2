@@ -1,6 +1,6 @@
 "use client";
 
-import { formatCurrency } from "@/lib/design-system";
+import { useFormatCurrency } from "@/app/_components/PreferencesContext";
 import { formatUtcMonthDay } from "@/lib/dateInput";
 import type { AccountLow } from "@/lib/engine/types";
 import type { AccountListItem } from "@/app/_components/AccountContext";
@@ -15,6 +15,7 @@ export function AccountLowList(
   { accounts, lows, onSelect }:
   { accounts: AccountListItem[]; lows: AccountLow[]; onSelect: (date: Date) => void },
 ) {
+  const fmt = useFormatCurrency();
   if (accounts.length <= 1) return null;
   const byId = new Map(lows.map((l) => [l.accountId, l]));
   return (
@@ -35,7 +36,7 @@ export function AccountLowList(
             <span className="min-w-0 flex-1 truncate text-left text-muted-foreground">{label}</span>
             <span className="shrink-0 text-muted-foreground">{formatUtcMonthDay(low.date)}</span>
             <span className={figure < 0 ? "text-finance-expense" : "text-foreground"}>
-              {formatCurrency(figure)}
+              {fmt(figure)}
             </span>
           </button>
         );

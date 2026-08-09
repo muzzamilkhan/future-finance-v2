@@ -4,7 +4,7 @@
 import { useMemo, useState } from "react";
 import { trpc } from "@/trpc/client";
 import { Layout } from "@/app/_components/Layout";
-import { formatCurrency } from "@/lib/design-system";
+import { useFormatCurrency } from "@/app/_components/PreferencesContext";
 import { CategoryCombobox } from "@/app/particulars/CategoryCombobox";
 import { buildSpending, type SpendingParticular } from "@/lib/spending/spending";
 import { SpendingChart } from "./SpendingChart";
@@ -17,6 +17,7 @@ import { updateRow } from "@/lib/optimistic";
 type ListAllRow = inferRouterOutputs<AppRouter>["particular"]["listAll"][number];
 
 export default function SpendingPage() {
+  const fmt = useFormatCurrency();
   const utils = trpc.useUtils();
   // Spending combines every account the user can see, excluding transfers.
   const { data: rows = [], isLoading } = trpc.particular.listAll.useQuery();
@@ -117,7 +118,7 @@ export default function SpendingPage() {
                       onClick={() => setExpanded(expanded === g.key ? null : g.key)}
                     >
                       <span className="font-medium">{groupName(g.name)}</span>
-                      <span className="text-finance-expense">{formatCurrency(g.monthly)}/mo</span>
+                      <span className="text-finance-expense">{fmt(g.monthly)}/mo</span>
                     </button>
                     {expanded === g.key && (
                       <div className="mt-3 space-y-2">

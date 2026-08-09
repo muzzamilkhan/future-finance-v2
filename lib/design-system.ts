@@ -1,6 +1,3 @@
-// Re-exported for now; call sites move to useFormatCurrency() from
-// PreferencesContext so the user's currency applies. See lib/preferences/.
-export { formatCurrency } from "./preferences/formatCurrency";
 export function getAmountColorClass(amount: number): string {
   if (amount > 0) return "text-finance-income";
   if (amount < 0) return "text-finance-expense";

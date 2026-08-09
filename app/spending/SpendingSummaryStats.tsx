@@ -1,24 +1,26 @@
 import type { SpendingSummary } from "@/lib/spending/spending";
-import { formatCurrency, getAmountColorClass } from "@/lib/design-system";
+import { getAmountColorClass } from "@/lib/design-system";
+import { useFormatCurrency } from "@/app/_components/PreferencesContext";
 
 export function SpendingSummaryStats({ summary }: { summary: SpendingSummary }) {
+  const fmt = useFormatCurrency();
   const isDeficit = summary.surplus < 0;
 
   return (
     <div className="flex flex-col justify-center gap-4 text-right">
       <Stat
         label="Total income"
-        value={formatCurrency(summary.monthlyIncome)}
+        value={fmt(summary.monthlyIncome)}
         className="text-finance-income"
       />
       <Stat
         label="Total expense"
-        value={formatCurrency(summary.totalExpense)}
+        value={fmt(summary.totalExpense)}
         className="text-finance-expense"
       />
       <Stat
         label={isDeficit ? "Deficit" : "Surplus"}
-        value={formatCurrency(Math.abs(summary.surplus))}
+        value={fmt(Math.abs(summary.surplus))}
         className={getAmountColorClass(summary.surplus)}
       />
     </div>

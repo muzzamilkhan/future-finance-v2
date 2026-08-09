@@ -2,7 +2,7 @@
 
 import { ComposedChart, Area, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import type { SimulateResult } from "@/lib/engine";
-import { formatCurrency } from "@/lib/design-system";
+import { useFormatCurrency } from "@/app/_components/PreferencesContext";
 import { toDebtChartData } from "./debtChartData";
 
 /**
@@ -37,6 +37,7 @@ export function DebtForecastChart({
   /** Comparison sim (same strategy, no extra payment); renders a dotted total line. */
   baseline?: SimulateResult;
 }) {
+  const fmt = useFormatCurrency();
   const debts = debtsProp ?? [];
   const data = toDebtChartData(result, debts.map((d) => d.id), baseline);
   const nameById = new Map(debts.map((d) => [d.id, d.name] as const));
@@ -102,17 +103,17 @@ export function DebtForecastChart({
                           />
                           {r.name}
                         </span>
-                        <span className="tabular-nums">{formatCurrency(r.value)}</span>
+                        <span className="tabular-nums">{fmt(r.value)}</span>
                       </div>
                     ))}
                     <div className="mt-1 flex items-center justify-between gap-4 border-t pt-1 font-medium">
                       <span>Total</span>
-                      <span className="tabular-nums">{formatCurrency(total)}</span>
+                      <span className="tabular-nums">{fmt(total)}</span>
                     </div>
                     {baselineValue !== null && (
                       <div className="flex items-center justify-between gap-4 text-muted-foreground">
                         <span>Without extra</span>
-                        <span className="tabular-nums">{formatCurrency(baselineValue)}</span>
+                        <span className="tabular-nums">{fmt(baselineValue)}</span>
                       </div>
                     )}
                   </div>

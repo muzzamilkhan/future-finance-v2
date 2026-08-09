@@ -3,7 +3,7 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import type { SpendingSummary } from "@/lib/spending/spending";
 import { toPieData, type PieDatum } from "./spendingChartData";
-import { formatCurrency } from "@/lib/design-system";
+import { useFormatCurrency } from "@/app/_components/PreferencesContext";
 
 const CATEGORY_COLORS = [
   "#2563eb", "#16a34a", "#db2777", "#d97706", "#7c3aed",
@@ -19,6 +19,7 @@ function colorFor(d: PieDatum, i: number): string {
 }
 
 export function SpendingChart({ summary }: { summary: SpendingSummary }) {
+  const fmt = useFormatCurrency();
   const data = toPieData(summary);
   const isDeficit = summary.surplus < 0;
 
@@ -31,13 +32,13 @@ export function SpendingChart({ summary }: { summary: SpendingSummary }) {
               <Cell key={d.name} fill={colorFor(d, i)} />
             ))}
           </Pie>
-          <Tooltip formatter={(v) => formatCurrency(Number(v))} />
+          <Tooltip formatter={(v) => fmt(Number(v))} />
         </PieChart>
       </ResponsiveContainer>
       <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-xs text-muted-foreground">Monthly expenses</span>
         <span className={`text-2xl font-bold ${isDeficit ? "text-finance-expense" : ""}`}>
-          {formatCurrency(summary.totalExpense)}
+          {fmt(summary.totalExpense)}
         </span>
       </div>
     </div>

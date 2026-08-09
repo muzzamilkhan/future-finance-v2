@@ -10,7 +10,7 @@ import { toCombinedEngineInputs } from "@/lib/toEngine";
 import { computeThisMonthSummary } from "@/app/_components/dashboard/thisMonthSummary";
 import { Layout } from "@/app/_components/Layout";
 import { Button } from "@/app/_components/ui/button";
-import { formatCurrency } from "@/lib/design-system";
+import { useFormatCurrency } from "@/app/_components/PreferencesContext";
 import { MetricCard } from "@/app/_components/dashboard/MetricCard";
 import { AccountBalanceList } from "@/app/_components/dashboard/AccountBalanceList";
 import { AccountLowList } from "@/app/_components/dashboard/AccountLowList";
@@ -25,6 +25,7 @@ import { useActiveAccount } from "@/app/_components/AccountContext";
 import { updateRow } from "@/lib/optimistic";
 
 export function DashboardPage() {
+  const fmt = useFormatCurrency();
   // UTC midnight of the *local* calendar date. The engine keys every day by its
   // UTC components (utcDay), so passing local startOfDay in a positive-UTC-offset
   // timezone would land the window one calendar day early. Anchoring to UTC
@@ -164,10 +165,10 @@ export function DashboardPage() {
         <CollapsibleTopSection
           compact={
             <div className="flex items-center justify-between text-sm">
-              <span className="font-medium">{formatCurrency(current)}</span>
+              <span className="font-medium">{fmt(current)}</span>
               {result.lowest && (
                 <span className="text-muted-foreground">
-                  Low {formatCurrency(result.lowest.closingBalance)} · {formatUtcMonthDay(result.lowest.date)}
+                  Low {fmt(result.lowest.closingBalance)} · {formatUtcMonthDay(result.lowest.date)}
                 </span>
               )}
             </div>
@@ -195,7 +196,7 @@ export function DashboardPage() {
                 />
               } />
             <MetricCard title="Combined Shortfall" value={combinedShortfall}
-              valueDisplay={combinedShortfall < 0 ? formatCurrency(combinedShortfall) : "None"}
+              valueDisplay={combinedShortfall < 0 ? fmt(combinedShortfall) : "None"}
               type={combinedShortfall < 0 ? "expense" : "income"}
               subtitle={result.firstNegative ? formatUtcWeekdayMonthDay(result.firstNegative.date) : undefined}
               onClick={result.firstNegative ? () => scrollToDay(result.firstNegative!.date) : undefined}
@@ -214,7 +215,7 @@ export function DashboardPage() {
                             <span className="text-muted-foreground">{formatUtcWeekdayMonthDay(ex.date)}</span>
                           </span>
                           <span className="shrink-0 text-finance-expense">
-                            {formatCurrency(ex.type === "CREDIT" ? (ex.availableCredit ?? 0) : ex.balance)}
+                            {fmt(ex.type === "CREDIT" ? (ex.availableCredit ?? 0) : ex.balance)}
                           </span>
                         </button>
                       </li>
@@ -223,19 +224,19 @@ export function DashboardPage() {
                 ) : undefined
               } />
             <MetricCard title="This Month" value={thisMonth?.netChange ?? 0}
-              subtitle={`${formatCurrency(thisMonth?.totalIncome ?? 0)} in, ${formatCurrency(thisMonth?.totalExpenses ?? 0)} out`}
+              subtitle={`${fmt(thisMonth?.totalIncome ?? 0)} in, ${fmt(thisMonth?.totalExpenses ?? 0)} out`}
               type={(thisMonth?.netChange ?? 0) >= 0 ? "income" : "expense"}
               footer={
                 thisMonth ? (
                   <dl className="mt-1 space-y-0.5 text-xs">
                     <div className="flex items-center justify-between">
                       <dt className="text-muted-foreground">Start</dt>
-                      <dd>{formatCurrency(thisMonth.startBalance)}</dd>
+                      <dd>{fmt(thisMonth.startBalance)}</dd>
                     </div>
                     <div className="flex items-center justify-between">
                       <dt className="text-muted-foreground">Projected end</dt>
                       <dd className={thisMonth.endBalance >= 0 ? "text-finance-income" : "text-finance-expense"}>
-                        {formatCurrency(thisMonth.endBalance)}
+                        {fmt(thisMonth.endBalance)}
                       </dd>
                     </div>
                   </dl>

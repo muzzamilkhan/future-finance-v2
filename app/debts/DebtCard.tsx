@@ -2,7 +2,7 @@
 
 import { ChevronDown, ChevronUp, X } from "lucide-react";
 import { Card } from "@/app/_components/ui/card";
-import { formatCurrency } from "@/lib/design-system";
+import { useFormatCurrency } from "@/app/_components/PreferencesContext";
 
 export function DebtCard({
   debt,
@@ -21,6 +21,7 @@ export function DebtCard({
   canMoveUp: boolean;
   canMoveDown: boolean;
 }) {
+  const fmt = useFormatCurrency();
   return (
     <Card
       role="button"
@@ -37,7 +38,7 @@ export function DebtCard({
       <div className="w-full min-w-0 flex-1">
         <p className="font-medium">{debt.name}</p>
         <p className="text-sm text-muted-foreground">
-          {formatCurrency(debt.balance)} · {(debt.apr * 100).toFixed(2)}% · {formatCurrency(debt.minPayment)}/mo
+          {fmt(debt.balance)} · {(debt.apr * 100).toFixed(2)}% · {fmt(debt.minPayment)}/mo
         </p>
       </div>
       <div className="flex shrink-0 flex-col">

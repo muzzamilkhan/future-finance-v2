@@ -2,13 +2,14 @@
 
 import type { DebtTips } from "@/lib/engine";
 import { Card } from "@/app/_components/ui/card";
-import { formatCurrency } from "@/lib/design-system";
+import { useFormatCurrency } from "@/app/_components/PreferencesContext";
 
 function pluralMonths(n: number) {
   return `${n} ${n === 1 ? "month" : "months"}`;
 }
 
 export function DebtTipsPanel({ tips, extraPayment }: { tips: DebtTips; extraPayment: number }) {
+  const fmt = useFormatCurrency();
   const lines: string[] = [];
 
   if (tips.recommendation.kind === "compare") {
@@ -16,11 +17,11 @@ export function DebtTipsPanel({ tips, extraPayment }: { tips: DebtTips; extraPay
     const name = r.winner === "AVALANCHE" ? "Avalanche" : "Snowball";
     if (r.monthsSaved === 0) {
       lines.push(
-        `${name} saves you ${formatCurrency(r.interestSaved)} in interest (same debt-free timing).`,
+        `${name} saves you ${fmt(r.interestSaved)} in interest (same debt-free timing).`,
       );
     } else {
       lines.push(
-        `${name} clears your debt ${pluralMonths(r.monthsSaved)} sooner and saves ${formatCurrency(r.interestSaved)} in interest.`,
+        `${name} clears your debt ${pluralMonths(r.monthsSaved)} sooner and saves ${fmt(r.interestSaved)} in interest.`,
       );
     }
   } else if (tips.recommendation.kind === "tie") {
@@ -35,10 +36,10 @@ export function DebtTipsPanel({ tips, extraPayment }: { tips: DebtTips; extraPay
 
   if (tips.knobImpact.kind === "impact") {
     lines.push(
-      `Your extra ${formatCurrency(extraPayment)}/mo saves you ${pluralMonths(tips.knobImpact.monthsSaved)} and ${formatCurrency(tips.knobImpact.interestSaved)}.`,
+      `Your extra ${fmt(extraPayment)}/mo saves you ${pluralMonths(tips.knobImpact.monthsSaved)} and ${fmt(tips.knobImpact.interestSaved)}.`,
     );
   } else if (tips.knobImpact.kind === "none" && extraPayment > 0) {
-    lines.push(`Your extra ${formatCurrency(extraPayment)}/mo isn't changing the payoff — try a larger amount.`);
+    lines.push(`Your extra ${fmt(extraPayment)}/mo isn't changing the payoff — try a larger amount.`);
   }
 
   return (

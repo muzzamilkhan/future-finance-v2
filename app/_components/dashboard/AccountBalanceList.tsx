@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Check, X, Pencil } from "lucide-react";
 import { Input } from "@/app/_components/ui/input";
-import { formatCurrency } from "@/lib/design-system";
+import { useFormatCurrency } from "@/app/_components/PreferencesContext";
 import { availableCredit, balanceFromAvailable } from "@/lib/credit";
 import type { AccountListItem } from "@/app/_components/AccountContext";
 
@@ -36,6 +36,7 @@ function AccountBalanceRow(
   { account, onSave }:
   { account: AccountListItem; onSave: (accountId: string, balance: number) => void },
 ) {
+  const fmt = useFormatCurrency();
   const isCredit = account.type === "CREDIT";
   const limit = account.creditLimit ?? 0;
   // The figure the user sees/edits: cash for debit, available credit for credit.
@@ -92,7 +93,7 @@ function AccountBalanceRow(
     >
       <span className="min-w-0 flex-1 truncate text-left text-muted-foreground">{label}</span>
       <span className={displayValue < 0 ? "text-finance-expense" : "text-foreground"}>
-        {formatCurrency(displayValue)}
+        {fmt(displayValue)}
       </span>
       {editable && <Pencil className="h-3 w-3 shrink-0 text-muted-foreground" />}
     </button>

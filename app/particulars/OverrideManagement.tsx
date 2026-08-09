@@ -3,11 +3,12 @@
 import { trpc } from "@/trpc/client";
 import { useActiveAccount } from "@/app/_components/AccountContext";
 import { Button } from "@/app/_components/ui/button";
-import { formatCurrency } from "@/lib/design-system";
+import { useFormatCurrency } from "@/app/_components/PreferencesContext";
 import { formatUtcMonthDay, formatUtcMonthDayYear } from "@/lib/dateInput";
 import { removeRow, isTempId } from "@/lib/optimistic";
 
 export function OverrideManagement({ particularId }: { particularId: string }) {
+  const fmt = useFormatCurrency();
   const { defaultAccountId: accountId } = useActiveAccount();
   const utils = trpc.useUtils();
   const { data: overrides } = trpc.particular.listOverrides.useQuery(
@@ -34,7 +35,7 @@ export function OverrideManagement({ particularId }: { particularId: string }) {
           <span>
             {formatUtcMonthDayYear(new Date(o.originalDate))}
             {o.isSkipped ? " — skipped"
-              : o.overriddenAmount != null ? ` — ${formatCurrency(Number(o.overriddenAmount))}`
+              : o.overriddenAmount != null ? ` — ${fmt(Number(o.overriddenAmount))}`
               : o.overriddenDate ? ` — moved to ${formatUtcMonthDay(new Date(o.overriddenDate))}` : ""}
           </span>
           <Button variant="ghost" size="sm" onClick={() => del.mutate({ accountId: accountId!, id: o.id })}>Revert</Button>

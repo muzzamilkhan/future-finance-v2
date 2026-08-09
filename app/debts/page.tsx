@@ -10,7 +10,7 @@ import {
   type DebtInput,
   type Strategy,
 } from "@/lib/engine";
-import { formatCurrency } from "@/lib/design-system";
+import { useFormatCurrency } from "@/app/_components/PreferencesContext";
 import { Card } from "@/app/_components/ui/card";
 import { Button } from "@/app/_components/ui/button";
 import { Input } from "@/app/_components/ui/input";
@@ -42,6 +42,7 @@ function monthsLabel(payoffMonth: number | null) {
 }
 
 export default function DebtsPage() {
+  const fmt = useFormatCurrency();
   const utils = trpc.useUtils();
   const { data: rows = [], isLoading } = trpc.debt.list.useQuery();
 
@@ -249,23 +250,23 @@ export default function DebtsPage() {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <Card className="p-4">
                 <p className="text-xs text-muted-foreground">Total owed</p>
-                <p className="text-xl font-bold">{formatCurrency(totalOwed)}</p>
+                <p className="text-xl font-bold">{fmt(totalOwed)}</p>
               </Card>
               <Card className="p-4">
                 <p className="text-xs text-muted-foreground">Monthly payment</p>
-                <p className="text-xl font-bold">{formatCurrency(totalMin + extraPayment)}</p>
+                <p className="text-xl font-bold">{fmt(totalMin + extraPayment)}</p>
                 {extraPayment > 0 && (
                   <p className="text-xs text-muted-foreground">
-                    {formatCurrency(totalMin)} min + {formatCurrency(extraPayment)} extra
+                    {fmt(totalMin)} min + {fmt(extraPayment)} extra
                   </p>
                 )}
               </Card>
               <Card className="p-4">
                 <p className="text-xs text-muted-foreground">Total interest</p>
-                <p className="text-xl font-bold">{formatCurrency(sims.active.totalInterest)}</p>
+                <p className="text-xl font-bold">{fmt(sims.active.totalInterest)}</p>
                 {interestSaved > 0 && (
                   <p className="text-xs text-muted-foreground">
-                    {formatCurrency(sims.activeNoExtra.totalInterest)} − {formatCurrency(interestSaved)} saved
+                    {fmt(sims.activeNoExtra.totalInterest)} − {fmt(interestSaved)} saved
                   </p>
                 )}
               </Card>

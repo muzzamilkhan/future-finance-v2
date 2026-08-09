@@ -11,13 +11,14 @@ import { Badge } from "@/app/_components/ui/badge";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/app/_components/ui/dialog";
-import { formatCurrency } from "@/lib/design-system";
+import { useFormatCurrency } from "@/app/_components/PreferencesContext";
 import { SharePanel } from "@/app/_components/SharePanel";
 import { AddCreditAccountDialog } from "@/app/_components/account/AddCreditAccountDialog";
 import { Star, Share2, Archive, LogOut } from "lucide-react";
 import { groupAccounts, parseCreditLimit, parseBalance, parseOutstanding } from "./accountsPageHelpers";
 
 export default function AccountsPage() {
+  const fmt = useFormatCurrency();
   const { accounts } = useActiveAccount();
   const utils = trpc.useUtils();
   const invalidate = () => utils.account.list.invalidate();
@@ -68,8 +69,8 @@ export default function AccountsPage() {
           </div>
           <div className="flex items-center justify-between gap-2 sm:justify-start">
             <span className="text-sm text-muted-foreground">
-              {formatCurrency(a.currentBalance)}
-              {a.type === "CREDIT" && a.creditLimit != null ? ` / ${formatCurrency(a.creditLimit)}` : ""}
+              {fmt(a.currentBalance)}
+              {a.type === "CREDIT" && a.creditLimit != null ? ` / ${fmt(a.creditLimit)}` : ""}
             </span>
             <div className="flex items-center gap-2">
             {!a.isDefault && (

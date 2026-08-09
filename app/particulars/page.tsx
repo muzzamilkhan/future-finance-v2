@@ -8,7 +8,7 @@ import { Button } from "@/app/_components/ui/button";
 import { Badge } from "@/app/_components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/app/_components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/_components/ui/select";
-import { formatCurrency } from "@/lib/design-system";
+import { useFormatCurrency } from "@/app/_components/PreferencesContext";
 import { ParticularForm } from "./ParticularForm";
 import { TransferForm } from "./TransferForm";
 import { QuickAddRow } from "./QuickAddRow";
@@ -28,6 +28,7 @@ function byDate(a: Particular, b: Particular) {
 }
 
 export default function ParticularsPage() {
+  const fmt = useFormatCurrency();
   const { accounts, defaultAccountId } = useActiveAccount();
   const defaultAccount = accounts.find((a) => a.id === defaultAccountId);
   const canEditItems = !defaultAccount || defaultAccount.role === "OWNER" || defaultAccount.canEditItems;
@@ -90,7 +91,7 @@ export default function ParticularsPage() {
   const renderRow = (p: Particular) => {
     const isTransfer = p.type === "TRANSFER";
     const signed = p.type === "EXPENSE" ? -Math.abs(Number(p.amount)) : Math.abs(Number(p.amount));
-    const amountText = isTransfer ? formatCurrency(Math.abs(Number(p.amount))) : formatCurrency(signed);
+    const amountText = isTransfer ? fmt(Math.abs(Number(p.amount))) : fmt(signed);
     const amountClass = isTransfer ? "text-blue-600 dark:text-blue-400" : (signed < 0 ? "text-finance-expense" : "text-finance-income");
     const openEdit = () => {
       if (!p.canEditItems || isTempId(p.id)) return;
