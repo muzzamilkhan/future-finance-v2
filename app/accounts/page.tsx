@@ -167,14 +167,14 @@ export default function AccountsPage() {
                 </div>
                 <div className="space-y-1">
                   <Label>Current amount owed</Label>
-                  <Input value={editOutstanding} onChange={(e) => setEditOutstanding(e.target.value)} inputMode="decimal" />
+                  <Input value={editOutstanding} onFocus={(e) => e.currentTarget.select()} onChange={(e) => setEditOutstanding(e.target.value)} inputMode="decimal" />
                 </div>
               </>
             )}
             {editing?.type === "DEBIT" && (
               <div className="space-y-1">
                 <Label>Balance</Label>
-                <Input value={editBalance} onChange={(e) => setEditBalance(e.target.value)} inputMode="decimal" />
+                <Input value={editBalance} onFocus={(e) => e.currentTarget.select()} onChange={(e) => setEditBalance(e.target.value)} inputMode="decimal" />
               </div>
             )}
             <DialogFooter>
