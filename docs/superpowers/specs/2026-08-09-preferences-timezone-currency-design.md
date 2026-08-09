@@ -1,7 +1,30 @@
 # Preferences page: timezone + currency — design
 
 **Date:** 2026-08-09
-**Status:** Approved
+**Status:** Implemented (see "Amendments during implementation" below)
+
+## Amendments during implementation
+
+Two behavioural decisions changed after this spec was approved. Both were confirmed
+with the plan owner; this section is authoritative where it conflicts with the text
+below.
+
+1. **en-AU renders dates as "15 July", not "15 Jul".** CLDR's en-AU *day+month*
+   skeleton uses the full month name, so `{ month: "short", day: "numeric" }` yields
+   `"15 July"` / `"15 July 2026"` / `"Wed, 15 July"`. Verified directly against the
+   runtime. The alternative — en-GB for compact dates — was rejected because it
+   renders AUD as `A$1,500.00` instead of `$1,500.00`. One locale now drives both
+   dates and currency, and the longer month name is the accepted trade.
+
+   Note this changes date wording for *existing* users too: the previous hardcoded
+   `en-US` showed "Jul 15". This is an intentional, app-wide visible change.
+
+2. **`localeForZone` gained five exact-zone overrides.** Its prefix fallback keys on
+   the IANA namespace, which is continental, not national — so US zones under
+   `Pacific/` and Canadian zones under `America/` resolved wrongly. Added:
+   `Pacific/Honolulu`, `Pacific/Guam`, `Pacific/Pago_Pago` → `en-US`;
+   `America/Toronto`, `America/Vancouver` → `en-CA`. Zones outside the override list
+   still fall through the prefix rule, which remains a heuristic.
 
 ## Summary
 
@@ -92,8 +115,9 @@ Moved out of `lib/design-system.ts`, body otherwise unchanged (still
 `Intl.NumberFormat` with 2 fraction digits). The existing three tests in
 `lib/design-system.test.ts` move with it and gain explicit arguments.
 
-`lib/design-system.ts` keeps `getAmountColorClass`, `getAmountBgClass`,
-`MIN_TOUCH_TARGET`, and the two relative-time helpers.
+`lib/design-system.ts` keeps `getAmountColorClass`, `getAmountBgClass`, and
+`MIN_TOUCH_TARGET`. (The two relative-time helpers were deleted instead — see
+"Relative-time fix" below.)
 
 ### `currencyForCountry(countryCode): string`
 
@@ -172,7 +196,7 @@ It also owns the one-shot detection effect described above.
 
 ### Currency call sites
 
-`formatCurrency` is called **~59 times across 18 files**, every one inside a
+`formatCurrency` is called **45 times across 17 files**, every one inside a
 `"use client"` tree (verified: `app/spending/page.tsx` and `SpendingSummaryStats.tsx`
 carry `"use client"` on line 2 / are imported by client parents). Each file gains one
 `const fmt = useFormatCurrency()` line and its calls become `fmt(...)`.
@@ -224,20 +248,25 @@ parameter, threaded from its single caller at `app/particulars/page.tsx:126`.
 `lib/dateInput.test.ts` pins `en-US` explicitly on its existing assertions (e.g.
 `toBe("Wednesday")`) so they keep asserting what they were written to assert.
 
-### Relative-time fix
+### Relative-time fix — superseded: both helpers deleted
 
-`isStale` and `getRelativeTime` in `lib/design-system.ts` compute day differences from
+`isStale` and `getRelativeTime` in `lib/design-system.ts` computed day differences from
 raw millisecond arithmetic, making their "Today"/"Yesterday" boundary effectively UTC.
-For a Sydney user before 10am this labels a balance updated this morning as
-"Yesterday". Both are changed to compare calendar dates via `calendarDateInZone` and
-take a `timeZone` parameter, with tests covering the pre-10am Sydney case.
+
+**As implemented, both were deleted rather than made zone-aware.** A grep during
+implementation found they had *zero* callers anywhere in `app/`, `lib/`, or `server/`.
+Making dead code timezone-aware and writing tests for it is work with no user, so the
+YAGNI-correct move was removal; git history holds them if a caller ever appears.
 
 ## The page
 
 `/preferences`, a client page following the `/holidays` and `/accounts` structure
 (`Layout` wrapper, shadcn `Card`, `Select` fields):
 
-- **Timezone** — options from `Intl.supportedValuesOf("timeZone")`, searchable.
+- **Timezone** — options from `Intl.supportedValuesOf("timeZone")`. *As shipped: a
+  plain (unsearchable) Select relying on Radix's first-letter type-ahead; a search
+  box is a deferred follow-up.* The saved zone is prepended when it is not in the
+  canonical list, so a stored legacy alias never renders a blank trigger.
 - **Currency** — the curated list, plus the user's stored value if it is not in it, so
   a manually-set exotic currency is never silently dropped.
 - **Live preview** — one line reading e.g. `Balances show as $1,234.56 · Today is Sun, 9 Aug 2026`,
@@ -246,8 +275,17 @@ take a `timeZone` parameter, with tests covering the pre-10am Sydney case.
   existing amounts and does not convert them. This is the most likely way for a user to
   lose trust in their numbers, so it is called out at the point of change.
 
-Saves go through `preferences.update` with optimistic updates via the existing
-`lib/optimistic.ts` helpers, and a Sonner toast on success, matching the other pages.
+Saves go through `preferences.update`. *As shipped:* preferences are a **singleton**,
+not a collection, so the cache is written directly with
+`utils.preferences.get.setData(undefined, resolved)` — the `lib/optimistic.ts` row
+helpers are keyed by `id` and do not apply. A Sonner `toast.error` fires on failure
+(matching `app/debts/page.tsx`); there is no success toast, since the selects and
+preview already reflect the saved state.
+
+The two selects derive their displayed value as `pending ?? saved`, rather than
+seeding local state from `saved`. This matters: detection resolves *after* the initial
+`preferences.get`, so a state snapshot taken on load would latch the pre-detection
+defaults and then offer to save them over the correct detected values.
 
 Nav entry (`Settings` icon from lucide) added to **both** `app/_components/Sidebar.tsx`
 and `app/_components/BottomNav.tsx` — the two nav lists are maintained separately.
@@ -265,7 +303,8 @@ Per CLAUDE.md: pure-function Vitest only, no UI or integration scaffolding.
 - `lib/dateInput.test.ts` — updated for explicit locale; new cases for locale-driven
   wording
 - `app/particulars/frequencyLabel.test.ts` — updated for the new `locale` param
-- `lib/design-system.test.ts` — new zone-aware `isStale`/`getRelativeTime` cases
+
+Final state as shipped: **392 tests across 52 files**, all passing, typecheck clean.
 
 ## Out of scope
 

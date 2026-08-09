@@ -1640,3 +1640,29 @@ git commit -m "Add the preferences page and nav entries"
 - [ ] `grep -rn "todayAsUtcDate()" app` — no output (all pass a zone)
 - [ ] `grep -rn "isStale\|getRelativeTime" app lib server` — no output (deleted)
 - [ ] `lib/engine/` unchanged — `git diff --stat main -- lib/engine` is empty
+
+---
+
+## Post-implementation note (2026-08-09)
+
+All 12 tasks landed. The plan text above is preserved as written; these points are
+stale in it, and the spec's "Amendments during implementation" section is authoritative:
+
+- **Task 2** — `localeForZone` gained five exact-zone overrides not in the plan's table
+  (`Pacific/Honolulu`, `Pacific/Guam`, `Pacific/Pago_Pago` → `en-US`;
+  `America/Toronto`, `America/Vancouver` → `en-CA`). IANA namespaces are continental,
+  not national, so the prefix fallback mismapped US and Canadian zones.
+- **Task 8** — the expected en-AU date strings in this plan are wrong. CLDR's en-AU
+  day+month skeleton uses the full month name: "15 July", not "15 Jul".
+- **Task 10** — the per-file call-count table undercounts. It was generated with
+  `grep -c`, which counts matching *lines*; lines with two calls counted once. The real
+  figure is 45 calls across 17 files.
+- **Task 4** — `isStale`/`getRelativeTime` were deleted rather than made zone-aware,
+  having been found to have zero callers.
+- **Missing from the plan entirely** — threading the display locale into the app's 15
+  date call sites. The plan wired the locale through `lib/` and `frequencyLabel` but
+  never into the components that render dates, so until the final review caught it the
+  preferences preview promised a format no other screen delivered. Fixed in `0b03436`.
+
+Final state: 17 commits + 1 fix wave, 392 tests across 52 files passing, typecheck
+clean, `lib/engine/` untouched.
