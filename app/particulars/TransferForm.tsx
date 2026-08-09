@@ -9,6 +9,7 @@ import { particularInput, type ParticularInput, toParticularInput } from "@/lib/
 import { dateToInputValue, inputValueToDate, todayAsUtcDate } from "@/lib/dateInput";
 import { trpc } from "@/trpc/client";
 import { useActiveAccount } from "@/app/_components/AccountContext";
+import { usePreferences } from "@/app/_components/PreferencesContext";
 import { Button } from "@/app/_components/ui/button";
 import { Input } from "@/app/_components/ui/input";
 import {
@@ -30,6 +31,7 @@ export function TransferForm(
   { isOpen, particularId, onClose }: { isOpen: boolean; particularId: string | null; onClose: () => void },
 ) {
   const { defaultAccountId, accounts } = useActiveAccount();
+  const { timeZone } = usePreferences();
   const [step, setStep] = useState(0);
   const utils = trpc.useUtils();
   const { data: existing } = trpc.particular.listAll.useQuery(undefined, {
@@ -43,7 +45,7 @@ export function TransferForm(
       type: "TRANSFER",
       amount: 0,
       frequency: "MONTHLY",
-      startDate: todayAsUtcDate(),
+      startDate: todayAsUtcDate(timeZone),
       isCritical: true,
       isFixed: true,
       businessDayAdjustment: "NONE",

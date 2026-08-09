@@ -9,6 +9,7 @@ import { particularInput } from "@/lib/schemas";
 import { dateToInputValue, inputValueToDate, todayAsUtcDate } from "@/lib/dateInput";
 import { trpc } from "@/trpc/client";
 import { useActiveAccount } from "@/app/_components/AccountContext";
+import { usePreferences } from "@/app/_components/PreferencesContext";
 import { addRow, newTempId } from "@/lib/optimistic";
 import { Button } from "@/app/_components/ui/button";
 import { Input } from "@/app/_components/ui/input";
@@ -19,12 +20,16 @@ import {
 type QuickAddValues = z.input<typeof particularInput>;
 type Frequency = QuickAddValues["frequency"];
 
-const defaults = (): QuickAddValues => ({
+// Called both as the form's initial defaultValues and again on reset after each
+// submit, so it takes the user's timezone preference as a parameter rather than
+// reading it from a module-level constant (which would freeze "today" at import
+// time and never react to a preference change).
+const defaults = (timeZone?: string): QuickAddValues => ({
   name: "",
   type: "EXPENSE",
   amount: 0,
   frequency: "MONTHLY",
-  startDate: todayAsUtcDate(),
+  startDate: todayAsUtcDate(timeZone),
   isCritical: true,
   isFixed: true,
   businessDayAdjustment: "NONE",
@@ -32,13 +37,14 @@ const defaults = (): QuickAddValues => ({
 
 export function QuickAddRow({ disabled }: { disabled?: boolean }) {
   const { defaultAccountId, accounts } = useActiveAccount();
+  const { timeZone } = usePreferences();
   const [selectedAccount, setSelectedAccount] = useState<string>("");
   useEffect(() => { if (defaultAccountId && !selectedAccount) setSelectedAccount(defaultAccountId); }, [defaultAccountId, selectedAccount]);
 
   const utils = trpc.useUtils();
   const form = useForm<QuickAddValues>({
     resolver: zodResolver(particularInput),
-    defaultValues: defaults(),
+    defaultValues: defaults(timeZone),
   });
 
   const create = trpc.particular.create.useMutation({
@@ -76,7 +82,7 @@ export function QuickAddRow({ disabled }: { disabled?: boolean }) {
   // when it lands. Concurrent submissions are independent and safe.
   const submit = form.handleSubmit((values) => {
     create.mutate({ accountId: selectedAccount || defaultAccountId!, ...values });
-    form.reset(defaults());
+    form.reset(defaults(timeZone));
     form.setFocus("name");
     setSelectedAccount(defaultAccountId!);
   });

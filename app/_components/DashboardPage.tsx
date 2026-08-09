@@ -10,7 +10,7 @@ import { toCombinedEngineInputs } from "@/lib/toEngine";
 import { computeThisMonthSummary } from "@/app/_components/dashboard/thisMonthSummary";
 import { Layout } from "@/app/_components/Layout";
 import { Button } from "@/app/_components/ui/button";
-import { useFormatCurrency } from "@/app/_components/PreferencesContext";
+import { useFormatCurrency, useToday } from "@/app/_components/PreferencesContext";
 import { MetricCard } from "@/app/_components/dashboard/MetricCard";
 import { AccountBalanceList } from "@/app/_components/dashboard/AccountBalanceList";
 import { AccountLowList } from "@/app/_components/dashboard/AccountLowList";
@@ -26,12 +26,10 @@ import { updateRow } from "@/lib/optimistic";
 
 export function DashboardPage() {
   const fmt = useFormatCurrency();
-  // UTC midnight of the *local* calendar date. The engine keys every day by its
-  // UTC components (utcDay), so passing local startOfDay in a positive-UTC-offset
-  // timezone would land the window one calendar day early. Anchoring to UTC
-  // midnight of the local date keeps "today" as the first daily card.
-  const now = new Date();
-  const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+  // UTC midnight of the calendar date in the user's PREFERRED zone (not the device's).
+  // The engine keys every day by its UTC components, so "today" must be UTC midnight
+  // of the user's local date for it to land as the first daily card.
+  const today = useToday();
   const tomorrow = new Date(today.getTime() + 86_400_000);
   const [monthsAhead, setMonthsAhead] = useState(6);
   const [override, setOverride] = useState<{ accountId: string; particularId: string; originalDate: Date; isFixed: boolean; isCritical: boolean; currentAmount: number; currentDate: Date; overrideId?: string } | null>(null);

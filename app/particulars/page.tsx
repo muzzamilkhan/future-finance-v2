@@ -8,7 +8,7 @@ import { Button } from "@/app/_components/ui/button";
 import { Badge } from "@/app/_components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/app/_components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/_components/ui/select";
-import { useFormatCurrency } from "@/app/_components/PreferencesContext";
+import { useFormatCurrency, usePreferences } from "@/app/_components/PreferencesContext";
 import { ParticularForm } from "./ParticularForm";
 import { TransferForm } from "./TransferForm";
 import { QuickAddRow } from "./QuickAddRow";
@@ -33,7 +33,8 @@ export default function ParticularsPage() {
   const defaultAccount = accounts.find((a) => a.id === defaultAccountId);
   const canEditItems = !defaultAccount || defaultAccount.role === "OWNER" || defaultAccount.canEditItems;
   const utils = trpc.useUtils();
-  const today = todayAsUtcDate();
+  const { timeZone, locale } = usePreferences();
+  const today = todayAsUtcDate(timeZone);
   const { data: particulars, isLoading } = trpc.particular.listAll.useQuery();
   const [pendingDelete, setPendingDelete] = useState<Particular | null>(null);
   const del = trpc.particular.delete.useMutation({
@@ -124,7 +125,7 @@ export default function ParticularsPage() {
           <div className="flex min-w-0 items-center justify-between gap-2 sm:justify-start">
             <div className="min-w-0 text-left">
               <span className="font-medium">{isTransfer ? "Transfer" : p.name}</span>
-              <span className="ml-2 text-xs text-muted-foreground">{frequencyLabel(p, today)}</span>
+              <span className="ml-2 text-xs text-muted-foreground">{frequencyLabel(p, today, locale)}</span>
             </div>
             {isTransfer ? (
               <span className="ml-2 inline-flex flex-wrap items-center gap-1">

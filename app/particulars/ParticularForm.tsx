@@ -9,6 +9,7 @@ import { particularInput, type ParticularInput, toParticularInput } from "@/lib/
 import { dateToInputValue, inputValueToDate, todayAsUtcDate } from "@/lib/dateInput";
 import { trpc } from "@/trpc/client";
 import { useActiveAccount } from "@/app/_components/AccountContext";
+import { usePreferences } from "@/app/_components/PreferencesContext";
 import { Button } from "@/app/_components/ui/button";
 import { Input } from "@/app/_components/ui/input";
 import {
@@ -34,6 +35,7 @@ export function ParticularForm(
   { isOpen, particularId, onClose }: { isOpen: boolean; particularId: string | null; onClose: () => void },
 ) {
   const { defaultAccountId, accounts } = useActiveAccount();
+  const { timeZone } = usePreferences();
   const [step, setStep] = useState(0);
   const utils = trpc.useUtils();
   const { data: existing } = trpc.particular.listAll.useQuery(undefined, {
@@ -47,7 +49,7 @@ export function ParticularForm(
       type: (existing?.type as "INCOME" | "EXPENSE" | "TRANSFER") ?? "EXPENSE",
       amount: existing ? Math.abs(Number(existing.amount)) : 0,
       frequency: (existing?.frequency as ParticularInput["frequency"]) ?? "MONTHLY",
-      startDate: existing ? new Date(existing.startDate) : todayAsUtcDate(),
+      startDate: existing ? new Date(existing.startDate) : todayAsUtcDate(timeZone),
       isCritical: existing?.isCritical ?? true,
       isFixed: existing?.isFixed ?? true,
       businessDayAdjustment: (existing?.businessDayAdjustment as ParticularInput["businessDayAdjustment"]) ?? "NONE",
