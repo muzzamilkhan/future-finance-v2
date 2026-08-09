@@ -180,19 +180,23 @@ export function DashboardPage() {
 
         <CollapsibleTopSection
           compact={
-            <div className="flex items-center justify-between gap-2 text-sm">
+            <div className="flex items-center justify-between gap-3 text-sm">
               <span className="shrink-0 font-medium">{fmt(current)}</span>
-              {/* Once the list is scrolled, the day you're reading is more useful here
-                  than the low-point summary — the metric cards already carry the low. */}
-              {topmostDay ? (
-                <span className="truncate text-muted-foreground">
-                  {formatUtcFullDate(topmostDay, locale)}
-                </span>
-              ) : result.lowest ? (
-                <span className="truncate text-muted-foreground">
-                  Low {fmt(result.lowest.closingBalance)} · {formatUtcMonthDay(result.lowest.date, locale)}
-                </span>
-              ) : null}
+              <div className="flex min-w-0 items-center gap-3">
+                {topmostDay && (
+                  <span className="truncate text-muted-foreground">
+                    {formatUtcFullDate(topmostDay, locale)}
+                  </span>
+                )}
+                {/* Mobile has no room for both, and the day you're reading beats the
+                    low-point summary there — the metric cards already carry the low.
+                    Desktop is wide enough to keep both. */}
+                {result.lowest && (
+                  <span className={`shrink-0 text-muted-foreground ${topmostDay ? "hidden md:inline" : ""}`}>
+                    Low {fmt(result.lowest.closingBalance)} · {formatUtcMonthDay(result.lowest.date, locale)}
+                  </span>
+                )}
+              </div>
             </div>
           }
         >
