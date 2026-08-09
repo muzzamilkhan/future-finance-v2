@@ -68,6 +68,7 @@ function AccountBalanceRow(
           autoFocus
           className="h-7 w-28"
           value={draft}
+          onFocus={(e) => e.currentTarget.select()}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") { e.preventDefault(); save(); }
