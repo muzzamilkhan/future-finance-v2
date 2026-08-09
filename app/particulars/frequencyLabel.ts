@@ -1,5 +1,6 @@
 import { addWeeks } from "date-fns";
 import { ordinal, formatUtcWeekdayLong, formatUtcWeekday } from "@/lib/dateInput";
+import { DEFAULT_LOCALE } from "@/lib/preferences";
 
 type Frequency = "ONCE_OFF" | "WEEKLY" | "FORTNIGHTLY" | "MONTHLY" | "ANNUAL";
 
@@ -31,6 +32,7 @@ function nextFortnightly(start: Date, today: Date): Date {
 export function frequencyLabel(
   p: { frequency: Frequency; startDate: Date },
   today: Date,
+  locale: string = DEFAULT_LOCALE,
 ): string {
   const s = p.startDate;
   const day = ordinal(s.getUTCDate());
@@ -40,13 +42,13 @@ export function frequencyLabel(
     case "MONTHLY":
       return `Every ${day}`;
     case "WEEKLY":
-      return `Every ${formatUtcWeekdayLong(s)}`;
+      return `Every ${formatUtcWeekdayLong(s, locale)}`;
     case "ANNUAL":
       return `Every ${day} ${month}`;
     case "ONCE_OFF":
       return `${day} ${month}, ${s.getUTCFullYear()}`;
     case "FORTNIGHTLY": {
-      const weekday = formatUtcWeekday(s); // "Tue"
+      const weekday = formatUtcWeekday(s, locale); // "Tue"
       const occ = nextFortnightly(s, today);
       const thisWeek = mondayOfUtcWeek(today);
       const nextWeek = addWeeks(thisWeek, 1);

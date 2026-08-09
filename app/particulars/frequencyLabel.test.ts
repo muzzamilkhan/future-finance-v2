@@ -54,4 +54,16 @@ describe("frequencyLabel", () => {
         .toBe("This Sun");
     });
   });
+
+  describe("locale", () => {
+    it("defaults to en-AU weekday names", () => {
+      expect(frequencyLabel({ frequency: "WEEKLY", startDate: d(2026, 7, 6) }, d(2026, 7, 1)))
+        .toBe("Every Monday");
+    });
+
+    it("accepts an explicit locale", () => {
+      expect(frequencyLabel({ frequency: "WEEKLY", startDate: d(2026, 7, 6) }, d(2026, 7, 1), "en-US"))
+        .toBe("Every Monday");
+    });
+  });
 });
