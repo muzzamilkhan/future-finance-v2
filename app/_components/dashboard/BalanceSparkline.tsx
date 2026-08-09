@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { DailyBalance } from "@/lib/engine";
-import { useFormatCurrency } from "@/app/_components/PreferencesContext";
+import { useFormatCurrency, usePreferences } from "@/app/_components/PreferencesContext";
 import { formatUtcWeekdayMonthDay } from "@/lib/dateInput";
 import { isSameDay } from "date-fns";
 import {
@@ -19,12 +19,13 @@ export function BalanceSparkline({
   highest: DailyBalance | null;
 }) {
   const fmt = useFormatCurrency();
+  const { locale } = usePreferences();
   const data: Point[] = days.map((d, i) => ({ i, date: d.date, v: d.closingBalance }));
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const active = activeIndex != null ? (data[activeIndex] ?? null) : null;
 
   const label = active
-    ? `${formatUtcWeekdayMonthDay(active.date)} · ${fmt(active.v)}`
+    ? `${formatUtcWeekdayMonthDay(active.date, locale)} · ${fmt(active.v)}`
     : lowest && highest
       ? `Low ${fmt(lowest.closingBalance)} · High ${fmt(highest.closingBalance)}`
       : "";

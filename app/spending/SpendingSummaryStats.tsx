@@ -1,3 +1,5 @@
+"use client";
+
 import type { SpendingSummary } from "@/lib/spending/spending";
 import { getAmountColorClass } from "@/lib/design-system";
 import { useFormatCurrency } from "@/app/_components/PreferencesContext";

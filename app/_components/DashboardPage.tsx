@@ -10,7 +10,7 @@ import { toCombinedEngineInputs } from "@/lib/toEngine";
 import { computeThisMonthSummary } from "@/app/_components/dashboard/thisMonthSummary";
 import { Layout } from "@/app/_components/Layout";
 import { Button } from "@/app/_components/ui/button";
-import { useFormatCurrency, useToday } from "@/app/_components/PreferencesContext";
+import { useFormatCurrency, usePreferences, useToday } from "@/app/_components/PreferencesContext";
 import { MetricCard } from "@/app/_components/dashboard/MetricCard";
 import { AccountBalanceList } from "@/app/_components/dashboard/AccountBalanceList";
 import { AccountLowList } from "@/app/_components/dashboard/AccountLowList";
@@ -26,6 +26,7 @@ import { updateRow } from "@/lib/optimistic";
 
 export function DashboardPage() {
   const fmt = useFormatCurrency();
+  const { locale } = usePreferences();
   // UTC midnight of the calendar date in the user's PREFERRED zone (not the device's).
   // The engine keys every day by its UTC components, so "today" must be UTC midnight
   // of the user's local date for it to land as the first daily card.
@@ -166,7 +167,7 @@ export function DashboardPage() {
               <span className="font-medium">{fmt(current)}</span>
               {result.lowest && (
                 <span className="text-muted-foreground">
-                  Low {fmt(result.lowest.closingBalance)} · {formatUtcMonthDay(result.lowest.date)}
+                  Low {fmt(result.lowest.closingBalance)} · {formatUtcMonthDay(result.lowest.date, locale)}
                 </span>
               )}
             </div>
@@ -184,7 +185,7 @@ export function DashboardPage() {
               } />
             <MetricCard title="Lowest Balance" value={result.lowest?.closingBalance ?? 0}
               type={(result.lowest?.closingBalance ?? 0) >= 0 ? "income" : "expense"}
-              subtitle={result.lowest ? formatUtcWeekdayMonthDay(result.lowest.date) : undefined}
+              subtitle={result.lowest ? formatUtcWeekdayMonthDay(result.lowest.date, locale) : undefined}
               onClick={result.lowest ? () => scrollToDay(result.lowest!.date) : undefined}
               footer={
                 <AccountLowList
@@ -196,7 +197,7 @@ export function DashboardPage() {
             <MetricCard title="Combined Shortfall" value={combinedShortfall}
               valueDisplay={combinedShortfall < 0 ? fmt(combinedShortfall) : "None"}
               type={combinedShortfall < 0 ? "expense" : "income"}
-              subtitle={result.firstNegative ? formatUtcWeekdayMonthDay(result.firstNegative.date) : undefined}
+              subtitle={result.firstNegative ? formatUtcWeekdayMonthDay(result.firstNegative.date, locale) : undefined}
               onClick={result.firstNegative ? () => scrollToDay(result.firstNegative!.date) : undefined}
               footer={
                 result.exhaustions.length > 0 ? (
@@ -210,7 +211,7 @@ export function DashboardPage() {
                         >
                           <span className="flex items-center gap-1">
                             <AccountBadge accountId={ex.accountId} accountNames={accountNames} orderedIds={accountIds} className="px-1.5 py-0 text-[10px]" />
-                            <span className="text-muted-foreground">{formatUtcWeekdayMonthDay(ex.date)}</span>
+                            <span className="text-muted-foreground">{formatUtcWeekdayMonthDay(ex.date, locale)}</span>
                           </span>
                           <span className="shrink-0 text-finance-expense">
                             {fmt(ex.type === "CREDIT" ? (ex.availableCredit ?? 0) : ex.balance)}

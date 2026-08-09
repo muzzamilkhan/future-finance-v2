@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/app/_components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/app/_components/ui/dialog";
 import { formatUtcMonthDayYear, inputValueToDate } from "@/lib/dateInput";
+import { usePreferences } from "@/app/_components/PreferencesContext";
 import { addRow, removeRow, newTempId, isTempId } from "@/lib/optimistic";
 import { X } from "lucide-react";
 
@@ -21,6 +22,7 @@ function HolidaySection({ title, holidays, canEdit, onDelete }: {
   canEdit: boolean;
   onDelete: (h: HolidayItem) => void;
 }) {
+  const { locale } = usePreferences();
   return (
     <div className="space-y-2">
       <h2 className="text-lg font-semibold">{title}</h2>
@@ -31,7 +33,7 @@ function HolidaySection({ title, holidays, canEdit, onDelete }: {
           {holidays.map((h) => (
             <div key={h.id} className={`flex items-center justify-between rounded-md border p-3${isTempId(h.id) ? " opacity-60 animate-pulse" : ""}`}>
               <span>
-                {h.name} — {formatUtcMonthDayYear(new Date(h.date))}{h.isRecurring ? " (yearly)" : ""}
+                {h.name} — {formatUtcMonthDayYear(new Date(h.date), locale)}{h.isRecurring ? " (yearly)" : ""}
               </span>
               <Button variant="ghost" size="icon-sm" aria-label="Delete holiday" disabled={!canEdit} onClick={() => onDelete(h)}>
                 <X className="size-4" />

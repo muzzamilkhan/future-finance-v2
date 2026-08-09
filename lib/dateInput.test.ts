@@ -74,7 +74,7 @@ describe("todayAsUtcDate", () => {
     // the UTC instant is still the 15th here — the point is the result is UTC midnight
     // of whatever local day `now` falls on, with no time-of-day component.
     const now = new Date("2026-01-15T22:30:00+13:00");
-    const d = todayAsUtcDate(undefined, now);
+    const d = todayAsUtcDate("Australia/Sydney", now);
     expect(d.getUTCFullYear()).toBe(now.getFullYear());
     expect(d.getUTCMonth()).toBe(now.getMonth());
     expect(d.getUTCDate()).toBe(now.getDate());
@@ -83,7 +83,7 @@ describe("todayAsUtcDate", () => {
   });
 
   it("round-trips through the input helpers unchanged", () => {
-    const d = todayAsUtcDate();
+    const d = todayAsUtcDate("Australia/Sydney");
     expect(inputValueToDate(dateToInputValue(d))?.getTime()).toBe(d.getTime());
   });
 

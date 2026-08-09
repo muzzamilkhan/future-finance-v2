@@ -3,12 +3,13 @@
 import { trpc } from "@/trpc/client";
 import { useActiveAccount } from "@/app/_components/AccountContext";
 import { Button } from "@/app/_components/ui/button";
-import { useFormatCurrency } from "@/app/_components/PreferencesContext";
+import { useFormatCurrency, usePreferences } from "@/app/_components/PreferencesContext";
 import { formatUtcMonthDay, formatUtcMonthDayYear } from "@/lib/dateInput";
 import { removeRow, isTempId } from "@/lib/optimistic";
 
 export function OverrideManagement({ particularId }: { particularId: string }) {
   const fmt = useFormatCurrency();
+  const { locale } = usePreferences();
   const { defaultAccountId: accountId } = useActiveAccount();
   const utils = trpc.useUtils();
   const { data: overrides } = trpc.particular.listOverrides.useQuery(
@@ -33,10 +34,10 @@ export function OverrideManagement({ particularId }: { particularId: string }) {
       {overrides.map((o) => (
         <div key={o.id} className={`flex items-center justify-between rounded-md border p-2 text-sm${isTempId(o.id) ? " opacity-60 animate-pulse" : ""}`}>
           <span>
-            {formatUtcMonthDayYear(new Date(o.originalDate))}
+            {formatUtcMonthDayYear(new Date(o.originalDate), locale)}
             {o.isSkipped ? " — skipped"
               : o.overriddenAmount != null ? ` — ${fmt(Number(o.overriddenAmount))}`
-              : o.overriddenDate ? ` — moved to ${formatUtcMonthDay(new Date(o.overriddenDate))}` : ""}
+              : o.overriddenDate ? ` — moved to ${formatUtcMonthDay(new Date(o.overriddenDate), locale)}` : ""}
           </span>
           <Button variant="ghost" size="sm" onClick={() => del.mutate({ accountId: accountId!, id: o.id })}>Revert</Button>
         </div>

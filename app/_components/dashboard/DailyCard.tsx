@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { DailyBalance } from "@/lib/engine";
 import { Card, CardContent } from "@/app/_components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/app/_components/ui/dialog";
-import { useFormatCurrency } from "@/app/_components/PreferencesContext";
+import { useFormatCurrency, usePreferences } from "@/app/_components/PreferencesContext";
 import { dateToInputValue, formatUtcWeekdayMonthDay } from "@/lib/dateInput";
 import { ArrowRight } from "lucide-react";
 import { sortDailyEvents } from "./sortEvents";
@@ -12,6 +12,7 @@ import { AccountBadge } from "./AccountBadge";
 
 export function DailyCard({ day, onEventClick, interactive = true, accountNames, accountIds = [] }: { day: DailyBalance; onEventClick?: (particularId: string, originalDate?: Date, currentAmount?: number, currentDate?: Date, overrideId?: string) => void; interactive?: boolean; accountNames?: Map<string, string>; accountIds?: string[] }) {
   const fmt = useFormatCurrency();
+  const { locale } = usePreferences();
   const [showAccounts, setShowAccounts] = useState(false);
   // The per-account popup is only meaningful with more than one account — with a
   // single account the breakdown just repeats the closing balance.
@@ -25,14 +26,14 @@ export function DailyCard({ day, onEventClick, interactive = true, accountNames,
             className="flex w-full items-center justify-between text-left"
             onClick={() => setShowAccounts(true)}
           >
-            <span className="font-medium">{formatUtcWeekdayMonthDay(day.date)}</span>
+            <span className="font-medium">{formatUtcWeekdayMonthDay(day.date, locale)}</span>
             <span className={day.closingBalance < 0 ? "text-finance-expense" : "text-foreground"}>
               {fmt(day.closingBalance)}
             </span>
           </button>
         ) : (
           <div className="flex items-center justify-between">
-            <span className="font-medium">{formatUtcWeekdayMonthDay(day.date)}</span>
+            <span className="font-medium">{formatUtcWeekdayMonthDay(day.date, locale)}</span>
             <span className={day.closingBalance < 0 ? "text-finance-expense" : "text-foreground"}>
               {fmt(day.closingBalance)}
             </span>
@@ -92,7 +93,7 @@ export function DailyCard({ day, onEventClick, interactive = true, accountNames,
       <Dialog open={showAccounts} onOpenChange={setShowAccounts}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>{formatUtcWeekdayMonthDay(day.date)}</DialogTitle>
+            <DialogTitle>{formatUtcWeekdayMonthDay(day.date, locale)}</DialogTitle>
           </DialogHeader>
           <ul className="space-y-2">
             {day.accounts.map((a) => {

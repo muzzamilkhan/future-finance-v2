@@ -1,4 +1,4 @@
-import { calendarDateInZone, DEFAULT_LOCALE, DEFAULT_TIME_ZONE } from "@/lib/preferences";
+import { calendarDateInZone, DEFAULT_LOCALE } from "@/lib/preferences";
 
 // Helpers for binding a JS `Date` to a native `<input type="date">`, which
 // renders and reports its value as a `yyyy-MM-dd` string (never a `Date`).
@@ -105,7 +105,7 @@ export function ordinal(n: number): string {
  * untouched picker submits the instant the engine expects.
  */
 export function todayAsUtcDate(
-  timeZone: string = DEFAULT_TIME_ZONE,
+  timeZone: string,
   now: Date = new Date(),
 ): Date {
   return calendarDateInZone(now, timeZone);
