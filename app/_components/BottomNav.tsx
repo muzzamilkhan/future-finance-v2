@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
-import { LayoutDashboard, ListOrdered, CalendarDays, PieChart, Sun, Moon, TrendingDown, Wallet, LogOut } from "lucide-react";
+import { LayoutDashboard, ListOrdered, CalendarDays, PieChart, Sun, Moon, TrendingDown, Wallet, LogOut, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signOutAction } from "@/app/_actions/auth";
 
@@ -14,6 +14,7 @@ const items = [
   { to: "/spending", label: "Spending", icon: PieChart },
   { to: "/debts", label: "Debts", icon: TrendingDown },
   { to: "/accounts", label: "Accounts", icon: Wallet },
+  { to: "/preferences", label: "Settings", icon: Settings },
 ];
 
 const itemClass = "flex min-w-[5rem] flex-1 flex-col items-center gap-1 py-2 text-xs";
