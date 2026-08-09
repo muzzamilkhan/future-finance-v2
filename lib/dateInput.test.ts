@@ -105,13 +105,18 @@ describe("UTC display formatters", () => {
     expect(formatUtcWeekdayMonthDay(d, "en-US")).toBe("Wed, Jul 15");
   });
 
-  it("formatUtcFullDate -> 'Wednesday, July 15, 2026'", () => {
-    expect(formatUtcFullDate(d, "en-US")).toBe("Wednesday, July 15, 2026");
+  it("formatUtcFullDate -> 'Wed, Jul 15, 2026'", () => {
+    expect(formatUtcFullDate(d, "en-US")).toBe("Wed, Jul 15, 2026");
   });
 
-  // en-AU's own full-date pattern omits the comma after the weekday; we add it back.
-  it("formatUtcFullDate -> 'Wednesday, 15 July 2026' (en-AU)", () => {
-    expect(formatUtcFullDate(d, "en-AU")).toBe("Wednesday, 15 July 2026");
+  // en-AU's own combined pattern omits the comma after the weekday; we add it back.
+  // July is not abbreviated in en-AU's CLDR data, hence "15 July" at short width.
+  it("formatUtcFullDate -> 'Wed, 15 July 2026' (en-AU)", () => {
+    expect(formatUtcFullDate(d, "en-AU")).toBe("Wed, 15 July 2026");
+  });
+
+  it("formatUtcFullDate abbreviates months that en-AU does shorten", () => {
+    expect(formatUtcFullDate(new Date(Date.UTC(2026, 10, 15)), "en-AU")).toBe("Sun, 15 Nov 2026");
   });
 
   it("formatUtcMonthDayYear -> 'Jul 15, 2026'", () => {
