@@ -3,6 +3,7 @@ import {
   dateToInputValue,
   inputValueToDate,
   todayAsUtcDate,
+  formatUtcFullDate,
   formatUtcWeekdayMonthDay,
   formatUtcMonthDayYear,
   formatUtcMonthDay,
@@ -102,6 +103,14 @@ describe("UTC display formatters", () => {
 
   it("formatUtcWeekdayMonthDay -> 'Wed, Jul 15'", () => {
     expect(formatUtcWeekdayMonthDay(d, "en-US")).toBe("Wed, Jul 15");
+  });
+
+  it("formatUtcFullDate -> 'Wednesday, July 15, 2026'", () => {
+    expect(formatUtcFullDate(d, "en-US")).toBe("Wednesday, July 15, 2026");
+  });
+
+  it("formatUtcFullDate -> 'Wednesday 15 July 2026' (en-AU)", () => {
+    expect(formatUtcFullDate(d, "en-AU")).toBe("Wednesday 15 July 2026");
   });
 
   it("formatUtcMonthDayYear -> 'Jul 15, 2026'", () => {

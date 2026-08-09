@@ -5,7 +5,7 @@ import type { DailyBalance } from "@/lib/engine";
 import { Card, CardContent } from "@/app/_components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/app/_components/ui/dialog";
 import { useFormatCurrency, usePreferences } from "@/app/_components/PreferencesContext";
-import { dateToInputValue, formatUtcWeekdayMonthDay } from "@/lib/dateInput";
+import { dateToInputValue, formatUtcFullDate, formatUtcWeekdayMonthDay } from "@/lib/dateInput";
 import { ArrowRight } from "lucide-react";
 import { sortDailyEvents } from "./sortEvents";
 import { AccountBadge } from "./AccountBadge";
@@ -93,7 +93,7 @@ export function DailyCard({ day, onEventClick, interactive = true, accountNames,
       <Dialog open={showAccounts} onOpenChange={setShowAccounts}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>{formatUtcWeekdayMonthDay(day.date, locale)}</DialogTitle>
+            <DialogTitle>{formatUtcFullDate(day.date, locale)}</DialogTitle>
           </DialogHeader>
           <ul className="space-y-2">
             {day.accounts.map((a) => {

@@ -34,10 +34,17 @@ export function inputValueToDate(value: string): Date | undefined {
 //
 // Memoised per (locale, style): constructing an Intl.DateTimeFormat is expensive and
 // the daily card list renders many of these.
-type Style = "weekdayMonthDay" | "monthDayYear" | "monthDay" | "weekday" | "weekdayLong";
+type Style =
+  | "weekdayMonthDay"
+  | "fullDate"
+  | "monthDayYear"
+  | "monthDay"
+  | "weekday"
+  | "weekdayLong";
 
 const OPTIONS: Record<Style, Intl.DateTimeFormatOptions> = {
   weekdayMonthDay: { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" },
+  fullDate: { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "UTC" },
   monthDayYear: { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" },
   monthDay: { month: "short", day: "numeric", timeZone: "UTC" },
   weekday: { weekday: "short", timeZone: "UTC" },
@@ -63,6 +70,11 @@ function fmt(style: Style, locale: string): Intl.DateTimeFormat {
 /** "Wed, 15 July" (en-AU) / "Wed, Jul 15" (en-US) — weekday, month, day in UTC. */
 export function formatUtcWeekdayMonthDay(date: Date, locale: string = DEFAULT_LOCALE): string {
   return fmt("weekdayMonthDay", locale).format(date);
+}
+
+/** "Wednesday 15 July 2026" (en-AU) / "Wednesday, July 15, 2026" (en-US) — full date in UTC. */
+export function formatUtcFullDate(date: Date, locale: string = DEFAULT_LOCALE): string {
+  return fmt("fullDate", locale).format(date);
 }
 
 /** "15 July 2026" (en-AU) / "Jul 15, 2026" (en-US) — month, day, year in UTC. */
