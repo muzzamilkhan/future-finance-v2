@@ -2,6 +2,20 @@ import { z } from "zod";
 import { router, protectedProcedure } from "../trpc";
 import { holidayInput, importHolidaysInput } from "@/lib/schemas";
 import { fetchCountries, subdivisionsForCountry, fetchHolidays, filterHolidays } from "@/lib/holidayImport";
+import { currentYearInZone, resolvePreferences } from "@/lib/preferences";
+import type { Context } from "../trpc";
+
+/**
+ * The current year in the caller's own timezone, not the server's. Holidays are
+ * imported a year at a time and the server runs in UTC, so without this a Sydney user
+ * importing on New Year's Eve would get the previous year's dates.
+ */
+async function callerYear(prisma: Context["prisma"], userId: string): Promise<number> {
+  const row = await prisma.user.findUniqueOrThrow({
+    where: { id: userId }, select: { timeZone: true, currency: true },
+  });
+  return currentYearInZone(new Date(), resolvePreferences(row).timeZone);
+}
 
 export const holidayRouter = router({
   list: protectedProcedure.query(({ ctx }) =>
@@ -17,10 +31,11 @@ export const holidayRouter = router({
 
   subdivisions: protectedProcedure
     .input(z.object({ countryCode: z.string().length(2) }))
-    .query(({ input }) => subdivisionsForCountry(input.countryCode, new Date().getFullYear())),
+    .query(async ({ ctx, input }) =>
+      subdivisionsForCountry(input.countryCode, await callerYear(ctx.prisma, ctx.user.id))),
 
   import: protectedProcedure.input(importHolidaysInput).mutation(async ({ ctx, input }) => {
-    const year = new Date().getFullYear();
+    const year = await callerYear(ctx.prisma, ctx.user.id);
     const holidays = filterHolidays(await fetchHolidays(input.countryCode, year), input.stateCode);
 
     // Dedupe by name (the unique key is (userId, name, source)); keep the last occurrence.
