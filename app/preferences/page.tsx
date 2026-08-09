@@ -17,44 +17,56 @@ export default function PreferencesPage() {
   const saved = usePreferences();
   const utils = trpc.useUtils();
 
-  // Pending selection, so the preview reflects what you're about to save.
-  const [timeZone, setTimeZone] = useState(saved.timeZone);
-  const [currency, setCurrency] = useState(saved.currency);
-
-  // usePreferences() returns DEFAULTS while its query is still loading, so seeding
-  // the state above can capture a default that isn't the user's real saved value.
-  // Once the real data resolves, sync the pending selection to it exactly once —
-  // guarded so it doesn't clobber choices the user has already started making.
-  const [synced, setSynced] = useState(false);
-  useEffect(() => {
-    if (saved.isLoading || synced) return;
-    setTimeZone(saved.timeZone);
-    setCurrency(saved.currency);
-    setSynced(true);
-  }, [saved.isLoading, saved.timeZone, saved.currency, synced]);
+  // Pending selection, kept as an override of the saved value rather than a copy of
+  // it. `null` means "untouched — follow whatever the query currently says". This
+  // way the display tracks `saved` (loading defaults, then real data, then a later
+  // detect()-driven update, then any refetch) right up until the user actually picks
+  // something, and a save can never race a query update: there is no snapshot to go
+  // stale, only an override to clear.
+  const [pendingTz, setPendingTz] = useState<string | null>(null);
+  const [pendingCur, setPendingCur] = useState<string | null>(null);
+  const timeZone = pendingTz ?? saved.timeZone;
+  const currency = pendingCur ?? saved.currency;
 
   const update = trpc.preferences.update.useMutation({
     onSuccess: (resolved) => {
       // A singleton, not a collection — set the query data directly rather than
       // using the row helpers in lib/optimistic.ts.
       utils.preferences.get.setData(undefined, resolved);
+      setPendingTz(null);
+      setPendingCur(null);
     },
     onError: (error) => {
-      setTimeZone(saved.timeZone);
-      setCurrency(saved.currency);
+      setPendingTz(null);
+      setPendingCur(null);
       toast.error("Couldn't save preferences", { description: error.message });
     },
   });
 
   const dirty = timeZone !== saved.timeZone || currency !== saved.currency;
   const previewLocale = localeForZone(timeZone);
-  const previewToday = calendarDateInZone(new Date(), timeZone);
+
+  // `new Date()` in the render body would be SSR-nondeterministic (this client
+  // component is still prerendered on the server) and could hydration-mismatch
+  // across a midnight boundary in the selected zone. `useToday()` isn't usable here
+  // because it's pinned to the SAVED zone, not the PENDING one the preview must
+  // reflect — so mount-guard instead: render a placeholder until the client has
+  // mounted, then compute the real "now".
+  const [now, setNow] = useState<Date | null>(null);
+  useEffect(() => { setNow(new Date()); }, []);
+  const previewToday = now ? calendarDateInZone(now, timeZone) : null;
 
   // Options must include the saved value even if it isn't in the curated list, so a
   // manually-set or detected exotic currency is never silently dropped on save.
   const currencyOptions = CURRENCY_OPTIONS.some((o) => o.code === saved.currency)
     ? CURRENCY_OPTIONS
     : [{ code: saved.currency, label: saved.currency }, ...CURRENCY_OPTIONS];
+
+  // Same fallback for timezone: Intl.supportedValuesOf("timeZone") only lists
+  // canonical IANA IDs, so a stored legacy alias (e.g. "Asia/Calcutta", "US/Pacific")
+  // wouldn't match any <SelectItem>, leaving the trigger blank and `dirty` false —
+  // the user would be stuck unable to even see, let alone repair, their own setting.
+  const zoneOptions = ZONES.includes(saved.timeZone) ? ZONES : [saved.timeZone, ...ZONES];
 
   return (
     <Layout>
@@ -63,10 +75,10 @@ export default function PreferencesPage() {
 
         <div className="space-y-2">
           <Label htmlFor="timezone">Timezone</Label>
-          <Select value={timeZone} onValueChange={setTimeZone}>
+          <Select value={timeZone} onValueChange={setPendingTz}>
             <SelectTrigger id="timezone"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {ZONES.map((z) => <SelectItem key={z} value={z}>{z.replace(/_/g, " ")}</SelectItem>)}
+              {zoneOptions.map((z) => <SelectItem key={z} value={z}>{z.replace(/_/g, " ")}</SelectItem>)}
             </SelectContent>
           </Select>
           <p className="text-sm text-muted-foreground">
@@ -76,7 +88,7 @@ export default function PreferencesPage() {
 
         <div className="space-y-2">
           <Label htmlFor="currency">Currency</Label>
-          <Select value={currency} onValueChange={setCurrency}>
+          <Select value={currency} onValueChange={setPendingCur}>
             <SelectTrigger id="currency"><SelectValue /></SelectTrigger>
             <SelectContent>
               {currencyOptions.map((o) => <SelectItem key={o.code} value={o.code}>{o.label}</SelectItem>)}
@@ -91,7 +103,7 @@ export default function PreferencesPage() {
         <div className="rounded-md border p-3 text-sm">
           <span className="text-muted-foreground">Preview: </span>
           Balances show as {formatCurrency(1234.56, currency, previewLocale)} ·
-          Today is {formatUtcWeekdayMonthDay(previewToday, previewLocale)}
+          Today is {previewToday ? formatUtcWeekdayMonthDay(previewToday, previewLocale) : "…"}
         </div>
 
         <Button
