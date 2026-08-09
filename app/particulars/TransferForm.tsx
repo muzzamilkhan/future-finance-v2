@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -31,7 +31,7 @@ export function TransferForm(
   { isOpen, particularId, onClose }: { isOpen: boolean; particularId: string | null; onClose: () => void },
 ) {
   const { defaultAccountId, accounts } = useActiveAccount();
-  const { timeZone } = usePreferences();
+  const { timeZone, isLoading: preferencesLoading } = usePreferences();
   const [step, setStep] = useState(0);
   const utils = trpc.useUtils();
   const { data: existing } = trpc.particular.listAll.useQuery(undefined, {
@@ -55,6 +55,16 @@ export function TransferForm(
     },
     values: existing ? toParticularInput(existing) : undefined,
   });
+
+  // See ParticularForm for why this correction exists: defaultValues above may have
+  // been seeded with the fallback (Sydney) timezone before preferences resolved.
+  // Correct an untouched start date once the real timeZone arrives; skip for edits
+  // (the `values` prop already wins there) and once the user has touched the field.
+  useEffect(() => {
+    if (particularId || preferencesLoading) return;
+    if (form.formState.dirtyFields.startDate) return;
+    form.setValue("startDate", todayAsUtcDate(timeZone));
+  }, [particularId, preferencesLoading, timeZone, form]);
 
   const onMutationError = (error: { message: string }, _vars: unknown, ctx?: { prev: unknown }) => {
     if (ctx) utils.particular.listAll.setData(undefined, ctx.prev as never);

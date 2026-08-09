@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -35,7 +35,7 @@ export function ParticularForm(
   { isOpen, particularId, onClose }: { isOpen: boolean; particularId: string | null; onClose: () => void },
 ) {
   const { defaultAccountId, accounts } = useActiveAccount();
-  const { timeZone } = usePreferences();
+  const { timeZone, isLoading: preferencesLoading } = usePreferences();
   const [step, setStep] = useState(0);
   const utils = trpc.useUtils();
   const { data: existing } = trpc.particular.listAll.useQuery(undefined, {
@@ -58,6 +58,17 @@ export function ParticularForm(
     },
     values: existing ? toParticularInput(existing) : undefined,
   });
+
+  // On a hard reload, preferences haven't resolved on the first render, so the
+  // defaultValues above were seeded with the fallback (Sydney) timezone. Once the
+  // real timeZone arrives, correct an untouched start date — but never for an edit
+  // (the `values` prop above already wins there via `existing`) and never once the
+  // user has touched the field themselves.
+  useEffect(() => {
+    if (particularId || preferencesLoading) return;
+    if (form.formState.dirtyFields.startDate) return;
+    form.setValue("startDate", todayAsUtcDate(timeZone));
+  }, [particularId, preferencesLoading, timeZone, form]);
 
   const onMutationError = (error: { message: string }, _vars: unknown, ctx?: { prev: unknown }) => {
     if (ctx) utils.particular.listAll.setData(undefined, ctx.prev as never);

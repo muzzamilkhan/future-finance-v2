@@ -23,8 +23,9 @@ type Frequency = QuickAddValues["frequency"];
 // Called both as the form's initial defaultValues and again on reset after each
 // submit, so it takes the user's timezone preference as a parameter rather than
 // reading it from a module-level constant (which would freeze "today" at import
-// time and never react to a preference change).
-const defaults = (timeZone?: string): QuickAddValues => ({
+// time and never react to a preference change). Required (not optional) so a future
+// call site can't silently omit it and fall back to a wrong-timezone date.
+const defaults = (timeZone: string): QuickAddValues => ({
   name: "",
   type: "EXPENSE",
   amount: 0,
@@ -37,7 +38,7 @@ const defaults = (timeZone?: string): QuickAddValues => ({
 
 export function QuickAddRow({ disabled }: { disabled?: boolean }) {
   const { defaultAccountId, accounts } = useActiveAccount();
-  const { timeZone } = usePreferences();
+  const { timeZone, isLoading: preferencesLoading } = usePreferences();
   const [selectedAccount, setSelectedAccount] = useState<string>("");
   useEffect(() => { if (defaultAccountId && !selectedAccount) setSelectedAccount(defaultAccountId); }, [defaultAccountId, selectedAccount]);
 
@@ -46,6 +47,16 @@ export function QuickAddRow({ disabled }: { disabled?: boolean }) {
     resolver: zodResolver(particularInput),
     defaultValues: defaults(timeZone),
   });
+
+  // On a hard reload, preferences haven't resolved on the first render, so the
+  // defaultValues above may have been seeded with the fallback (Sydney) timezone.
+  // Once the real timeZone arrives, correct an untouched start date; never overwrite
+  // one the user has already edited (this row is always a "create", never an edit).
+  useEffect(() => {
+    if (preferencesLoading) return;
+    if (form.formState.dirtyFields.startDate) return;
+    form.setValue("startDate", todayAsUtcDate(timeZone));
+  }, [preferencesLoading, timeZone, form]);
 
   const create = trpc.particular.create.useMutation({
     onMutate: async (vars) => {
