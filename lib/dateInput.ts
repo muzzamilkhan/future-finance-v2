@@ -36,7 +36,7 @@ export function inputValueToDate(value: string): Date | undefined {
 // the daily card list renders many of these.
 type Style =
   | "weekdayMonthDay"
-  | "fullDate"
+  | "dayMonthYearLong"
   | "monthDayYear"
   | "monthDay"
   | "weekday"
@@ -44,7 +44,7 @@ type Style =
 
 const OPTIONS: Record<Style, Intl.DateTimeFormatOptions> = {
   weekdayMonthDay: { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" },
-  fullDate: { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "UTC" },
+  dayMonthYearLong: { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" },
   monthDayYear: { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" },
   monthDay: { month: "short", day: "numeric", timeZone: "UTC" },
   weekday: { weekday: "short", timeZone: "UTC" },
@@ -72,9 +72,18 @@ export function formatUtcWeekdayMonthDay(date: Date, locale: string = DEFAULT_LO
   return fmt("weekdayMonthDay", locale).format(date);
 }
 
-/** "Wednesday 15 July 2026" (en-AU) / "Wednesday, July 15, 2026" (en-US) — full date in UTC. */
+/**
+ * "Wednesday, 15 July 2026" (en-AU) / "Wednesday, July 15, 2026" (en-US) — weekday,
+ * date, month, year in UTC.
+ *
+ * Composed from two formatters rather than one `{ weekday: "long", … }` format, which
+ * would give en-AU "Wednesday 15 July 2026" — CLDR's en-AU full-date pattern has no
+ * comma after the weekday. The comma is wanted in every locale here, so it's joined in
+ * explicitly; the locale still decides the order of date and month.
+ */
 export function formatUtcFullDate(date: Date, locale: string = DEFAULT_LOCALE): string {
-  return fmt("fullDate", locale).format(date);
+  const weekday = fmt("weekdayLong", locale).format(date);
+  return `${weekday}, ${fmt("dayMonthYearLong", locale).format(date)}`;
 }
 
 /** "15 July 2026" (en-AU) / "Jul 15, 2026" (en-US) — month, day, year in UTC. */
