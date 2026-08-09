@@ -120,9 +120,12 @@ describe("UTC display formatters", () => {
 describe("locale-aware formatting", () => {
   const d = new Date(Date.UTC(2026, 6, 15)); // Wed 15 July 2026
 
+  // CLDR's en-AU day+month skeleton uses the FULL month name even at "short" width
+  // (verified directly against Intl.DateTimeFormat in this runtime) — "15 July" is
+  // correct output, not a bug. Don't "fix" this back to "15 Jul".
   it("uses day-month order for en-AU (the default)", () => {
-    expect(formatUtcMonthDay(d)).toBe("15 Jul");
-    expect(formatUtcMonthDayYear(d)).toBe("15 Jul 2026");
+    expect(formatUtcMonthDay(d)).toBe("15 July");
+    expect(formatUtcMonthDayYear(d)).toBe("15 July 2026");
   });
 
   it("uses month-day order for en-US", () => {
@@ -137,8 +140,10 @@ describe("locale-aware formatting", () => {
 
   it("still formats in UTC regardless of locale", () => {
     // 23:30 UTC on the 15th is the 16th in Sydney, but these render the UTC day.
+    // (en-AU renders the full month name at "short" width — see note above; that's
+    // orthogonal to the UTC-day point this test is making.)
     const late = new Date(Date.UTC(2026, 6, 15, 23, 30));
-    expect(formatUtcMonthDay(late, "en-AU")).toBe("15 Jul");
+    expect(formatUtcMonthDay(late, "en-AU")).toBe("15 July");
   });
 });
 

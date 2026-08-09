@@ -60,17 +60,19 @@ function fmt(style: Style, locale: string): Intl.DateTimeFormat {
   return f;
 }
 
-/** "Wed, 15 Jul" (en-AU) / "Wed, Jul 15" (en-US) — weekday, month, day in UTC. */
+/** "Wed, 15 July" (en-AU) / "Wed, Jul 15" (en-US) — weekday, month, day in UTC. */
 export function formatUtcWeekdayMonthDay(date: Date, locale: string = DEFAULT_LOCALE): string {
   return fmt("weekdayMonthDay", locale).format(date);
 }
 
-/** "15 Jul 2026" (en-AU) / "Jul 15, 2026" (en-US) — month, day, year in UTC. */
+/** "15 July 2026" (en-AU) / "Jul 15, 2026" (en-US) — month, day, year in UTC. */
 export function formatUtcMonthDayYear(date: Date, locale: string = DEFAULT_LOCALE): string {
   return fmt("monthDayYear", locale).format(date);
 }
 
-/** "15 Jul" (en-AU) / "Jul 15" (en-US) — month, day in UTC. */
+/** "15 July" (en-AU) / "Jul 15" (en-US) — month, day in UTC. Note: en-AU's CLDR
+ * day+month skeleton uses the full month name even at "short" width — this is
+ * correct output, not truncated. */
 export function formatUtcMonthDay(date: Date, locale: string = DEFAULT_LOCALE): string {
   return fmt("monthDay", locale).format(date);
 }
