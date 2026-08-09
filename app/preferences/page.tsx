@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { trpc } from "@/trpc/client";
 import { Layout } from "@/app/_components/Layout";
 import { Button } from "@/app/_components/ui/button";
+import { Input } from "@/app/_components/ui/input";
 import { Label } from "@/app/_components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/_components/ui/select";
 import { usePreferences } from "@/app/_components/PreferencesContext";
@@ -68,6 +69,20 @@ export default function PreferencesPage() {
   // the user would be stuck unable to even see, let alone repair, their own setting.
   const zoneOptions = ZONES.includes(saved.timeZone) ? ZONES : [saved.timeZone, ...ZONES];
 
+  // Search over the ~420 zones. Matching is case- and separator-insensitive so
+  // "new york", "New_York" and "newyork" all find America/New_York.
+  const [zoneQuery, setZoneQuery] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
+  const visibleZones = useMemo(() => {
+    const q = zoneQuery.trim().toLowerCase().replace(/[\s_/]/g, "");
+    if (!q) return zoneOptions;
+    // The selected zone always stays in the list: Radix renders the trigger's label
+    // from the matching item, so filtering it out would blank the trigger.
+    return zoneOptions.filter(
+      (z) => z === timeZone || z.toLowerCase().replace(/[\s_/]/g, "").includes(q),
+    );
+  }, [zoneQuery, zoneOptions, timeZone]);
+
   return (
     <Layout>
       <div className="mx-auto max-w-xl space-y-6 p-4">
@@ -75,10 +90,47 @@ export default function PreferencesPage() {
 
         <div className="space-y-2">
           <Label htmlFor="timezone">Timezone</Label>
-          <Select value={timeZone} onValueChange={setPendingTz}>
+          <Select
+            value={timeZone}
+            onValueChange={setPendingTz}
+            onOpenChange={(open) => {
+              if (!open) { setZoneQuery(""); return; }
+              // Radix focuses the selected item on open; move focus to the search box
+              // on the next frame so typing filters instead of driving its typeahead.
+              requestAnimationFrame(() => searchRef.current?.focus());
+            }}
+          >
             <SelectTrigger id="timezone"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {zoneOptions.map((z) => <SelectItem key={z} value={z}>{z.replace(/_/g, " ")}</SelectItem>)}
+              <div className="sticky top-0 z-10 bg-popover p-1">
+                <Input
+                  ref={searchRef}
+                  value={zoneQuery}
+                  onChange={(e) => setZoneQuery(e.target.value)}
+                  placeholder="Search timezones…"
+                  aria-label="Search timezones"
+                  className="h-8"
+                  // Radix Select runs its own typeahead and arrow navigation off keydown
+                  // at the content level. Without this, letters would jump the list
+                  // instead of reaching this field and space would never type. Arrow
+                  // keys and Enter still pass through so you can type, then arrow into
+                  // the results; Escape still closes.
+                  onKeyDown={(e) => {
+                    if (!["ArrowDown", "ArrowUp", "Enter", "Escape", "Tab"].includes(e.key)) {
+                      e.stopPropagation();
+                    }
+                  }}
+                />
+              </div>
+              {visibleZones.length === 0 ? (
+                <p className="px-2 py-3 text-center text-sm text-muted-foreground">
+                  No timezones match “{zoneQuery}”
+                </p>
+              ) : (
+                visibleZones.map((z) => (
+                  <SelectItem key={z} value={z}>{z.replace(/_/g, " ")}</SelectItem>
+                ))
+              )}
             </SelectContent>
           </Select>
           <p className="text-sm text-muted-foreground">
