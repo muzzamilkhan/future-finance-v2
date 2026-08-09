@@ -55,7 +55,9 @@ export function QuickAddRow({ disabled }: { disabled?: boolean }) {
   useEffect(() => {
     if (preferencesLoading) return;
     if (form.formState.dirtyFields.startDate) return;
-    form.setValue("startDate", todayAsUtcDate(timeZone));
+    const corrected = todayAsUtcDate(timeZone);
+    if ((form.getValues("startDate") as Date | undefined)?.getTime() === corrected.getTime()) return;
+    form.setValue("startDate", corrected);
   }, [preferencesLoading, timeZone, form]);
 
   const create = trpc.particular.create.useMutation({
@@ -147,7 +149,7 @@ export function QuickAddRow({ disabled }: { disabled?: boolean }) {
         type="date"
         className="w-40"
         value={dateToInputValue(form.watch("startDate") as Date | undefined)}
-        onChange={(e) => form.setValue("startDate", inputValueToDate(e.target.value), { shouldValidate: true })}
+        onChange={(e) => form.setValue("startDate", inputValueToDate(e.target.value), { shouldValidate: true, shouldDirty: true })}
       />
       <Select value={selectedAccount} onValueChange={setSelectedAccount}>
         <SelectTrigger className="w-40"><SelectValue placeholder="Account" /></SelectTrigger>

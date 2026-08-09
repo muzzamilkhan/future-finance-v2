@@ -63,7 +63,9 @@ export function TransferForm(
   useEffect(() => {
     if (particularId || preferencesLoading) return;
     if (form.formState.dirtyFields.startDate) return;
-    form.setValue("startDate", todayAsUtcDate(timeZone));
+    const corrected = todayAsUtcDate(timeZone);
+    if ((form.getValues("startDate") as Date | undefined)?.getTime() === corrected.getTime()) return;
+    form.setValue("startDate", corrected);
   }, [particularId, preferencesLoading, timeZone, form]);
 
   const onMutationError = (error: { message: string }, _vars: unknown, ctx?: { prev: unknown }) => {
@@ -228,7 +230,7 @@ export function TransferForm(
                 <Input
                   type="date"
                   value={dateToInputValue(form.watch("startDate") as Date | undefined)}
-                  onChange={(e) => form.setValue("startDate", inputValueToDate(e.target.value), { shouldValidate: true })}
+                  onChange={(e) => form.setValue("startDate", inputValueToDate(e.target.value), { shouldValidate: true, shouldDirty: true })}
                 />
                 <FieldError name="startDate" />
               </div>
