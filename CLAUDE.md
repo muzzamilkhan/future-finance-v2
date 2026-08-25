@@ -136,10 +136,12 @@ NextAuth v5 is beta by design (no stable v5 exists).
 
 ## Working style (hobby project — keep it simple and quick)
 
-- **Work directly on `main`.** Never create a branch or worktree; optimize for speed.
+- **Work directly on `main` unless I ask for something else.** Don't create a branch or
+  worktree off your own bat; optimize for speed.
 - **Keep tests lean — pure-function tests only.** Cover `lib/engine/` and the co-located
   `*.test.ts` helpers; skip integration/UI test scaffolding. Vitest everywhere; no Playwright.
 - **Don't run scripts to verify** unless asked — make the fix and say it's done. localhost
   is usually running, so I'll test manually.
-- **Commit when a unit of work is done.** Stage only the files you changed; leave unrelated
-  uncommitted work alone.
+- **Commit *and push* when a unit of work is done.** Stage only the files you changed;
+  leave unrelated uncommitted work alone. Push to `origin main` as part of finishing —
+  don't stop to ask first, and don't leave commits sitting locally.
