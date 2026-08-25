@@ -35,12 +35,9 @@ export function mapMembershipToListItem(m: {
 
 export const accountRouter = router({
   list: protectedProcedure.query(async ({ ctx }) => {
-    await ensureBootstrapAccount(ctx.user.id);
-    const memberships = await ctx.prisma.accountMembership.findMany({
-      where: { userId: ctx.user.id, account: { closedAt: null } },
-      include: { account: true },
-      orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
-    });
+    // Bootstraps a first account when there is none, and is memoised per request —
+    // the dashboard batches this with forecast.getCombined, which needs the same list.
+    const memberships = await ctx.openMemberships();
     return memberships.map(mapMembershipToListItem);
   }),
 

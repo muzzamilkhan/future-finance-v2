@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { router, accountProcedure, protectedProcedure, ensureBootstrapAccount } from "../trpc";
+import { router, accountProcedure, protectedProcedure } from "../trpc";
 
 /** Map a FinanceAccount row to the engine-account payload shape. */
 export function toAccountPayload(a: {
@@ -69,12 +69,9 @@ export const forecastRouter = router({
   getCombined: protectedProcedure
     .input(z.object({ viewStart: z.coerce.date(), viewEnd: z.coerce.date() }))
     .query(async ({ ctx, input }) => {
-      await ensureBootstrapAccount(ctx.user.id);
-      const memberships = await ctx.prisma.accountMembership.findMany({
-        where: { userId: ctx.user.id, account: { closedAt: null } },
-        include: { account: true },
-        orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
-      });
+      // Memoised on the request context, so the account.list call batched alongside
+      // this one reuses the same query instead of repeating it.
+      const memberships = await ctx.openMemberships();
       const accounts = memberships.map((m) => m.account);
       const accountIds = accounts.map((a) => a.id);
       // Widen the fetch back to the start of viewStart's calendar month so the
@@ -86,45 +83,45 @@ export const forecastRouter = router({
       ));
       const windowStart = monthStart < input.viewStart ? monthStart : input.viewStart;
 
-      const particulars = await ctx.prisma.particular.findMany({
-        where: {
-          accountId: { in: accountIds },
-          OR: [
-            { frequency: "ONCE_OFF", startDate: { gte: windowStart, lte: input.viewEnd } },
-            { frequency: { not: "ONCE_OFF" }, startDate: { lte: input.viewEnd },
-              OR: [{ endDate: null }, { endDate: { gte: windowStart } }] },
-          ],
-        },
-        include: { overrides: { where: { originalDate: { gte: windowStart, lte: input.viewEnd } } } },
-        orderBy: { startDate: "asc" },
-      });
-
-      const ownerMemberships = await ctx.prisma.accountMembership.findMany({
-        where: { accountId: { in: accountIds }, role: "OWNER" },
-        select: { userId: true, role: true },
-      });
-      const ownerIds = ownerUserIds(ownerMemberships);
-
-      const holidays = await ctx.prisma.holiday.findMany({
-        where: {
-          userId: { in: ownerIds },
-          OR: [
-            { isRecurring: false, date: { gte: windowStart, lte: input.viewEnd } },
-            { isRecurring: true },
-          ],
-        },
-        orderBy: { date: "asc" },
-      });
-
-      const user = await ctx.prisma.user.findUnique({
-        where: { id: ctx.user.id },
-        select: { skipTodayDate: true },
-      });
+      // Nothing below depends on anything else below, so issue the three together.
+      // Serially these were three more round trips on the dashboard's cold path.
+      const [particulars, holidays, userRow] = await Promise.all([
+        ctx.prisma.particular.findMany({
+          where: {
+            accountId: { in: accountIds },
+            OR: [
+              { frequency: "ONCE_OFF", startDate: { gte: windowStart, lte: input.viewEnd } },
+              { frequency: { not: "ONCE_OFF" }, startDate: { lte: input.viewEnd },
+                OR: [{ endDate: null }, { endDate: { gte: windowStart } }] },
+            ],
+          },
+          include: { overrides: { where: { originalDate: { gte: windowStart, lte: input.viewEnd } } } },
+          orderBy: { startDate: "asc" },
+        }),
+        ctx.prisma.holiday.findMany({
+          where: {
+            // Holidays are user-level and reach a forecast through the account's
+            // OWNER(s). Filtering down the membership relation keeps this to one
+            // query — it used to fetch the owner memberships first, purely to build
+            // the userId list this `some` now expresses inline.
+            user: { memberships: { some: { accountId: { in: accountIds }, role: "OWNER" } } },
+            OR: [
+              { isRecurring: false, date: { gte: windowStart, lte: input.viewEnd } },
+              { isRecurring: true },
+            ],
+          },
+          orderBy: { date: "asc" },
+        }),
+        ctx.prisma.user.findUnique({
+          where: { id: ctx.user.id },
+          select: { skipTodayDate: true },
+        }),
+      ]);
 
       return {
         accounts: accounts.map(toAccountPayload),
         particulars, holidays,
-        skipTodayDate: user?.skipTodayDate ?? null,
+        skipTodayDate: userRow?.skipTodayDate ?? null,
       };
     }),
 

@@ -23,6 +23,7 @@ import { SkipTodayButton } from "@/app/_components/dashboard/SkipTodayButton";
 import { BalanceSparkline } from "@/app/_components/dashboard/BalanceSparkline";
 import { OverrideModal } from "@/app/_components/dashboard/OverrideModal";
 import { CollapsibleTopSection } from "@/app/_components/dashboard/CollapsibleTopSection";
+import { DashboardSkeleton } from "@/app/_components/dashboard/DashboardSkeleton";
 import { useTopmostVisibleDay } from "@/app/_components/dashboard/useTopmostVisibleDay";
 import { useActiveAccount } from "@/app/_components/AccountContext";
 import { updateRow } from "@/lib/optimistic";
@@ -139,7 +140,7 @@ export function DashboardPage() {
   const topmostDayKey = useTopmostVisibleDay(dayKeys);
   const topmostDay = inputValueToDate(topmostDayKey ?? "");
 
-  if (isLoading || !result) return <Layout><p className="text-muted-foreground">Loading…</p></Layout>;
+  if (isLoading || !result) return <Layout><DashboardSkeleton /></Layout>;
 
   const current = result.days[0]?.openingBalance ?? 0;
 

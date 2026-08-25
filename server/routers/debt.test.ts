@@ -17,6 +17,10 @@ function makeCtx(userId: string, prismaDebt: Record<string, unknown> = {}) {
   return {
     user: { id: userId },
     prisma: { debt: prismaDebt } as never,
+    // Debts hang off the User, not a FinanceAccount, so no debt procedure should
+    // ever reach for the account memberships. Throw rather than stub it out, so a
+    // future change that does reach for them fails loudly here.
+    openMemberships: () => { throw new Error("debt procedures must not load memberships"); },
   };
 }
 
