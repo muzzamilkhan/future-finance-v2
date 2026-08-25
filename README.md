@@ -12,10 +12,21 @@ both the server and the client.
 2. Copy `.env.example` → `.env` and set:
    - `DATABASE_URL` — your PostgreSQL connection string
    - `AUTH_SECRET` — `openssl rand -base64 32`
-   - `NEXTAUTH_URL` — `http://localhost:3000` in dev
+   - `AUTH_URL` — `http://localhost:3000` in dev, `https://finance.muzza.tech` in production
    - your auth provider credentials (see "Auth" below)
 3. `npm run db:push` — sync the Prisma schema to your database
 4. `npm run dev` — http://localhost:3000
+
+## Production
+
+Deployed on Vercel (project `future-finance-v2`, functions in `syd1`) against Neon
+Postgres in `ap-southeast-2`, served at **https://finance.muzza.tech**.
+
+Because the app runs on a custom domain, `AUTH_URL` must be set explicitly in the
+production environment. NextAuth otherwise falls back to Vercel's per-deployment
+`VERCEL_URL` (`*.vercel.app`), which is not the domain Google redirects back to, so
+sign-in breaks. The Google OAuth client's authorized redirect URIs must therefore list
+`https://finance.muzza.tech/api/auth/callback/google` alongside the localhost one.
 
 ## Scripts
 
